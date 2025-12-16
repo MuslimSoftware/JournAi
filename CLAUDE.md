@@ -20,7 +20,7 @@ JournAi is a Tauri v2 application with a React + TypeScript frontend built with 
 - **Entry Point**: `src-tauri/src/main.rs`
 - **Library**: `src-tauri/src/lib.rs` (exports as `journai_lib`)
 - **Commands**: Rust functions exposed to frontend via `#[tauri::command]` macro
-- **Plugins**: Currently uses `tauri-plugin-opener`
+- **Plugins**: `tauri-plugin-opener`, `tauri-plugin-store`
 
 ### Communication Pattern
 Frontend calls Rust backend using:
@@ -87,5 +87,37 @@ const result = await invoke("my_command", { param: "value" });
 Core dependencies (in `src-tauri/Cargo.toml`):
 - `tauri` v2
 - `tauri-plugin-opener` v2
+- `tauri-plugin-store` v2
 - `serde` with derive features
 - `serde_json`
+
+## Theme System
+
+The application uses a custom theme system with light/dark mode support, persistent storage via Tauri's store plugin, and system preference detection.
+
+### Key Files
+
+**Core Infrastructure:**
+- `src/lib/store.ts` - Type-safe abstraction over Tauri's LazyStore plugin
+- `src/theme/tokens.ts` - Theme token definitions (colors, spacing, typography)
+- `src/contexts/ThemeContext.tsx` - ThemeProvider and useTheme() hook
+
+**Components:**
+- `src/components/themed/` - Themed wrapper components (Container, Text, Card)
+- `src/components/ThemeToggle.tsx` - Theme toggle button in Layout
+
+**Styling:**
+- `src/App.css` and `src/styles/layout.css` use CSS custom properties (e.g., `var(--bg-primary)`, `var(--text-primary)`)
+- Theme values are applied to `document.documentElement` by ThemeProvider
+
+### Usage
+
+```typescript
+import { useTheme } from './contexts/ThemeContext';
+import { Container, Text, Card } from './components/themed';
+
+function MyComponent() {
+  const { theme, mode, toggleTheme } = useTheme();
+  return <Container variant="primary"><Text variant="accent">Hello</Text></Container>;
+}
+```

@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import ThemeToggle from "./ThemeToggle";
 
 const mainNavItems = [
   { path: "/calendar", label: "Calendar" },
@@ -13,6 +14,9 @@ export default function Layout() {
     <div className="app-layout">
       <Sidebar items={mainNavItems} />
       <main className="main-content">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+          <ThemeToggle />
+        </div>
         <Outlet />
       </main>
     </div>
