@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
-import ThemeToggle from "./ThemeToggle";
+import SettingsModal from "./SettingsModal";
 
 const mainNavItems = [
   { path: "/calendar", label: "Calendar" },
@@ -10,15 +11,21 @@ const mainNavItems = [
 ];
 
 export default function Layout() {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   return (
     <div className="app-layout">
-      <Sidebar items={mainNavItems} />
+      <Sidebar
+        items={mainNavItems}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+      />
       <main className="main-content">
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-          <ThemeToggle />
-        </div>
         <Outlet />
       </main>
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 }

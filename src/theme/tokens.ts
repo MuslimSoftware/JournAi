@@ -161,4 +161,4 @@ export const darkTheme: ThemeTokens = {
   typography: lightTheme.typography,
 };
 
-export type ThemeMode = 'light' | 'dark';
+export type ThemeMode = 'light' | 'dark' | 'system';

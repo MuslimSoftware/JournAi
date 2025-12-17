@@ -47,6 +47,11 @@
   font-weight: 700;
 }
 
+.sidebar-footer {
+  margin-top: auto;
+  padding: 1rem;
+}
+
 .main-content {
   flex: 1;
   overflow-y: auto;
