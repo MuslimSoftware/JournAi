@@ -121,3 +121,85 @@ function MyComponent() {
   return <Container variant="primary"><Text variant="accent">Hello</Text></Container>;
 }
 ```
+
+## Entries Feature (Journal Entries)
+
+The Entries page displays a list of journal entries with virtual scrolling for performance at scale. Currently uses dummy data; will be replaced with Tauri backend integration.
+
+### Key Files
+
+**Components:**
+- `src/pages/Entries.tsx` - Main entries page with two-column layout (sidebar + detail view)
+- `src/components/entries/EntriesSidebar.tsx` - Virtualized list of entries with smart date grouping
+- `src/components/entries/EntryDetail.tsx` - Displays full content of selected entry
+
+**Data & Utilities:**
+- `src/data/dummyEntries.ts` - **TEMPORARY** dummy data (60 sample entries). Replace with real backend integration
+- `src/types/entry.ts` - TypeScript interface for `JournalEntry` type
+- `src/utils/dateGrouping.ts` - Smart date grouping logic (Today, Yesterday, This Week, etc. for recent entries; Month/Year for older entries)
+
+**Styling:**
+- `src/styles/entries.css` - Layout and styling for entries list and detail view
+
+### Virtual Scrolling Implementation
+
+Uses **TanStack React Virtual** (`@tanstack/react-virtual`) for high-performance rendering of large lists:
+- Only renders visible items in DOM (~10-15 at a time)
+- Maintains 60 FPS smooth scrolling even with thousands of entries
+- Dynamic height estimation (headers: 45px, entries: 105px)
+- 5-item overscan buffer for seamless scrolling
+
+**Why Virtual Scrolling:**
+- Handles 10,000+ entries without performance degradation
+- Constant memory usage regardless of entry count
+- Industry standard for scalable list UIs (messaging apps, notes apps, email clients)
+
+**Implementation Pattern:**
+```typescript
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+const virtualizer = useVirtualizer({
+  count: items.length,
+  getScrollElement: () => scrollRef.current,
+  estimateSize: (index) => itemHeights[index],
+  overscan: 5,
+});
+```
+
+### Date Grouping Logic
+
+Entries are automatically grouped by date for easy scanning:
+- **Recent entries** (last 5 weeks): "Today", "Yesterday", "This Week", "Last Week", "This Month"
+- **Older entries**: Grouped by "Month YYYY" (e.g., "November 2025", "October 2025")
+- Groups sorted chronologically (newest first)
+- Implemented in `src/utils/dateGrouping.ts`
+
+### Data Model
+
+```typescript
+interface JournalEntry {
+  id: string;
+  title: string;
+  date: string;        // ISO date format: YYYY-MM-DD
+  preview: string;     // First ~50 chars for list view
+  content: string;     // Full entry content
+}
+```
+
+### Integration Notes
+
+**Current State:**
+- Uses static dummy data from `src/data/dummyEntries.ts`
+- No backend persistence yet
+
+**Next Steps for Backend Integration:**
+1. Create Tauri commands in `src-tauri/src/lib.rs` for CRUD operations:
+   - `get_entries() -> Vec<JournalEntry>`
+   - `get_entry(id: String) -> JournalEntry`
+   - `create_entry(entry: JournalEntry) -> JournalEntry`
+   - `update_entry(id: String, entry: JournalEntry) -> JournalEntry`
+   - `delete_entry(id: String) -> bool`
+2. Implement SQLite/database storage in Rust backend
+3. Replace `dummyEntries` import with `invoke("get_entries")`
+4. Add state management (React Query or similar) for caching and optimistic updates
+5. Implement cursor-based pagination for backend queries (better performance than offset-based)
