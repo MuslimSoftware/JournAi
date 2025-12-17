@@ -41,8 +41,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--bg-primary', theme.colors.background.primary);
     root.style.setProperty('--bg-secondary', theme.colors.background.secondary);
     root.style.setProperty('--bg-tertiary', theme.colors.background.tertiary);
+    root.style.setProperty('--bg-subtle', theme.colors.background.subtle);
     root.style.setProperty('--text-primary', theme.colors.text.primary);
     root.style.setProperty('--text-secondary', theme.colors.text.secondary);
+    root.style.setProperty('--text-muted', theme.colors.text.muted);
+    root.style.setProperty('--text-emphasis', theme.colors.text.emphasis);
     root.style.setProperty('--text-accent', theme.colors.text.accent);
     root.style.setProperty('--border-primary', theme.colors.border.primary);
     root.style.setProperty('--border-secondary', theme.colors.border.secondary);

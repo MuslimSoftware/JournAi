@@ -4,10 +4,13 @@ export interface ThemeTokens {
       primary: string;
       secondary: string;
       tertiary: string;
+      subtle: string;
     };
     text: {
       primary: string;
       secondary: string;
+      muted: string;
+      emphasis: string;
       accent: string;
     };
     border: {
@@ -68,10 +71,13 @@ export const lightTheme: ThemeTokens = {
       primary: '#f6f6f6',
       secondary: '#ffffff',
       tertiary: '#f0f0f0',
+      subtle: 'rgba(0, 0, 0, 0.08)',
     },
     text: {
       primary: '#0f0f0f',
       secondary: '#333333',
+      muted: '#6b6b6b',
+      emphasis: '#0f0f0f',
       accent: '#646cff',
     },
     border: {
@@ -132,10 +138,13 @@ export const darkTheme: ThemeTokens = {
       primary: '#2f2f2f',
       secondary: '#1a1a1a',
       tertiary: '#0f0f0f98',
+      subtle: 'rgba(255, 255, 255, 0.1)',
     },
     text: {
       primary: '#f6f6f6',
       secondary: '#f6f6f6',
+      muted: '#a0a0a0',
+      emphasis: '#ffffff',
       accent: '#24c8db',
     },
     border: {
