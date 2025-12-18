@@ -11,8 +11,14 @@
   flex-shrink: 0;
   background-color: var(--bg-tertiary);
   border-right: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+.entries-sidebar-list {
+  flex: 1;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 0 1rem 1rem 1rem;
 }
 
 .entries-content {
@@ -94,4 +100,480 @@
   align-items: center;
   justify-content: center;
   height: 100%;
+}
+
+.entries-toolbar {
+  padding: 1rem 1rem 0.25rem 1rem;
+}
+
+.entries-toolbar-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.toolbar-button {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  max-width: 32px !important;
+  max-height: 32px !important;
+}
+
+.search-container {
+  display: flex;
+  align-items: center;
+  position: relative;
+  border-radius: 0.375rem;
+  transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease;
+  flex: 0 0 32px;
+  height: 32px;
+  background-color: transparent;
+  border: 1px solid transparent;
+}
+
+.search-container.expanded {
+  flex: 1;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-primary);
+}
+
+.search-container .search-button {
+  position: absolute;
+  right: 0;
+  top: 0;
+  flex-shrink: 0;
+  border-radius: 0.375rem;
+  transition: none !important;
+  border: none !important;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.search-input {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border: none;
+  background: none;
+  outline: none;
+  padding: 0;
+  padding-right: 32px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  width: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 1;
+}
+
+.search-container.expanded .search-input {
+  opacity: 1;
+  padding-left: 0.75rem;
+  pointer-events: auto;
+}
+
+.search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.filter-container {
+  position: relative;
+}
+
+.filter-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-width: 200px;
+  z-index: 100;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.filter-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.filter-dropdown-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.filter-clear-button {
+  background: none;
+  border: none;
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 500;
+  color: var(--text-accent);
+}
+
+.filter-clear-button:hover {
+  text-decoration: underline;
+}
+
+.filter-options {
+  padding: 0.5rem;
+}
+
+.filter-option {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.625rem 0.75rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  text-align: left;
+  background-color: transparent;
+  color: var(--text-primary);
+}
+
+.filter-option:hover {
+  background-color: var(--bg-subtle);
+}
+
+.filter-option.active {
+  font-weight: 500;
+  background-color: var(--bg-secondary);
+  color: var(--text-accent);
+}
+
+.filter-option.active svg {
+  color: var(--text-accent);
+}
+
+.entries-toolbar-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.entries-toolbar-count {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.active-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
+}
+
+.filter-badge-close {
+  background: none;
+  border: none;
+  font-size: 1.125rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: opacity 0.15s ease;
+  color: var(--bg-primary);
+}
+
+.filter-badge-close:hover {
+  opacity: 0.7;
+}
+
+.filter-badge-close:active {
+  background: none;
+  opacity: 0.5;
+}
+
+.date-picker-dropdown {
+  position: fixed;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  animation: slideDown 0.2s ease;
+}
+
+
+.custom-day-picker {
+  padding: 0.5rem;
+  --rdp-accent-color: var(--text-primary);
+  --rdp-accent-background-color: var(--bg-subtle);
+  --rdp-day-height: 36px;
+  --rdp-day-width: 36px;
+  --rdp-selected-border: none;
+  --rdp-disabled-opacity: 0.4;
+  --rdp-outside-opacity: 0.5;
+  --rdp-today-color: var(--text-accent);
+  --rdp-range_start-color: var(--text-primary);
+  --rdp-range_start-background: var(--bg-subtle);
+  --rdp-range_start-date-background-color: var(--text-primary);
+  --rdp-range_end-color: var(--text-primary);
+  --rdp-range_end-background: var(--bg-subtle);
+  --rdp-range_end-date-background-color: var(--text-primary);
+  --rdp-range_middle-background-color: var(--bg-subtle);
+  --rdp-range_middle-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.custom-day-picker .rdp-month_caption {
+  padding: 0.5rem 0.25rem;
+}
+
+.custom-day-picker .rdp-caption_label {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.custom-day-picker .rdp-nav {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.custom-day-picker .rdp-button_previous,
+.custom-day-picker .rdp-button_next {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0.375rem;
+  background-color: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.custom-day-picker .rdp-button_previous:hover,
+.custom-day-picker .rdp-button_next:hover {
+  background-color: var(--bg-subtle);
+}
+
+.custom-day-picker .rdp-button_previous:focus-visible,
+.custom-day-picker .rdp-button_next:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
+}
+
+.custom-day-picker .rdp-chevron {
+  fill: var(--text-primary);
+}
+
+.custom-day-picker .rdp-weekday {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.custom-day-picker .rdp-day {
+  border-radius: 0.375rem;
+}
+
+.custom-day-picker .rdp-day_button {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0.375rem;
+  background-color: transparent;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.custom-day-picker .rdp-day_button:hover:not([disabled]) {
+  background-color: var(--bg-subtle);
+}
+
+.custom-day-picker .rdp-day_button:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: -2px;
+}
+
+.custom-day-picker .rdp-today .rdp-day_button {
+  font-weight: 700;
+  color: var(--text-accent);
+}
+
+.custom-day-picker .rdp-selected .rdp-day_button {
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
+  font-weight: 500;
+}
+
+.custom-day-picker .rdp-selected .rdp-day_button:hover {
+  background-color: var(--text-primary);
+  opacity: 0.9;
+}
+
+.custom-day-picker .rdp-range_start .rdp-day_button,
+.custom-day-picker .rdp-range_end .rdp-day_button {
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
+  font-weight: 500;
+}
+
+.custom-day-picker .rdp-range_middle .rdp-day_button {
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
+  border-radius: 0;
+}
+
+.custom-day-picker .rdp-range_start .rdp-day_button {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.custom-day-picker .rdp-range_end .rdp-day_button {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.custom-day-picker .rdp-range_start.rdp-range_end .rdp-day_button {
+  border-radius: 0.375rem;
+}
+
+.custom-day-picker .rdp-disabled .rdp-day_button {
+  color: var(--text-muted);
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.custom-day-picker .rdp-outside .rdp-day_button {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.custom-day-picker .rdp-dropdowns {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.custom-day-picker .rdp-dropdown {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--border-primary);
+  border-radius: 0.375rem;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.custom-day-picker .rdp-dropdown:hover {
+  background-color: var(--bg-subtle);
+  border-color: var(--text-muted);
+}
+
+.custom-day-picker .rdp-dropdown:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
+}
+
+.custom-day-picker .rdp-dropdown option {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.date-picker-footer {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border-primary);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.date-picker-cancel-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: none;
+  color: var(--text-secondary);
+  transition: color 0.15s ease;
+}
+
+.date-picker-cancel-button:hover {
+  color: var(--text-primary);
+}
+
+.date-picker-cancel-button:active {
+  opacity: 0.7;
+}
+
+.date-picker-apply-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+  background-color: var(--bg-subtle);
+  color: var(--text-muted);
+}
+
+.date-picker-apply-button.enabled {
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
+}
+
+.date-picker-apply-button.enabled:hover {
+  opacity: 0.9;
+}
+
+.date-picker-apply-button:disabled {
+  cursor: not-allowed;
+}
+
+.date-picker-apply-button:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
 }

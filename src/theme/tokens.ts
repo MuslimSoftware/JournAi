@@ -68,26 +68,26 @@ export interface ThemeTokens {
 export const lightTheme: ThemeTokens = {
   colors: {
     background: {
-      primary: '#f6f6f6',
-      secondary: '#ffffff',
-      tertiary: '#f0f0f0',
-      subtle: 'rgba(0, 0, 0, 0.08)',
+      primary: '#ffffff',
+      secondary: '#f5f5f5',
+      tertiary: '#fafafa',
+      subtle: 'rgba(0, 0, 0, 0.04)',
     },
     text: {
-      primary: '#0f0f0f',
-      secondary: '#333333',
-      muted: '#6b6b6b',
-      emphasis: '#0f0f0f',
-      accent: '#646cff',
+      primary: '#1a1a1a',
+      secondary: '#424242',
+      muted: '#757575',
+      emphasis: '#1a1a1a',
+      accent: '#1a1a1a',
     },
     border: {
       primary: '#e0e0e0',
-      secondary: '#e8e8e8',
+      secondary: '#eeeeee',
     },
     interactive: {
       default: '#ffffff',
-      hover: '#396cd8',
-      active: '#e8e8e8',
+      hover: '#1a1a1a',
+      active: '#f0f0f0',
     },
   },
   spacing: {
@@ -135,26 +135,26 @@ export const lightTheme: ThemeTokens = {
 export const darkTheme: ThemeTokens = {
   colors: {
     background: {
-      primary: '#2f2f2f',
-      secondary: '#1a1a1a',
-      tertiary: '#0f0f0f98',
-      subtle: 'rgba(255, 255, 255, 0.1)',
+      primary: '#121212',
+      secondary: '#1e1e1e',
+      tertiary: '#181818',
+      subtle: 'rgba(255, 255, 255, 0.08)',
     },
     text: {
-      primary: '#f6f6f6',
-      secondary: '#f6f6f6',
-      muted: '#a0a0a0',
+      primary: '#e0e0e0',
+      secondary: '#b0b0b0',
+      muted: '#757575',
       emphasis: '#ffffff',
-      accent: '#24c8db',
+      accent: '#ffffff',
     },
     border: {
-      primary: '#333333',
-      secondary: '#2a2a2a',
+      primary: '#2e2e2e',
+      secondary: '#252525',
     },
     interactive: {
-      default: '#0f0f0f98',
-      hover: '#535bf2',
-      active: '#0f0f0f69',
+      default: '#1e1e1e',
+      hover: '#e0e0e0',
+      active: '#2a2a2a',
     },
   },
   spacing: lightTheme.spacing,
