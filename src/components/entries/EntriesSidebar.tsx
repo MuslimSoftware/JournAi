@@ -1,9 +1,11 @@
 import { useRef, useMemo, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { DateRange } from 'react-day-picker';
-import { Text } from '../themed';
+import { TbPin, TbPinFilled } from 'react-icons/tb';
+import { Text, IconButton } from '../themed';
 import { JournalEntry } from '../../types/entry';
 import { groupEntriesByDate } from '../../utils/dateGrouping';
+import { useSidebar } from '../../contexts/SidebarContext';
 import EntriesToolbar, { TimeFilter } from './EntriesToolbar';
 
 interface EntriesSidebarProps {
@@ -25,6 +27,8 @@ export default function EntriesSidebar({
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState<TimeFilter | null>(null);
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const { entriesPinned, toggleEntriesPin } = useSidebar();
 
   const handleFilterChange = (filter: TimeFilter | null, customRange?: DateRange) => {
     setTimeFilter(filter);
@@ -126,58 +130,75 @@ export default function EntriesSidebar({
   });
 
   return (
-    <div className="entries-sidebar">
-      <EntriesToolbar
-        onSearchChange={setSearchQuery}
-        onFilterChange={handleFilterChange}
-        resultCount={filteredEntries.length}
-      />
-      <div ref={parentRef} className="entries-sidebar-list">
-      <div
-        style={{
-          height: `${virtualizer.getTotalSize()}px`,
-          width: '100%',
-          position: 'relative',
-        }}
-      >
-        {virtualizer.getVirtualItems().map((virtualItem) => {
-          const item = flattenedItems[virtualItem.index];
-
-          return (
-            <div
-              key={virtualItem.key}
-              data-index={virtualItem.index}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: `${virtualItem.size}px`,
-                transform: `translateY(${virtualItem.start}px)`,
-              }}
-            >
-              {item.type === 'header' ? (
-                <div className="entry-group-header">
-                  <Text variant="muted">{item.label}</Text>
-                </div>
-              ) : (
-                <div
-                  className={`entry-list-item ${selectedId === item.id ? 'selected' : ''}`}
-                  onClick={() => onSelectEntry(item.id)}
-                >
-                  <div className="entry-list-item-title">
-                    <Text variant="primary">{item.entry.title}</Text>
-                  </div>
-                  <div className="entry-list-item-preview">
-                    <Text variant="secondary">{item.entry.preview}</Text>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+    <div className={`entries-sidebar ${entriesPinned ? 'pinned' : ''} ${isDropdownOpen ? 'dropdown-open' : ''}`}>
+      <div className="entries-sidebar-collapsed-content">
+        <Text variant="muted" className="entries-collapsed-label">
+          HISTORY
+        </Text>
       </div>
-    </div>
+      <div className="entries-sidebar-expanded-content">
+        <EntriesToolbar
+          onSearchChange={setSearchQuery}
+          onFilterChange={handleFilterChange}
+          resultCount={filteredEntries.length}
+          onDropdownOpenChange={setIsDropdownOpen}
+          rightAction={
+            <IconButton
+              icon={entriesPinned ? <TbPinFilled /> : <TbPin />}
+              label={entriesPinned ? "Unpin sidebar" : "Pin sidebar"}
+              onClick={toggleEntriesPin}
+              variant="ghost"
+              size="sm"
+            />
+          }
+        />
+        <div ref={parentRef} className="entries-sidebar-list">
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualItem) => {
+              const item = flattenedItems[virtualItem.index];
+
+              return (
+                <div
+                  key={virtualItem.key}
+                  data-index={virtualItem.index}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualItem.size}px`,
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  {item.type === 'header' ? (
+                    <div className="entry-group-header">
+                      <Text variant="muted">{item.label}</Text>
+                    </div>
+                  ) : (
+                    <div
+                      className={`entry-list-item ${selectedId === item.id ? 'selected' : ''}`}
+                      onClick={() => onSelectEntry(item.id)}
+                    >
+                      <div className="entry-list-item-title">
+                        <Text variant="primary">{item.entry.title}</Text>
+                      </div>
+                      <div className="entry-list-item-preview">
+                        <Text variant="secondary">{item.entry.preview}</Text>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

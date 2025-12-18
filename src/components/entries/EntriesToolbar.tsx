@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { IoSearch, IoClose, IoFilter, IoCheckmark } from 'react-icons/io5';
 import { DayPicker, DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
@@ -9,6 +10,8 @@ interface EntriesToolbarProps {
   onSearchChange: (query: string) => void;
   onFilterChange: (filter: TimeFilter | null, customRange?: DateRange) => void;
   resultCount: number;
+  rightAction?: ReactNode;
+  onDropdownOpenChange?: (isOpen: boolean) => void;
 }
 
 export type TimeFilter =
@@ -36,6 +39,8 @@ export default function EntriesToolbar({
   onSearchChange,
   onFilterChange,
   resultCount,
+  rightAction,
+  onDropdownOpenChange,
 }: EntriesToolbarProps) {
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [filterExpanded, setFilterExpanded] = useState(false);
@@ -46,8 +51,14 @@ export default function EntriesToolbar({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const filterContainerRef = useRef<HTMLDivElement>(null);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
   const datePickerRef = useRef<HTMLDivElement>(null);
   const [datePickerPosition, setDatePickerPosition] = useState({ top: 0, right: 0 });
+  const [filterDropdownPosition, setFilterDropdownPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    onDropdownOpenChange?.(filterExpanded || showDatePicker);
+  }, [filterExpanded, showDatePicker, onDropdownOpenChange]);
 
   useEffect(() => {
     if (searchExpanded && searchInputRef.current) {
@@ -66,7 +77,9 @@ export default function EntriesToolbar({
       }
       if (
         filterContainerRef.current &&
-        !filterContainerRef.current.contains(event.target as Node)
+        !filterContainerRef.current.contains(event.target as Node) &&
+        filterDropdownRef.current &&
+        !filterDropdownRef.current.contains(event.target as Node)
       ) {
         setFilterExpanded(false);
       }
@@ -171,13 +184,30 @@ export default function EntriesToolbar({
             label="Filter"
             variant={activeFilter ? 'primary' : 'ghost'}
             size="sm"
-            onClick={() => setFilterExpanded(!filterExpanded)}
+            onClick={() => {
+              if (!filterExpanded && filterContainerRef.current) {
+                const rect = filterContainerRef.current.getBoundingClientRect();
+                setFilterDropdownPosition({
+                  top: rect.bottom + 8,
+                  left: rect.left,
+                });
+              }
+              setFilterExpanded(!filterExpanded);
+            }}
             className="toolbar-button"
             style={!activeFilter ? { backgroundColor: 'transparent' } : undefined}
           />
 
-          {filterExpanded && (
-            <div className="filter-dropdown">
+          {filterExpanded && createPortal(
+            <div
+              ref={filterDropdownRef}
+              className="filter-dropdown"
+              style={{
+                position: 'fixed',
+                top: `${filterDropdownPosition.top}px`,
+                left: `${filterDropdownPosition.left}px`,
+              }}
+            >
               <div className="filter-dropdown-header">
                 <Text as="span" variant="secondary" className="filter-dropdown-title">
                   Time Filters
@@ -200,7 +230,8 @@ export default function EntriesToolbar({
                   </button>
                 ))}
               </div>
-            </div>
+            </div>,
+            document.body
           )}
 
           {showDatePicker && (
@@ -237,6 +268,8 @@ export default function EntriesToolbar({
             </div>
           )}
         </div>
+
+        {rightAction}
       </div>
 
       {(searchQuery || activeFilter) && (

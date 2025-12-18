@@ -7,12 +7,57 @@
 }
 
 .entries-sidebar {
-  width: 300px;
+  width: 48px;
+  min-width: 48px;
   flex-shrink: 0;
   background-color: var(--bg-tertiary);
   border-right: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
+  transition: width 0.2s ease, min-width 0.2s ease;
+  overflow: hidden;
+}
+
+.entries-sidebar:hover,
+.entries-sidebar.pinned,
+.entries-sidebar.dropdown-open {
+  width: 300px;
+  min-width: 300px;
+}
+
+.entries-sidebar-collapsed-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 1rem;
+}
+
+.entries-sidebar:hover .entries-sidebar-collapsed-content,
+.entries-sidebar.pinned .entries-sidebar-collapsed-content,
+.entries-sidebar.dropdown-open .entries-sidebar-collapsed-content {
+  display: none;
+}
+
+.entries-sidebar-expanded-content {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.entries-sidebar:hover .entries-sidebar-expanded-content,
+.entries-sidebar.pinned .entries-sidebar-expanded-content,
+.entries-sidebar.dropdown-open .entries-sidebar-expanded-content {
+  display: flex;
+}
+
+.entries-collapsed-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .entries-sidebar-list {
@@ -186,15 +231,12 @@
 }
 
 .filter-dropdown {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  left: 0;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: 0.5rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
   min-width: 200px;
-  z-index: 100;
+  z-index: 10000;
   animation: slideDown 0.2s ease;
 }
 

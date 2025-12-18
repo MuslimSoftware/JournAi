@@ -7,19 +7,42 @@
 }
 
 .sidebar {
-  width: 240px;
-  min-width: 240px;
+  width: 64px;
+  min-width: 64px;
   background-color: var(--bg-tertiary);
   border-right: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
+  transition: width 0.2s ease, min-width 0.2s ease;
+}
+
+.sidebar:hover,
+.sidebar.pinned {
+  width: 240px;
+  min-width: 240px;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.5rem;
+  min-height: 40px;
+}
+
+.sidebar-pin-button {
+  visibility: hidden;
+}
+
+.sidebar:hover .sidebar-pin-button,
+.sidebar.pinned .sidebar-pin-button {
+  visibility: visible;
 }
 
 .sidebar-nav {
   list-style: none;
   margin: 0;
-  padding: 1rem 0.75rem;
+  padding: 0.5rem;
 }
 
 .sidebar-nav-item {
@@ -27,18 +50,31 @@
 }
 
 .sidebar-nav-link {
-  display: block;
-  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
   margin: 0.25rem 0;
   text-decoration: none;
   color: var(--text-muted);
   font-weight: 500;
-  transition: all 0.2s;
+  transition: color 0.2s, background-color 0.2s;
   border-radius: 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  height: 44px;
+  box-sizing: border-box;
+  justify-content: center;
+}
+
+.sidebar:hover .sidebar-nav-link,
+.sidebar.pinned .sidebar-nav-link {
+  justify-content: flex-start;
 }
 
 .sidebar-nav-link:hover {
   color: var(--text-secondary);
+  background-color: var(--bg-subtle);
 }
 
 .sidebar-nav-link.active {
@@ -47,8 +83,33 @@
   font-weight: 700;
 }
 
+.sidebar-nav-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.sidebar-nav-label {
+  display: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.sidebar:hover .sidebar-nav-label,
+.sidebar.pinned .sidebar-nav-label {
+  display: inline;
+  opacity: 1;
+}
+
 .sidebar-footer {
   margin-top: auto;
+  padding: 0.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.sidebar:hover .sidebar-footer,
+.sidebar.pinned .sidebar-footer {
+  justify-content: flex-start;
   padding: 1rem;
 }
 
