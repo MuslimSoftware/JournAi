@@ -14,6 +14,7 @@ import EntriesToolbar, { TimeFilter } from './EntriesToolbar';
 
 interface EntriesSidebarProps {
   entries: JournalEntry[];
+  totalCount: number;
   selectedId: string | null;
   onSelectEntry: (id: string) => void;
   onCreateEntry: () => void;
@@ -30,6 +31,7 @@ type ListItem =
 
 export default function EntriesSidebar({
   entries,
+  totalCount,
   selectedId,
   onSelectEntry,
   onCreateEntry,
@@ -176,7 +178,7 @@ export default function EntriesSidebar({
     <div className={`entries-sidebar ${entriesPinned ? 'pinned' : ''} ${isDropdownOpen || datePickerOpen || moreMenuOpen ? 'dropdown-open' : ''}`}>
       <div className="entries-sidebar-collapsed-content">
         <Text variant="muted" className="entries-collapsed-label">
-          {entries.length}
+          {totalCount}
         </Text>
       </div>
       <div className="entries-sidebar-expanded-content">

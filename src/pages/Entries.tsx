@@ -6,6 +6,7 @@ import '../styles/entries.css';
 export default function Entries() {
   const {
     entries,
+    totalCount,
     selectedEntry,
     selectedEntryId,
     isLoading,
@@ -26,6 +27,7 @@ export default function Entries() {
     <div className="entries-layout">
       <EntriesSidebar
         entries={entries}
+        totalCount={totalCount}
         selectedId={selectedEntryId}
         onSelectEntry={selectEntry}
         onCreateEntry={createEntry}

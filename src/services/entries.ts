@@ -107,3 +107,8 @@ export async function deleteEntry(id: string): Promise<boolean> {
     const result = await execute('DELETE FROM entries WHERE id = $1', [id]);
     return result.rowsAffected > 0;
 }
+
+export async function getEntriesCount(): Promise<number> {
+    const rows = await select<{ count: number }>('SELECT COUNT(*) as count FROM entries');
+    return rows[0]?.count ?? 0;
+}

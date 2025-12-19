@@ -7,6 +7,7 @@ const PAGE_SIZE = 30;
 
 interface UseEntriesReturn {
     entries: JournalEntry[];
+    totalCount: number;
     selectedEntry: JournalEntry | null;
     selectedEntryId: string | null;
     isLoading: boolean;
@@ -47,6 +48,11 @@ export function useEntries(): UseEntriesReturn {
 
     const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
     const [localEntries, setLocalEntries] = useState<JournalEntry[]>([]);
+    const [totalCount, setTotalCount] = useState(0);
+
+    useEffect(() => {
+        entriesService.getEntriesCount().then(setTotalCount);
+    }, []);
 
     useEffect(() => {
         setLocalEntries(entries);
@@ -67,6 +73,7 @@ export function useEntries(): UseEntriesReturn {
         try {
             const newEntry = await entriesService.createEntry(date);
             setLocalEntries(prev => [newEntry, ...prev]);
+            setTotalCount(prev => prev + 1);
             setSelectedEntryId(newEntry.id);
             return newEntry;
         } catch (error) {
@@ -99,6 +106,7 @@ export function useEntries(): UseEntriesReturn {
                     }
                     return remaining;
                 });
+                setTotalCount(prev => prev - 1);
             }
         } catch (error) {
             console.error('deleteEntry failed:', error);
@@ -107,6 +115,7 @@ export function useEntries(): UseEntriesReturn {
 
     return {
         entries: localEntries,
+        totalCount,
         selectedEntry,
         selectedEntryId,
         isLoading,
