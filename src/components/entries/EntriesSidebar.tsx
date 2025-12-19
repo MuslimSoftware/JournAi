@@ -7,7 +7,8 @@ import { FiPlus, FiTrash2, FiEdit2, FiCalendar } from 'react-icons/fi';
 import { Text, IconButton } from '../themed';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { groupEntriesByDate } from '../../utils/dateGrouping';
-import { parseLocalDate, toDateString, getTodayMidnight, formatEntryDate } from '../../utils/date';
+import { parseLocalDate, toDateString, formatEntryDate } from '../../utils/date';
+import { matchesTimeFilter } from '../../utils/timeFilters';
 import { useSidebar } from '../../contexts/SidebarContext';
 import EntriesToolbar, { TimeFilter } from './EntriesToolbar';
 
@@ -102,57 +103,26 @@ export default function EntriesSidebar({
     let filtered = entries;
 
     if (timeFilter) {
-      const today = getTodayMidnight();
-
-      filtered = filtered.filter((entry) => {
-        const entryDay = parseLocalDate(entry.date);
-
-        switch (timeFilter) {
-          case 'custom': {
-            if (customDateRange?.from && customDateRange?.to) {
-              const rangeStart = new Date(customDateRange.from.getFullYear(), customDateRange.from.getMonth(), customDateRange.from.getDate());
-              const rangeEnd = new Date(customDateRange.to.getFullYear(), customDateRange.to.getMonth(), customDateRange.to.getDate());
-              return entryDay >= rangeStart && entryDay <= rangeEnd;
-            }
-            return true;
-          }
-          case 'today':
-            return entryDay.getTime() === today.getTime();
-          case 'yesterday': {
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            return entryDay.getTime() === yesterday.getTime();
-          }
-          case 'this-week': {
-            const weekStart = new Date(today);
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-            return entryDay >= weekStart && entryDay <= today;
-          }
-          case 'last-week': {
-            const lastWeekEnd = new Date(today);
-            lastWeekEnd.setDate(lastWeekEnd.getDate() - lastWeekEnd.getDay() - 1);
-            const lastWeekStart = new Date(lastWeekEnd);
-            lastWeekStart.setDate(lastWeekStart.getDate() - 6);
-            return entryDay >= lastWeekStart && entryDay <= lastWeekEnd;
-          }
-          case 'this-month':
-            return (
-              entryDay.getMonth() === today.getMonth() &&
-              entryDay.getFullYear() === today.getFullYear()
-            );
-          case 'last-month': {
-            const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            return (
-              entryDay.getMonth() === lastMonth.getMonth() &&
-              entryDay.getFullYear() === lastMonth.getFullYear()
-            );
-          }
-          case 'this-year':
-            return entryDay.getFullYear() === today.getFullYear();
-          default:
-            return true;
+      if (timeFilter === 'custom') {
+        const from = customDateRange?.from;
+        const to = customDateRange?.to;
+        if (from && to) {
+          filtered = filtered.filter((entry) => {
+            const entryDay = parseLocalDate(entry.date);
+            const rangeStart = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+            const rangeEnd = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+            return entryDay >= rangeStart && entryDay <= rangeEnd;
+          });
         }
-      });
+      } else if (timeFilter === 'this-year') {
+        const today = new Date();
+        filtered = filtered.filter((entry) => {
+          const entryDay = parseLocalDate(entry.date);
+          return entryDay.getFullYear() === today.getFullYear();
+        });
+      } else {
+        filtered = filtered.filter((entry) => matchesTimeFilter(entry.date, timeFilter));
+      }
     }
 
     if (searchQuery.trim()) {

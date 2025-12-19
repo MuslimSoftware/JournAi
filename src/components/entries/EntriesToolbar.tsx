@@ -4,25 +4,10 @@ import { IoSearch, IoClose, IoFilter, IoCheckmark } from 'react-icons/io5';
 import { DayPicker, DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { Text, IconButton } from '../themed';
+import { TimeFilter as ImportedTimeFilter } from '../../utils/timeFilters';
 import 'react-day-picker/style.css';
 
-interface EntriesToolbarProps {
-  onSearchChange: (query: string) => void;
-  onFilterChange: (filter: TimeFilter | null, customRange?: DateRange) => void;
-  resultCount: number;
-  rightAction?: ReactNode;
-  onDropdownOpenChange?: (isOpen: boolean) => void;
-}
-
-export type TimeFilter =
-  | 'today'
-  | 'yesterday'
-  | 'this-week'
-  | 'last-week'
-  | 'this-month'
-  | 'last-month'
-  | 'this-year'
-  | 'custom';
+export type TimeFilter = ImportedTimeFilter | 'this-year' | 'custom';
 
 export const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
   'today': 'Today',
@@ -33,7 +18,16 @@ export const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
   'last-month': 'Last Month',
   'this-year': 'This Year',
   'custom': 'Custom Range',
+  'all-time': 'All Time',
 };
+
+interface EntriesToolbarProps {
+  onSearchChange: (query: string) => void;
+  onFilterChange: (filter: TimeFilter | null, customRange?: DateRange) => void;
+  resultCount: number;
+  rightAction?: ReactNode;
+  onDropdownOpenChange?: (isOpen: boolean) => void;
+}
 
 export default function EntriesToolbar({
   onSearchChange,

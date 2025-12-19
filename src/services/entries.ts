@@ -1,8 +1,13 @@
-import { invoke } from '@tauri-apps/api/core';
 import type { JournalEntry } from '../types/entry';
 import { getTodayString, getTimestamp } from '../utils/date';
+import { select, execute, selectPaginated } from '../lib/db';
 
-const DB_URL = 'sqlite:journai.db';
+interface EntryRow {
+    id: string;
+    date: string;
+    content: string;
+    created_at: string;
+}
 
 function generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -13,17 +18,13 @@ function generatePreview(content: string): string {
     return normalized.length > 100 ? normalized.substring(0, 100) + '...' : normalized;
 }
 
-async function sqlSelect<T>(query: string, values: unknown[] = []): Promise<T[]> {
-    console.log('sqlSelect:', { db: DB_URL, query, values });
-    const result = await invoke('plugin:sql|select', { db: DB_URL, query, values });
-    console.log('sqlSelect result:', result);
-    return result as T[];
-}
-
-async function sqlExecute(query: string, values: unknown[] = []): Promise<{ rowsAffected: number }> {
-    const result = await invoke('plugin:sql|execute', { db: DB_URL, query, values });
-    const rowsAffected = Array.isArray(result) ? result[0] : (result as { rowsAffected: number }).rowsAffected;
-    return { rowsAffected };
+function rowToEntry(row: EntryRow): JournalEntry {
+    return {
+        id: row.id,
+        date: row.date,
+        content: row.content,
+        preview: generatePreview(row.content),
+    };
 }
 
 export interface EntriesPage {
@@ -33,74 +34,42 @@ export interface EntriesPage {
 }
 
 export async function getEntriesPage(cursor: string | null, limit: number = 20): Promise<EntriesPage> {
-    let query: string;
-    let values: unknown[];
+    const result = await selectPaginated<EntryRow, JournalEntry>(
+        'SELECT id, date, content, created_at FROM entries',
+        [
+            { column: 'date', direction: 'DESC' },
+            { column: 'id', direction: 'DESC' },
+        ],
+        { cursor, limit },
+        rowToEntry,
+        { columns: ['date', 'id'], separator: '|' }
+    );
 
-    if (cursor) {
-        const [cursorDate, cursorId] = cursor.split('|');
-        query = `
-            SELECT id, date, content, created_at
-            FROM entries
-            WHERE (date < $1) OR (date = $1 AND id < $2)
-            ORDER BY date DESC, id DESC
-            LIMIT $3
-        `;
-        values = [cursorDate, cursorId, limit + 1];
-    } else {
-        query = 'SELECT id, date, content, created_at FROM entries ORDER BY date DESC, id DESC LIMIT $1';
-        values = [limit + 1];
-    }
-
-    const rows = await sqlSelect<{
-        id: string;
-        date: string;
-        content: string;
-        created_at: string;
-    }>(query, values);
-
-    const hasMore = rows.length > limit;
-    const entries = rows.slice(0, limit).map(row => ({
-        id: row.id,
-        date: row.date,
-        content: row.content,
-        preview: generatePreview(row.content),
-    }));
-
-    const lastEntry = entries[entries.length - 1];
-    const nextCursor = hasMore && lastEntry ? `${lastEntry.date}|${lastEntry.id}` : null;
-
-    return { entries, nextCursor, hasMore };
+    return {
+        entries: result.items,
+        nextCursor: result.nextCursor,
+        hasMore: result.hasMore,
+    };
 }
 
 export async function getEntries(): Promise<JournalEntry[]> {
-    const rows = await sqlSelect<{
-        id: string;
-        date: string;
-        content: string;
-    }>('SELECT id, date, content FROM entries ORDER BY date DESC, created_at DESC');
-
-    return rows.map(row => ({
-        id: row.id,
-        date: row.date,
-        content: row.content,
-        preview: generatePreview(row.content),
-    }));
+    const rows = await select<EntryRow>(
+        'SELECT id, date, content, created_at FROM entries ORDER BY date DESC, created_at DESC'
+    );
+    return rows.map(rowToEntry);
 }
 
 export async function createEntry(date?: string): Promise<JournalEntry> {
-    console.log('createEntry: starting with date', date);
     const id = generateId();
     const entryDate = date || getTodayString();
     const content = '';
     const timestamp = getTimestamp();
 
-    console.log('createEntry: inserting', { id, entryDate, content, timestamp });
-    await sqlExecute(
+    await execute(
         'INSERT INTO entries (id, date, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)',
         [id, entryDate, content, timestamp, timestamp]
     );
 
-    console.log('createEntry: success');
     return { id, date: entryDate, content, preview: '' };
 }
 
@@ -111,36 +80,30 @@ export async function updateEntry(
     const timestamp = getTimestamp();
 
     if (updates.content !== undefined) {
-        await sqlExecute(
+        await execute(
             'UPDATE entries SET content = $1, updated_at = $2 WHERE id = $3',
             [updates.content, timestamp, id]
         );
     }
 
     if (updates.date !== undefined) {
-        await sqlExecute(
+        await execute(
             'UPDATE entries SET date = $1, updated_at = $2 WHERE id = $3',
             [updates.date, timestamp, id]
         );
     }
 
-    const rows = await sqlSelect<{ id: string; date: string; content: string }>(
-        'SELECT id, date, content FROM entries WHERE id = $1',
+    const rows = await select<EntryRow>(
+        'SELECT id, date, content, created_at FROM entries WHERE id = $1',
         [id]
     );
 
     if (rows.length === 0) return null;
 
-    const row = rows[0];
-    return {
-        id: row.id,
-        date: row.date,
-        content: row.content,
-        preview: generatePreview(row.content),
-    };
+    return rowToEntry(rows[0]);
 }
 
 export async function deleteEntry(id: string): Promise<boolean> {
-    const result = await sqlExecute('DELETE FROM entries WHERE id = $1', [id]);
+    const result = await execute('DELETE FROM entries WHERE id = $1', [id]);
     return result.rowsAffected > 0;
 }

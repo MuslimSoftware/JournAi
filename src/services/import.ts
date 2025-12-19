@@ -1,9 +1,7 @@
 import { open } from '@tauri-apps/plugin-dialog';
 import { readDir, readTextFile } from '@tauri-apps/plugin-fs';
-import { invoke } from '@tauri-apps/api/core';
 import { getTimestamp } from '../utils/date';
-
-const DB_URL = 'sqlite:journai.db';
+import { select, execute } from '../lib/db';
 
 interface ParsedEntry {
     date: string;
@@ -42,17 +40,6 @@ function parseMarkdownFile(filename: string, content: string): ParsedEntry | nul
     return { date, content: journalContent };
 }
 
-async function sqlExecute(query: string, values: unknown[] = []): Promise<{ rowsAffected: number }> {
-    const result = await invoke('plugin:sql|execute', { db: DB_URL, query, values });
-    const rowsAffected = Array.isArray(result) ? result[0] : (result as { rowsAffected: number }).rowsAffected;
-    return { rowsAffected };
-}
-
-async function sqlSelect<T>(query: string, values: unknown[] = []): Promise<T[]> {
-    const result = await invoke('plugin:sql|select', { db: DB_URL, query, values });
-    return result as T[];
-}
-
 export interface ImportResult {
     imported: number;
     skipped: number;
@@ -79,7 +66,7 @@ export async function importEntriesFromFolder(
     const mdFiles = entries.filter(e => e.name?.endsWith('.md'));
     const total = mdFiles.length;
 
-    const existingDates = await sqlSelect<{ date: string }>('SELECT DISTINCT date FROM entries');
+    const existingDates = await select<{ date: string }>('SELECT DISTINCT date FROM entries');
     const existingDateSet = new Set(existingDates.map(e => e.date));
 
     for (let i = 0; i < mdFiles.length; i++) {
@@ -106,7 +93,7 @@ export async function importEntriesFromFolder(
             const id = generateId();
             const timestamp = getTimestamp();
 
-            await sqlExecute(
+            await execute(
                 'INSERT INTO entries (id, date, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)',
                 [id, parsed.date, parsed.content, timestamp, timestamp]
             );
