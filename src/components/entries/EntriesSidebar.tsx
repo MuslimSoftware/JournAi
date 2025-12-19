@@ -18,6 +18,9 @@ interface EntriesSidebarProps {
   onCreateEntry: () => void;
   onDeleteEntry: (id: string) => void;
   onUpdateEntry: (id: string, updates: EntryUpdate) => void;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  onLoadMore: () => void;
 }
 
 type ListItem =
@@ -31,6 +34,9 @@ export default function EntriesSidebar({
   onCreateEntry,
   onDeleteEntry,
   onUpdateEntry,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
 }: EntriesSidebarProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -182,6 +188,20 @@ export default function EntriesSidebar({
     overscan: 5,
   });
 
+  const isFiltering = searchQuery.trim() || timeFilter;
+
+  useEffect(() => {
+    if (isFiltering || !hasMore || isLoadingMore) return;
+
+    const virtualItems = virtualizer.getVirtualItems();
+    const lastItem = virtualItems[virtualItems.length - 1];
+    if (!lastItem) return;
+
+    if (lastItem.index >= flattenedItems.length - 10) {
+      onLoadMore();
+    }
+  }, [virtualizer.getVirtualItems(), hasMore, isLoadingMore, onLoadMore, flattenedItems.length, isFiltering]);
+
   return (
     <div className={`entries-sidebar ${entriesPinned ? 'pinned' : ''} ${isDropdownOpen || datePickerOpen || moreMenuOpen ? 'dropdown-open' : ''}`}>
       <div className="entries-sidebar-collapsed-content">
@@ -227,7 +247,7 @@ export default function EntriesSidebar({
           <div ref={parentRef} className="entries-sidebar-list">
             <div
               style={{
-                height: `${virtualizer.getTotalSize()}px`,
+                height: `${virtualizer.getTotalSize() + (isLoadingMore ? 40 : 0)}px`,
                 width: '100%',
                 position: 'relative',
               }}
@@ -315,6 +335,22 @@ export default function EntriesSidebar({
                   </div>
                 );
               })}
+              {isLoadingMore && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text variant="secondary">Loading more...</Text>
+                </div>
+              )}
             </div>
           </div>
         )}

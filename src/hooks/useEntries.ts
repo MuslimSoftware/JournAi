@@ -1,36 +1,63 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { JournalEntry, EntryUpdate } from '../types/entry';
 import * as entriesService from '../services/entries';
+
+const PAGE_SIZE = 30;
 
 interface UseEntriesReturn {
     entries: JournalEntry[];
     selectedEntry: JournalEntry | null;
     selectedEntryId: string | null;
     isLoading: boolean;
+    isLoadingMore: boolean;
+    hasMore: boolean;
     selectEntry: (id: string | null) => void;
     createEntry: (date?: string) => Promise<JournalEntry>;
     updateEntry: (id: string, updates: EntryUpdate) => Promise<void>;
     deleteEntry: (id: string) => Promise<void>;
-    refreshEntries: () => Promise<void>;
+    loadMore: () => Promise<void>;
+    refreshEntries: () => Promise<JournalEntry[]>;
 }
 
 export function useEntries(): UseEntriesReturn {
     const [entries, setEntries] = useState<JournalEntry[]>([]);
     const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const cursorRef = useRef<string | null>(null);
 
     const loadEntries = useCallback(async () => {
         try {
-            const data = await entriesService.getEntries();
-            setEntries(data);
+            cursorRef.current = null;
+            const page = await entriesService.getEntriesPage(null, PAGE_SIZE);
+            setEntries(page.entries);
+            cursorRef.current = page.nextCursor;
+            setHasMore(page.hasMore);
             setIsLoading(false);
-            return data;
+            return page.entries;
         } catch (error) {
             console.error('loadEntries: FAILED', error);
             setIsLoading(false);
             return [];
         }
     }, []);
+
+    const loadMore = useCallback(async () => {
+        if (isLoadingMore || !hasMore || !cursorRef.current) return;
+
+        setIsLoadingMore(true);
+        try {
+            const page = await entriesService.getEntriesPage(cursorRef.current, PAGE_SIZE);
+            setEntries(prev => [...prev, ...page.entries]);
+            cursorRef.current = page.nextCursor;
+            setHasMore(page.hasMore);
+        } catch (error) {
+            console.error('loadMore: FAILED', error);
+        } finally {
+            setIsLoadingMore(false);
+        }
+    }, [isLoadingMore, hasMore]);
 
     useEffect(() => {
         loadEntries().then(data => {
@@ -89,10 +116,13 @@ export function useEntries(): UseEntriesReturn {
         selectedEntry,
         selectedEntryId,
         isLoading,
+        isLoadingMore,
+        hasMore,
         selectEntry: setSelectedEntryId,
         createEntry,
         updateEntry,
         deleteEntry,
+        loadMore,
         refreshEntries: loadEntries,
     };
 }

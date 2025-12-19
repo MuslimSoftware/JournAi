@@ -9,10 +9,13 @@ export default function Entries() {
     selectedEntry,
     selectedEntryId,
     isLoading,
+    isLoadingMore,
+    hasMore,
     selectEntry,
     createEntry,
     updateEntry,
     deleteEntry,
+    loadMore,
   } = useEntries();
 
   if (isLoading) {
@@ -28,6 +31,9 @@ export default function Entries() {
         onCreateEntry={createEntry}
         onDeleteEntry={deleteEntry}
         onUpdateEntry={updateEntry}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={loadMore}
       />
       <EntryDetail
         entry={selectedEntry}

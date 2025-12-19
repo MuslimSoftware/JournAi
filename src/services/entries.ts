@@ -26,15 +26,59 @@ async function sqlExecute(query: string, values: unknown[] = []): Promise<{ rows
     return { rowsAffected };
 }
 
+export interface EntriesPage {
+    entries: JournalEntry[];
+    nextCursor: string | null;
+    hasMore: boolean;
+}
+
+export async function getEntriesPage(cursor: string | null, limit: number = 20): Promise<EntriesPage> {
+    let query: string;
+    let values: unknown[];
+
+    if (cursor) {
+        const [cursorDate, cursorId] = cursor.split('|');
+        query = `
+            SELECT id, date, content, created_at
+            FROM entries
+            WHERE (date < $1) OR (date = $1 AND id < $2)
+            ORDER BY date DESC, id DESC
+            LIMIT $3
+        `;
+        values = [cursorDate, cursorId, limit + 1];
+    } else {
+        query = 'SELECT id, date, content, created_at FROM entries ORDER BY date DESC, id DESC LIMIT $1';
+        values = [limit + 1];
+    }
+
+    const rows = await sqlSelect<{
+        id: string;
+        date: string;
+        content: string;
+        created_at: string;
+    }>(query, values);
+
+    const hasMore = rows.length > limit;
+    const entries = rows.slice(0, limit).map(row => ({
+        id: row.id,
+        date: row.date,
+        content: row.content,
+        preview: generatePreview(row.content),
+    }));
+
+    const lastEntry = entries[entries.length - 1];
+    const nextCursor = hasMore && lastEntry ? `${lastEntry.date}|${lastEntry.id}` : null;
+
+    return { entries, nextCursor, hasMore };
+}
+
 export async function getEntries(): Promise<JournalEntry[]> {
-    console.log('getEntries: starting');
     const rows = await sqlSelect<{
         id: string;
         date: string;
         content: string;
     }>('SELECT id, date, content FROM entries ORDER BY date DESC, created_at DESC');
 
-    console.log('getEntries: got rows', rows);
     return rows.map(row => ({
         id: row.id,
         date: row.date,
