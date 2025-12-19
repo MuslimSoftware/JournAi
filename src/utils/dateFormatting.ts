@@ -1,20 +1,14 @@
-export function formatFullDate(dateString: string): string {
+export function formatEntryDate(dateString: string): string {
   const date = new Date(dateString);
+  const currentYear = new Date().getFullYear();
+  const entryYear = date.getFullYear();
 
   const day = date.getDate();
-  const month = date.toLocaleDateString('en-US', { month: 'long' });
-  const year = date.getFullYear();
+  const month = date.toLocaleDateString('en-US', { month: 'short' });
 
-  const pr = new Intl.PluralRules('en-US', { type: 'ordinal' });
-  const suffixes: Record<Intl.LDMLPluralRule, string> = {
-    one: 'st',
-    two: 'nd',
-    few: 'rd',
-    other: 'th',
-    many: 'th',
-    zero: 'th',
-  };
-  const suffix = suffixes[pr.select(day)];
+  if (entryYear < currentYear) {
+    return `${month} ${day}, ${entryYear}`;
+  }
 
-  return `${day}${suffix} ${month}, ${year}`;
+  return `${month} ${day}`;
 }

@@ -5,6 +5,7 @@ import { TbPin, TbPinFilled } from 'react-icons/tb';
 import { Text, IconButton } from '../themed';
 import { JournalEntry } from '../../types/entry';
 import { groupEntriesByDate } from '../../utils/dateGrouping';
+import { formatEntryDate } from '../../utils/dateFormatting';
 import { useSidebar } from '../../contexts/SidebarContext';
 import EntriesToolbar, { TimeFilter } from './EntriesToolbar';
 
@@ -97,9 +98,7 @@ export default function EntriesSidebar({
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        (entry) =>
-          entry.title.toLowerCase().includes(query) ||
-          entry.content.toLowerCase().includes(query)
+        (entry) => entry.content.toLowerCase().includes(query)
       );
     }
 
@@ -124,7 +123,7 @@ export default function EntriesSidebar({
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
       const item = flattenedItems[index];
-      return item.type === 'header' ? 45 : 75;
+      return item.type === 'header' ? 45 : 50;
     },
     overscan: 5,
   });
@@ -185,8 +184,8 @@ export default function EntriesSidebar({
                       className={`entry-list-item ${selectedId === item.id ? 'selected' : ''}`}
                       onClick={() => onSelectEntry(item.id)}
                     >
-                      <div className="entry-list-item-title">
-                        <Text variant="primary">{item.entry.title}</Text>
+                      <div className="entry-list-item-date">
+                        <Text variant="muted">{formatEntryDate(item.entry.date)}</Text>
                       </div>
                       <div className="entry-list-item-preview">
                         <Text variant="secondary">{item.entry.preview}</Text>

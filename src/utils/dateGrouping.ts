@@ -36,6 +36,7 @@ export function getDateGroup(dateString: string): string {
     return 'This Month';
   }
 
+  const currentYear = new Date().getFullYear();
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -43,7 +44,11 @@ export function getDateGroup(dateString: string): string {
   const month = monthNames[entryDate.getMonth()];
   const year = entryDate.getFullYear();
 
-  return `${month} ${year}`;
+  if (year < currentYear) {
+    return `${month} ${year}`;
+  }
+
+  return month;
 }
 
 export function groupEntriesByDate<T extends { date: string }>(entries: T[]): Map<string, T[]> {

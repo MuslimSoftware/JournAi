@@ -146,7 +146,7 @@ The Entries page displays a list of journal entries with virtual scrolling for p
 Uses **TanStack React Virtual** (`@tanstack/react-virtual`) for high-performance rendering of large lists:
 - Only renders visible items in DOM (~10-15 at a time)
 - Maintains 60 FPS smooth scrolling even with thousands of entries
-- Dynamic height estimation (headers: 45px, entries: 105px)
+- Dynamic height estimation (headers: 45px, entries: 46px)
 - 5-item overscan buffer for seamless scrolling
 
 **Why Virtual Scrolling:**
@@ -179,7 +179,6 @@ Entries are automatically grouped by date for easy scanning:
 ```typescript
 interface JournalEntry {
   id: string;
-  title: string;
   date: string;        // ISO date format: YYYY-MM-DD
   preview: string;     // First ~50 chars for list view
   content: string;     // Full entry content
