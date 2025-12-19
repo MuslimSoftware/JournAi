@@ -7,7 +7,7 @@ import { FiPlus, FiTrash2, FiEdit2, FiCalendar } from 'react-icons/fi';
 import { Text, IconButton } from '../themed';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { groupEntriesByDate } from '../../utils/dateGrouping';
-import { formatEntryDate } from '../../utils/dateFormatting';
+import { parseLocalDate, toDateString, getTodayMidnight, formatEntryDate } from '../../utils/date';
 import { useSidebar } from '../../contexts/SidebarContext';
 import EntriesToolbar, { TimeFilter } from './EntriesToolbar';
 
@@ -50,18 +50,9 @@ export default function EntriesSidebar({
     setCustomDateRange(customRange);
   };
 
-  const parseLocalDate = (dateStr: string): Date => {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day);
-  };
-
   const handleDateChange = (entryId: string, newDate: Date | undefined) => {
     if (newDate) {
-      const year = newDate.getFullYear();
-      const month = String(newDate.getMonth() + 1).padStart(2, '0');
-      const day = String(newDate.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      onUpdateEntry(entryId, { date: dateStr });
+      onUpdateEntry(entryId, { date: toDateString(newDate) });
       setDatePickerOpen(null);
       setMoreMenuOpen(null);
     }
@@ -105,12 +96,10 @@ export default function EntriesSidebar({
     let filtered = entries;
 
     if (timeFilter) {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = getTodayMidnight();
 
       filtered = filtered.filter((entry) => {
-        const entryDate = new Date(entry.date);
-        const entryDay = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+        const entryDay = parseLocalDate(entry.date);
 
         switch (timeFilter) {
           case 'custom': {
@@ -142,18 +131,18 @@ export default function EntriesSidebar({
           }
           case 'this-month':
             return (
-              entryDate.getMonth() === now.getMonth() &&
-              entryDate.getFullYear() === now.getFullYear()
+              entryDay.getMonth() === today.getMonth() &&
+              entryDay.getFullYear() === today.getFullYear()
             );
           case 'last-month': {
-            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
             return (
-              entryDate.getMonth() === lastMonth.getMonth() &&
-              entryDate.getFullYear() === lastMonth.getFullYear()
+              entryDay.getMonth() === lastMonth.getMonth() &&
+              entryDay.getFullYear() === lastMonth.getFullYear()
             );
           }
           case 'this-year':
-            return entryDate.getFullYear() === now.getFullYear();
+            return entryDay.getFullYear() === today.getFullYear();
           default:
             return true;
         }

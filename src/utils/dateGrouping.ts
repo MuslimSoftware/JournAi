@@ -1,7 +1,8 @@
+import { parseLocalDate, getTodayMidnight } from './date';
+
 export function getDateGroup(dateString: string): string {
-  const entryDate = new Date(dateString);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const entryDate = parseLocalDate(dateString);
+  const today = getTodayMidnight();
 
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -13,8 +14,6 @@ export function getDateGroup(dateString: string): string {
   startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
 
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
-  entryDate.setHours(0, 0, 0, 0);
 
   if (entryDate.getTime() === today.getTime()) {
     return 'Today';
@@ -73,9 +72,17 @@ export function groupEntriesByDate<T extends { date: string }>(entries: T[]): Ma
   });
 
   const monthGroups = Array.from(groups.entries()).sort((a, b) => {
-    const dateA = new Date(a[0]);
-    const dateB = new Date(b[0]);
-    return dateB.getTime() - dateA.getTime();
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const parseMonthYear = (str: string) => {
+      const parts = str.split(' ');
+      const monthIndex = monthNames.indexOf(parts[0]);
+      const year = parts[1] ? parseInt(parts[1]) : new Date().getFullYear();
+      return new Date(year, monthIndex, 1);
+    };
+    return parseMonthYear(b[0]).getTime() - parseMonthYear(a[0]).getTime();
   });
 
   monthGroups.forEach(([key, value]) => {

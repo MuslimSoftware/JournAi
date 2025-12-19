@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { JournalEntry } from '../types/entry';
+import { getTodayString, getTimestamp } from '../utils/date';
 
 const DB_URL = 'sqlite:journai.db';
 
@@ -45,14 +46,14 @@ export async function getEntries(): Promise<JournalEntry[]> {
 export async function createEntry(date?: string): Promise<JournalEntry> {
     console.log('createEntry: starting with date', date);
     const id = generateId();
-    const now = new Date().toISOString();
-    const entryDate = date || now.split('T')[0];
+    const entryDate = date || getTodayString();
     const content = '';
+    const timestamp = getTimestamp();
 
-    console.log('createEntry: inserting', { id, entryDate, content, now });
+    console.log('createEntry: inserting', { id, entryDate, content, timestamp });
     await sqlExecute(
         'INSERT INTO entries (id, date, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)',
-        [id, entryDate, content, now, now]
+        [id, entryDate, content, timestamp, timestamp]
     );
 
     console.log('createEntry: success');
@@ -63,19 +64,19 @@ export async function updateEntry(
     id: string,
     updates: { content?: string; date?: string }
 ): Promise<JournalEntry | null> {
-    const now = new Date().toISOString();
+    const timestamp = getTimestamp();
 
     if (updates.content !== undefined) {
         await sqlExecute(
             'UPDATE entries SET content = $1, updated_at = $2 WHERE id = $3',
-            [updates.content, now, id]
+            [updates.content, timestamp, id]
         );
     }
 
     if (updates.date !== undefined) {
         await sqlExecute(
             'UPDATE entries SET date = $1, updated_at = $2 WHERE id = $3',
-            [updates.date, now, id]
+            [updates.date, timestamp, id]
         );
     }
 
