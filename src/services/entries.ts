@@ -9,8 +9,8 @@ function generateId(): string {
 }
 
 function generatePreview(content: string): string {
-    const firstLine = content.split('\n')[0] || '';
-    return firstLine.length > 50 ? firstLine.substring(0, 50) + '...' : firstLine;
+    const normalized = content.replace(/\n+/g, ' ').trim();
+    return normalized.length > 100 ? normalized.substring(0, 100) + '...' : normalized;
 }
 
 async function sqlSelect<T>(query: string, values: unknown[] = []): Promise<T[]> {
