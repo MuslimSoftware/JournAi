@@ -4,3 +4,8 @@ export interface JournalEntry {
   preview: string;
   content: string;
 }
+
+export interface EntryUpdate {
+  content?: string;
+  date?: string;
+}

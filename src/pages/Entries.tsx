@@ -1,24 +1,40 @@
-import { useState } from 'react';
+import { useEntries } from '../hooks/useEntries';
 import EntriesSidebar from '../components/entries/EntriesSidebar';
 import EntryDetail from '../components/entries/EntryDetail';
-import { dummyEntries } from '../data/dummyEntries';
 import '../styles/entries.css';
 
 export default function Entries() {
-  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(
-    dummyEntries.length > 0 ? dummyEntries[0].id : null
-  );
+  const {
+    entries,
+    selectedEntry,
+    selectedEntryId,
+    isLoading,
+    selectEntry,
+    createEntry,
+    updateEntry,
+    deleteEntry,
+  } = useEntries();
 
-  const selectedEntry = dummyEntries.find((e) => e.id === selectedEntryId) || null;
+  if (isLoading) {
+    return <div className="entries-layout">Loading...</div>;
+  }
 
   return (
     <div className="entries-layout">
       <EntriesSidebar
-        entries={dummyEntries}
+        entries={entries}
         selectedId={selectedEntryId}
-        onSelectEntry={setSelectedEntryId}
+        onSelectEntry={selectEntry}
+        onCreateEntry={createEntry}
+        onDeleteEntry={deleteEntry}
+        onUpdateEntry={updateEntry}
       />
-      <EntryDetail entry={selectedEntry} />
+      <EntryDetail
+        entry={selectedEntry}
+        hasEntries={entries.length > 0}
+        onUpdate={updateEntry}
+        onCreateEntry={createEntry}
+      />
     </div>
   );
 }

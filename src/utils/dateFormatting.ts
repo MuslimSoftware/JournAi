@@ -1,14 +1,14 @@
 export function formatEntryDate(dateString: string): string {
-  const date = new Date(dateString);
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
   const currentYear = new Date().getFullYear();
-  const entryYear = date.getFullYear();
 
-  const day = date.getDate();
-  const month = date.toLocaleDateString('en-US', { month: 'short' });
+  const dayNum = date.getDate();
+  const monthStr = date.toLocaleDateString('en-US', { month: 'short' });
 
-  if (entryYear < currentYear) {
-    return `${month} ${day}, ${entryYear}`;
+  if (year < currentYear) {
+    return `${monthStr} ${dayNum}, ${year}`;
   }
 
-  return `${month} ${day}`;
+  return `${monthStr} ${dayNum}`;
 }
