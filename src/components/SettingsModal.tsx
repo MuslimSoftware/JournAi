@@ -3,6 +3,7 @@ import { IoClose } from 'react-icons/io5';
 import Modal from './Modal';
 import SettingsSidebar from './settings/SettingsSidebar';
 import PersonalizationSection from './settings/PersonalizationSection';
+import DataManagementSection from './settings/DataManagementSection';
 import { useTheme } from '../contexts/ThemeContext';
 import IconButton from './themed/IconButton';
 
@@ -13,6 +14,7 @@ interface SettingsModalProps {
 
 const SECTIONS = [
   { id: 'personalization', label: 'Personalization' },
+  { id: 'data-management', label: 'Data Management' },
 ];
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
@@ -64,6 +66,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         />
         <div style={mainStyle}>
           {activeSection === 'personalization' && <PersonalizationSection />}
+          {activeSection === 'data-management' && <DataManagementSection />}
         </div>
       </div>
     </Modal>

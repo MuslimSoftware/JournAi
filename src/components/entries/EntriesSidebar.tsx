@@ -186,7 +186,7 @@ export default function EntriesSidebar({
     <div className={`entries-sidebar ${entriesPinned ? 'pinned' : ''} ${isDropdownOpen || datePickerOpen || moreMenuOpen ? 'dropdown-open' : ''}`}>
       <div className="entries-sidebar-collapsed-content">
         <Text variant="muted" className="entries-collapsed-label">
-          HISTORY
+          {entries.length}
         </Text>
       </div>
       <div className="entries-sidebar-expanded-content">

@@ -10,6 +10,15 @@
     "sql:default",
     "sql:allow-load",
     "sql:allow-select",
-    "sql:allow-execute"
+    "sql:allow-execute",
+    "dialog:default",
+    "dialog:allow-open",
+    "fs:default",
+    "fs:allow-read-dir",
+    "fs:allow-read-file",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }]
+    }
   ]
 }
