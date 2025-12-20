@@ -1,0 +1,75 @@
+.app-layout.focus-mode-active .sidebar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.entries-layout.focus-mode .entries-sidebar {
+  background-color: transparent;
+  border-color: transparent;
+  pointer-events: none;
+}
+
+.entries-layout.focus-mode .entries-sidebar-hover-zone {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.entries-layout.focus-mode .entries-sidebar-action-bar {
+  pointer-events: auto;
+  position: relative;
+  z-index: 1001;
+}
+
+.entries-layout.focus-mode .entries-content {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+.entries-layout.focus-mode .entry-content-editor {
+  max-width: 800px;
+}
+
+.focus-mode-button {
+  transition: opacity 0.3s ease, visibility 0.3s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.focus-mode-button:hover {
+  background-color: var(--bg-subtle) !important;
+  color: var(--text-primary) !important;
+}
+
+.focus-mode-button.active {
+  background-color: var(--text-primary) !important;
+  color: var(--bg-primary) !important;
+}
+
+.focus-mode-button.active:hover {
+  background-color: var(--text-secondary) !important;
+}
+
+.focus-mode-button.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.focus-mode-button.hidden.near-edge {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-layout.focus-mode-active .sidebar,
+  .entries-layout.focus-mode .entries-sidebar,
+  .entries-layout.focus-mode .entries-sidebar-hover-zone,
+  .entries-layout.focus-mode .entries-content,
+  .focus-mode-button {
+    transition: none;
+    animation: none;
+  }
+}

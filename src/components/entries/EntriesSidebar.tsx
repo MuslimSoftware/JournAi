@@ -1,16 +1,20 @@
-import { useRef, useMemo, useState, useEffect } from 'react';
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { DateRange, DayPicker } from 'react-day-picker';
 import { TbPin, TbPinFilled } from 'react-icons/tb';
-import { FiPlus, FiTrash2, FiEdit2, FiCalendar } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiEdit2, FiCalendar, FiFeather } from 'react-icons/fi';
 import { Text, IconButton } from '../themed';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { groupEntriesByDate } from '../../utils/dateGrouping';
 import { parseLocalDate, toDateString, formatEntryDate } from '../../utils/date';
 import { matchesTimeFilter } from '../../utils/timeFilters';
 import { useSidebar } from '../../contexts/SidebarContext';
+import { useFocusMode } from '../../contexts/FocusModeContext';
 import EntriesToolbar, { TimeFilter } from './EntriesToolbar';
+
+const FADE_DELAY_MS = 2000;
+const EDGE_THRESHOLD_PX = 150;
 
 interface EntriesSidebarProps {
   entries: JournalEntry[];
@@ -53,6 +57,30 @@ export default function EntriesSidebar({
   const datePickerRef = useRef<HTMLDivElement>(null);
   const editButtonRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const { entriesPinned, toggleEntriesPin } = useSidebar();
+  const { isFocusMode, toggleFocusMode } = useFocusMode();
+  const [buttonHidden, setButtonHidden] = useState(false);
+  const [isNearEdge, setIsNearEdge] = useState(false);
+
+  useEffect(() => {
+    if (isFocusMode) {
+      setButtonHidden(false);
+      const timer = setTimeout(() => setButtonHidden(true), FADE_DELAY_MS);
+      return () => clearTimeout(timer);
+    } else {
+      setButtonHidden(false);
+      setIsNearEdge(false);
+    }
+  }, [isFocusMode]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    setIsNearEdge(e.clientX <= EDGE_THRESHOLD_PX);
+  }, []);
+
+  useEffect(() => {
+    if (!isFocusMode) return;
+    document.addEventListener('mousemove', handleMouseMove);
+    return () => document.removeEventListener('mousemove', handleMouseMove);
+  }, [isFocusMode, handleMouseMove]);
 
   const handleFilterChange = (filter: TimeFilter | null, customRange?: DateRange) => {
     setTimeFilter(filter);
@@ -176,11 +204,22 @@ export default function EntriesSidebar({
 
   return (
     <div className={`entries-sidebar ${entriesPinned ? 'pinned' : ''} ${isDropdownOpen || datePickerOpen || moreMenuOpen ? 'dropdown-open' : ''}`}>
-      <div className="entries-sidebar-collapsed-content">
-        <Text variant="muted" className="entries-collapsed-label">
-          {totalCount}
-        </Text>
+      <div className="entries-sidebar-action-bar">
+        <IconButton
+          icon={<FiFeather size={16} />}
+          label={isFocusMode ? "Exit focus mode (ESC)" : "Focus mode (⌘⇧F)"}
+          variant="ghost"
+          size="sm"
+          onClick={toggleFocusMode}
+          className={`focus-mode-button${isFocusMode ? ' active' : ''}${buttonHidden ? ' hidden' : ''}${isNearEdge ? ' near-edge' : ''}`}
+        />
       </div>
+      <div className="entries-sidebar-hover-zone">
+        <div className="entries-sidebar-collapsed-content">
+          <Text variant="muted" className="entries-collapsed-label">
+            {totalCount}
+          </Text>
+        </div>
       <div className="entries-sidebar-expanded-content">
         <EntriesToolbar
           onSearchChange={setSearchQuery}
@@ -326,6 +365,7 @@ export default function EntriesSidebar({
             </div>
           </div>
         )}
+      </div>
       </div>
 
       {datePickerOpen && createPortal(

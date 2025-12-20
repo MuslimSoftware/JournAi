@@ -6,6 +6,7 @@ import Chat from "./pages/Chat";
 import Projections from "./pages/Projections";
 import "./App.css";
 import "./styles/layout.css";
+import "./styles/focus-mode.css";
 
 function App() {
   return (

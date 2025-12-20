@@ -26,14 +26,17 @@ export default function EntryDetail({ entry, hasEntries, onUpdate, onCreateEntry
     }
   }, [entry, onUpdate]);
 
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value;
+  const handleContentChange = (newContent: string) => {
     setContent(newContent);
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
     saveTimeoutRef.current = setTimeout(() => saveContent(newContent), 500);
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    handleContentChange(e.target.value);
   };
 
   const handleBlur = () => {
@@ -76,7 +79,7 @@ export default function EntryDetail({ entry, hasEntries, onUpdate, onCreateEntry
       <textarea
         className="entry-content-editor"
         value={content}
-        onChange={handleContentChange}
+        onChange={handleTextareaChange}
         onBlur={handleBlur}
         placeholder="Start writing..."
       />

@@ -4,6 +4,7 @@ import { IoCalendarOutline, IoCalendar, IoBookOutline, IoBook, IoChatbubbleOutli
 import Sidebar from "./Sidebar";
 import SettingsModal from "./SettingsModal";
 import { SidebarProvider } from "../contexts/SidebarContext";
+import { FocusModeProvider, useFocusMode } from "../contexts/FocusModeContext";
 
 const mainNavItems = [
   { path: "/calendar", label: "Calendar", icon: IoCalendarOutline, iconFilled: IoCalendar },
@@ -12,24 +13,33 @@ const mainNavItems = [
   { path: "/projections", label: "Projections", icon: IoTrendingUpOutline, iconFilled: IoTrendingUp },
 ];
 
-export default function Layout() {
+function LayoutContent() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { isFocusMode } = useFocusMode();
 
   return (
+    <div className={`app-layout ${isFocusMode ? 'focus-mode-active' : ''}`}>
+      <Sidebar
+        items={mainNavItems}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+      />
+      <main className="main-content">
+        <Outlet />
+      </main>
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
+    </div>
+  );
+}
+
+export default function Layout() {
+  return (
     <SidebarProvider>
-      <div className="app-layout">
-        <Sidebar
-          items={mainNavItems}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-        />
-        <main className="main-content">
-          <Outlet />
-        </main>
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-        />
-      </div>
+      <FocusModeProvider>
+        <LayoutContent />
+      </FocusModeProvider>
     </SidebarProvider>
   );
 }

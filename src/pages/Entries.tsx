@@ -1,9 +1,12 @@
 import { useEntries } from '../hooks/useEntries';
+import { useFocusMode } from '../contexts/FocusModeContext';
 import EntriesSidebar from '../components/entries/EntriesSidebar';
 import EntryDetail from '../components/entries/EntryDetail';
 import '../styles/entries.css';
+import '../styles/focus-mode.css';
 
 export default function Entries() {
+  const { isFocusMode } = useFocusMode();
   const {
     entries,
     totalCount,
@@ -24,7 +27,7 @@ export default function Entries() {
   }
 
   return (
-    <div className="entries-layout">
+    <div className={`entries-layout ${isFocusMode ? 'focus-mode' : ''}`}>
       <EntriesSidebar
         entries={entries}
         totalCount={totalCount}
