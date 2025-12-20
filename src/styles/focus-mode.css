@@ -53,13 +53,16 @@
 
 .focus-mode-button.hidden {
   opacity: 0;
-  visibility: hidden;
   pointer-events: none;
+}
+
+.focus-mode-button.hidden:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .focus-mode-button.hidden.near-edge {
   opacity: 1;
-  visibility: visible;
   pointer-events: auto;
 }
 
@@ -71,5 +74,25 @@
   .focus-mode-button {
     transition: none;
     animation: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .entries-layout.focus-mode .entries-sidebar {
+    display: none;
+  }
+
+  .entries-layout.focus-mode .entries-content {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    z-index: auto;
+  }
+
+  .entries-layout.focus-mode .entry-content-editor {
+    max-width: 100%;
+    padding: 1.5rem;
   }
 }

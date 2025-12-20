@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { FiPlus } from 'react-icons/fi';
-import { Text } from '../themed';
+import { Text, Button } from '../themed';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 
 interface EntryDetailProps {
@@ -64,10 +64,14 @@ export default function EntryDetail({ entry, hasEntries, onUpdate, onCreateEntry
             <Text variant="muted" className="entries-empty-state-subtitle">
               Capture your thoughts, ideas, and reflections. Your entries are stored locally and never leave your device.
             </Text>
-            <button className="entries-empty-state-action" onClick={() => onCreateEntry()}>
-              <FiPlus size={16} />
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<FiPlus size={16} />}
+              onClick={() => onCreateEntry()}
+            >
               Create your first entry
-            </button>
+            </Button>
           </>
         )}
       </div>

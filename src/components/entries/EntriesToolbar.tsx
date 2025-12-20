@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { IoSearch, IoClose, IoFilter, IoCheckmark } from 'react-icons/io5';
 import { DayPicker, DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
-import { Text, IconButton } from '../themed';
+import { Text, IconButton, Button } from '../themed';
 import { TimeFilter as ImportedTimeFilter } from '../../utils/timeFilters';
 import 'react-day-picker/style.css';
 
@@ -207,9 +207,9 @@ export default function EntriesToolbar({
                   Time Filters
                 </Text>
                 {activeFilter && (
-                  <button className="filter-clear-button" onClick={handleClearFilters}>
+                  <Button variant="ghost" size="sm" onClick={handleClearFilters} style={{ padding: 0 }}>
                     Clear
-                  </button>
+                  </Button>
                 )}
               </div>
               <div className="filter-options">
@@ -248,16 +248,21 @@ export default function EntriesToolbar({
                 toYear={2030}
               />
               <div className="date-picker-footer">
-                <button className="date-picker-cancel-button" onClick={() => { setCustomDateRange(undefined); setShowDatePicker(false); }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setCustomDateRange(undefined); setShowDatePicker(false); }}
+                >
                   Cancel
-                </button>
-                <button
-                  className={`date-picker-apply-button ${customDateRange?.from && customDateRange?.to ? 'enabled' : ''}`}
+                </Button>
+                <Button
+                  variant={customDateRange?.from && customDateRange?.to ? 'primary' : 'secondary'}
+                  size="sm"
                   onClick={handleApplyDateRange}
                   disabled={!customDateRange?.from || !customDateRange?.to}
                 >
                   Apply
-                </button>
+                </Button>
               </div>
             </div>
           )}

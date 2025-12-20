@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { DateRange, DayPicker } from 'react-day-picker';
 import { TbPin, TbPinFilled } from 'react-icons/tb';
 import { FiPlus, FiTrash2, FiEdit2, FiCalendar, FiFeather } from 'react-icons/fi';
-import { Text, IconButton } from '../themed';
+import { Text, IconButton, Button, Spinner } from '../themed';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { groupEntriesByDate } from '../../utils/dateGrouping';
 import { parseLocalDate, toDateString, formatEntryDate } from '../../utils/date';
@@ -15,6 +15,10 @@ import EntriesToolbar, { TimeFilter } from './EntriesToolbar';
 
 const FADE_DELAY_MS = 2000;
 const EDGE_THRESHOLD_PX = 150;
+const HEADER_HEIGHT_PX = 40;
+const ENTRY_HEIGHT_PX = 64;
+const PAGINATION_THRESHOLD = 10;
+const LOADING_INDICATOR_HEIGHT_PX = 40;
 
 interface EntriesSidebarProps {
   entries: JournalEntry[];
@@ -183,7 +187,7 @@ export default function EntriesSidebar({
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
       const item = flattenedItems[index];
-      return item.type === 'header' ? 40 : 64;
+      return item.type === 'header' ? HEADER_HEIGHT_PX : ENTRY_HEIGHT_PX;
     },
     overscan: 5,
   });
@@ -197,7 +201,7 @@ export default function EntriesSidebar({
     const lastItem = virtualItems[virtualItems.length - 1];
     if (!lastItem) return;
 
-    if (lastItem.index >= flattenedItems.length - 10) {
+    if (lastItem.index >= flattenedItems.length - PAGINATION_THRESHOLD) {
       onLoadMore();
     }
   }, [virtualizer.getVirtualItems(), hasMore, isLoadingMore, onLoadMore, flattenedItems.length, isFiltering]);
@@ -249,16 +253,20 @@ export default function EntriesSidebar({
           <div className="sidebar-empty-state">
             <Text variant="secondary" style={{ fontSize: '0.875rem', fontWeight: 500 }}>No entries yet</Text>
             <Text variant="muted" style={{ fontSize: '0.8125rem' }}>Start journaling today</Text>
-            <button className="sidebar-empty-state-action" onClick={() => onCreateEntry()}>
-              <FiPlus size={14} />
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<FiPlus size={14} />}
+              onClick={() => onCreateEntry()}
+            >
               Create your first entry
-            </button>
+            </Button>
           </div>
         ) : (
           <div ref={parentRef} className="entries-sidebar-list">
             <div
               style={{
-                height: `${virtualizer.getTotalSize() + (isLoadingMore ? 40 : 0)}px`,
+                height: `${virtualizer.getTotalSize() + (isLoadingMore ? LOADING_INDICATOR_HEIGHT_PX : 0)}px`,
                 width: '100%',
                 position: 'relative',
               }}
@@ -353,13 +361,13 @@ export default function EntriesSidebar({
                     bottom: 0,
                     left: 0,
                     right: 0,
-                    height: '40px',
+                    height: `${LOADING_INDICATOR_HEIGHT_PX}px`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <Text variant="secondary">Loading more...</Text>
+                  <Spinner size="sm" />
                 </div>
               )}
             </div>

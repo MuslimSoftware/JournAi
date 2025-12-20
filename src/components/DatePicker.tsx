@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { DayPicker } from 'react-day-picker';
+import { DayPicker, DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { FiCalendar } from 'react-icons/fi';
 import 'react-day-picker/style.css';
@@ -14,8 +14,8 @@ interface DatePickerSingleProps {
 
 interface DatePickerRangeProps {
     mode: 'range';
-    selected: { from: Date | undefined; to: Date | undefined } | undefined;
-    onSelect: (range: { from: Date | undefined; to: Date | undefined } | undefined) => void;
+    selected: DateRange | undefined;
+    onSelect: (range: DateRange | undefined) => void;
     displayFormat?: string;
 }
 
@@ -38,12 +38,12 @@ export function DatePicker(props: DatePickerProps) {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleSelect = (value: Date | { from: Date | undefined; to: Date | undefined } | undefined) => {
+    const handleSelect = (value: Date | DateRange | undefined) => {
         if (mode === 'single' && value instanceof Date) {
             (onSelect as DatePickerSingleProps['onSelect'])(value);
             setIsOpen(false);
         } else if (mode === 'range') {
-            (onSelect as DatePickerRangeProps['onSelect'])(value as { from: Date | undefined; to: Date | undefined } | undefined);
+            (onSelect as DatePickerRangeProps['onSelect'])(value as DateRange | undefined);
         }
     };
 
@@ -51,7 +51,7 @@ export function DatePicker(props: DatePickerProps) {
         if (mode === 'single') {
             return format(selected as Date, displayFormat);
         } else {
-            const range = selected as { from: Date | undefined; to: Date | undefined } | undefined;
+            const range = selected as DateRange | undefined;
             if (!range?.from) return 'Select dates';
             if (!range.to) return format(range.from, displayFormat);
             return `${format(range.from, 'MMM d')} - ${format(range.to, displayFormat)}`;
@@ -80,8 +80,8 @@ export function DatePicker(props: DatePickerProps) {
                     ) : (
                         <DayPicker
                             mode="range"
-                            selected={selected as { from: Date | undefined; to: Date | undefined }}
-                            onSelect={handleSelect as (range: { from: Date | undefined; to: Date | undefined } | undefined) => void}
+                            selected={selected as DateRange}
+                            onSelect={handleSelect as (range: DateRange | undefined) => void}
                         />
                     )}
                 </div>

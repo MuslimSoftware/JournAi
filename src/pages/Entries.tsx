@@ -1,5 +1,6 @@
 import { useEntries } from '../hooks/useEntries';
 import { useFocusMode } from '../contexts/FocusModeContext';
+import { Spinner } from '../components/themed';
 import EntriesSidebar from '../components/entries/EntriesSidebar';
 import EntryDetail from '../components/entries/EntryDetail';
 import '../styles/entries.css';
@@ -23,7 +24,11 @@ export default function Entries() {
   } = useEntries();
 
   if (isLoading) {
-    return <div className="entries-layout">Loading...</div>;
+    return (
+      <div className="entries-layout" style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <Spinner size="lg" />
+      </div>
+    );
   }
 
   return (

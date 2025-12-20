@@ -4,7 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 interface TextProps {
   children: ReactNode;
   as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span';
-  variant?: 'primary' | 'secondary' | 'accent';
+  variant?: 'primary' | 'secondary' | 'muted' | 'accent';
   className?: string;
   style?: CSSProperties;
 }

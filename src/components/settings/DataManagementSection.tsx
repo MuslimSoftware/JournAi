@@ -46,7 +46,7 @@ export default function DataManagementSection() {
     const descriptionStyle: CSSProperties = {
         marginBottom: theme.spacing.lg,
         color: theme.colors.text.secondary,
-        fontSize: theme.typography.fontSize.sm,
+        fontSize: theme.typography.fontSize.h6,
         lineHeight: 1.5,
     };
 
@@ -60,7 +60,7 @@ export default function DataManagementSection() {
         border: `1px solid ${theme.colors.border.primary}`,
         borderRadius: '8px',
         cursor: isImporting ? 'not-allowed' : 'pointer',
-        fontSize: theme.typography.fontSize.sm,
+        fontSize: theme.typography.fontSize.h6,
         fontWeight: 500,
         opacity: isImporting ? 0.7 : 1,
         transition: 'all 0.2s',
@@ -71,7 +71,7 @@ export default function DataManagementSection() {
         padding: theme.spacing.md,
         backgroundColor: theme.colors.background.subtle,
         borderRadius: '8px',
-        fontSize: theme.typography.fontSize.sm,
+        fontSize: theme.typography.fontSize.h6,
     };
 
     const successStyle: CSSProperties = {
