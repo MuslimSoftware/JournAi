@@ -2,6 +2,7 @@ import { ReactNode, CSSProperties, useState } from 'react';
 import { FiTrash2, FiCalendar } from 'react-icons/fi';
 import { useSwipeAction } from '../../hooks/useSwipeAction';
 import { useTheme } from '../../contexts/ThemeContext';
+import { lightTheme } from '../../theme/tokens';
 
 interface SwipeableListItemProps {
   children: ReactNode;
@@ -82,6 +83,10 @@ export default function SwipeableListItem({
     overflow: 'hidden',
   };
 
+  const isLightMode = theme === lightTheme;
+  const deleteColor = isLightMode ? '#b91c1c' : '#f87171';
+  const editDateColor = isLightMode ? '#6b7280' : '#9ca3af';
+
   const actionButtonStyle = (bgColor: string): CSSProperties => ({
     flex: 1,
     display: 'flex',
@@ -94,13 +99,15 @@ export default function SwipeableListItem({
     minWidth: '60px',
   });
 
+  const swipeProgress = Math.min(revealedOffset / 200, 1);
+
   const fullSwipeOverlayStyle: CSSProperties = {
     position: 'absolute',
     top: 0,
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#ef4444',
+    backgroundColor: deleteColor,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -109,8 +116,9 @@ export default function SwipeableListItem({
     fontWeight: 600,
     fontSize: '1rem',
     zIndex: 2,
-    transition: isDragging ? 'none' : 'opacity 0.2s ease',
-    opacity: isFullSwipe ? 1 : 0,
+    transition: isDragging ? 'none' : 'all 0.25s ease-out',
+    opacity: swipeProgress > 0.5 ? (swipeProgress - 0.5) * 2 : 0,
+    transform: `scale(${isFullSwipe ? 1 : 0.95 + swipeProgress * 0.05})`,
     pointerEvents: isFullSwipe ? 'auto' : 'none',
   };
 
@@ -120,13 +128,14 @@ export default function SwipeableListItem({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#ef4444',
+    backgroundColor: deleteColor,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '0 16px',
     color: '#ffffff',
     zIndex: 3,
+    animation: 'fadeSlideIn 0.2s ease-out',
   };
 
   const confirmButtonStyle: CSSProperties = {
@@ -172,7 +181,7 @@ export default function SwipeableListItem({
         <div style={actionsContainerStyle}>
           {onEditDate && (actionsWidth >= 120 || isOpen) && (
             <button
-              style={actionButtonStyle(theme.colors.text.accent)}
+              style={actionButtonStyle(editDateColor)}
               onClick={handleEditDate}
               aria-label="Edit date"
             >
@@ -181,7 +190,7 @@ export default function SwipeableListItem({
           )}
           {onDelete && (
             <button
-              style={actionButtonStyle('#ef4444')}
+              style={actionButtonStyle(deleteColor)}
               onClick={handleDelete}
               aria-label="Delete"
             >

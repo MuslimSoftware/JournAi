@@ -1,9 +1,10 @@
-import { useState, CSSProperties } from 'react';
+import { CSSProperties } from 'react';
 import { Outlet } from 'react-router-dom';
 import { IoCalendarOutline, IoCalendar, IoBookOutline, IoBook, IoChatbubbleOutline, IoChatbubble, IoTrendingUpOutline, IoTrendingUp } from 'react-icons/io5';
 import BottomNav from './BottomNav';
 import SettingsModal from '../SettingsModal';
 import { SidebarProvider } from '../../contexts/SidebarContext';
+import { SettingsProvider, useSettings } from '../../contexts/SettingsContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useKeyboard } from '../../hooks/useKeyboard';
 
@@ -14,10 +15,10 @@ const mobileNavItems = [
   { path: '/projections', label: 'Trends', icon: IoTrendingUpOutline, iconFilled: IoTrendingUp },
 ];
 
-export default function MobileLayout() {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+function MobileLayoutInner() {
   const { theme } = useTheme();
   const { isOpen: isKeyboardOpen } = useKeyboard();
+  const { isOpen: isSettingsOpen, openSettings, closeSettings } = useSettings();
 
   const layoutStyle: CSSProperties = {
     display: 'flex',
@@ -38,22 +39,30 @@ export default function MobileLayout() {
   };
 
   return (
-    <SidebarProvider>
-      <div style={layoutStyle} className="mobile-layout">
-        <main style={mainStyle} className="mobile-main">
-          <Outlet />
-        </main>
-        {!isKeyboardOpen && (
-          <BottomNav
-            items={mobileNavItems}
-            onSettingsClick={() => setIsSettingsOpen(true)}
-          />
-        )}
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
+    <div style={layoutStyle} className="mobile-layout">
+      <main style={mainStyle} className="mobile-main">
+        <Outlet />
+      </main>
+      {!isKeyboardOpen && (
+        <BottomNav
+          items={mobileNavItems}
+          onSettingsClick={openSettings}
         />
-      </div>
+      )}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={closeSettings}
+      />
+    </div>
+  );
+}
+
+export default function MobileLayout() {
+  return (
+    <SidebarProvider>
+      <SettingsProvider>
+        <MobileLayoutInner />
+      </SettingsProvider>
     </SidebarProvider>
   );
 }

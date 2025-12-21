@@ -21,6 +21,7 @@ export default function MobileEntries() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingDateEntry, setEditingDateEntry] = useState<JournalEntry | null>(null);
+  const [pressedEntryId, setPressedEntryId] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -113,20 +114,21 @@ export default function MobileEntries() {
     backgroundColor: theme.colors.background.primary,
   };
 
-  const headerContentStyle: CSSProperties = {
+  const searchRowStyle: CSSProperties = {
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '12px 16px',
-    minHeight: '56px',
+    justifyContent: 'flex-end',
+    padding: '8px 16px 4px',
   };
 
   const searchBarContainerStyle: CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
-    padding: '8px 16px 12px',
-    animation: 'slideDown 0.2s ease-out',
+    overflow: 'hidden',
+    maxHeight: isSearching ? '60px' : '0px',
+    opacity: isSearching ? 1 : 0,
+    padding: isSearching ? '0 16px 12px' : '0 16px',
+    transition: 'max-height 0.25s ease-out, opacity 0.2s ease-out, padding 0.25s ease-out',
   };
 
   const searchInputStyle: CSSProperties = {
@@ -167,18 +169,24 @@ export default function MobileEntries() {
   };
 
   const groupHeaderStyle: CSSProperties = {
-    padding: '20px 16px 8px',
-    fontSize: '0.8125rem',
+    padding: '24px 16px 8px',
+    fontSize: '0.6875rem',
     fontWeight: 600,
     color: theme.colors.text.muted,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
   };
 
-  const entryItemStyle: CSSProperties = {
+  const getEntryItemStyle = (entryId: string): CSSProperties => ({
     padding: '14px 16px',
     display: 'flex',
     flexDirection: 'column',
     gap: '4px',
-  };
+    backgroundColor: pressedEntryId === entryId ? theme.colors.background.secondary : 'transparent',
+    transition: 'background-color 0.1s ease-out',
+    borderRadius: '8px',
+    margin: '0 8px',
+  });
 
   const entryDateStyle: CSSProperties = {
     fontSize: '0.75rem',
@@ -214,57 +222,55 @@ export default function MobileEntries() {
     <div style={{ height: '100%', backgroundColor: theme.colors.background.primary, display: 'flex', flexDirection: 'column' }}>
       {entries.length > 0 && (
         <header style={headerStyle}>
-          {isSearching ? (
-            <div style={searchBarContainerStyle}>
-              <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
-                <FiSearch
-                  size={18}
-                  style={{
-                    position: 'absolute',
-                    left: '12px',
-                    color: theme.colors.text.muted,
-                    pointerEvents: 'none',
-                  }}
-                />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search entries..."
-                  autoComplete="off"
-                  autoCorrect="off"
-                  style={{
-                    ...searchInputStyle,
-                    paddingLeft: '40px',
-                  }}
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    style={{
-                      ...iconButtonStyle,
-                      position: 'absolute',
-                      right: '4px',
-                    }}
-                    aria-label="Clear search"
-                  >
-                    <FiX size={18} />
-                  </button>
-                )}
-              </div>
-              <button onClick={handleSearchClose} style={cancelButtonStyle}>
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <div style={headerContentStyle}>
-              <Text style={{ fontSize: '1.5rem', fontWeight: 700 }}>Entries</Text>
+          {!isSearching && (
+            <div style={searchRowStyle}>
               <button onClick={handleSearchOpen} style={iconButtonStyle} aria-label="Search">
-                <FiSearch size={22} />
+                <FiSearch size={20} />
               </button>
             </div>
           )}
+          <div style={searchBarContainerStyle}>
+            <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+              <FiSearch
+                size={18}
+                style={{
+                  position: 'absolute',
+                  left: '12px',
+                  color: theme.colors.text.muted,
+                  pointerEvents: 'none',
+                }}
+              />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search entries..."
+                autoComplete="off"
+                autoCorrect="off"
+                style={{
+                  ...searchInputStyle,
+                  paddingLeft: '40px',
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  style={{
+                    ...iconButtonStyle,
+                    position: 'absolute',
+                    right: '4px',
+                  }}
+                  aria-label="Clear search"
+                >
+                  <FiX size={18} />
+                </button>
+              )}
+            </div>
+            <button onClick={handleSearchClose} style={cancelButtonStyle}>
+              Cancel
+            </button>
+          </div>
         </header>
       )}
 
@@ -294,8 +300,11 @@ export default function MobileEntries() {
                     onEditDate={() => handleEditDate(entry)}
                   >
                     <div
-                      style={entryItemStyle}
+                      style={getEntryItemStyle(entry.id)}
                       onClick={() => handleEntrySelect(entry.id)}
+                      onTouchStart={() => setPressedEntryId(entry.id)}
+                      onTouchEnd={() => setPressedEntryId(null)}
+                      onTouchCancel={() => setPressedEntryId(null)}
                     >
                       <span style={entryDateStyle}>{formatEntryDate(entry.date)}</span>
                       <span style={entryPreviewStyle}>{entry.preview}</span>

@@ -3,6 +3,7 @@ import { FiArrowLeft } from 'react-icons/fi';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useKeyboard } from '../../hooks/useKeyboard';
+import { useSwipeNavigation } from '../../hooks/useSwipeNavigation';
 
 interface MobileEntryEditorProps {
   entry: JournalEntry;
@@ -20,6 +21,13 @@ export default function MobileEntryEditor({
   const [content, setContent] = useState(entry.content);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { progress: swipeProgress, isActive: isSwipeActive } = useSwipeNavigation({
+    onSwipeBack: onBack,
+    enabled: true,
+    edgeWidth: 40,
+    threshold: 70,
+  });
 
   useEffect(() => {
     setContent(entry.content);
@@ -77,23 +85,40 @@ export default function MobileEntryEditor({
     transition: 'padding-bottom 0.25s ease-out',
   };
 
-  return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: theme.colors.background.primary, position: 'relative' }}>
-      <button style={backButtonStyle} onClick={onBack} aria-label="Back">
-        <FiArrowLeft size={22} />
-      </button>
+  const wrapperStyle: CSSProperties = {
+    height: '100%',
+    backgroundColor: theme.colors.background.primary,
+  };
 
-      <textarea
-        ref={textareaRef}
-        style={editorStyle}
-        value={content}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        placeholder="Start writing..."
-        autoComplete="off"
-        autoCorrect="on"
-        spellCheck
-      />
+  const containerStyle: CSSProperties = {
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: theme.colors.background.primary,
+    position: 'relative',
+    transform: isSwipeActive ? `translateX(${swipeProgress * 30}px)` : 'translateX(0)',
+    transition: isSwipeActive ? 'none' : 'transform 0.2s ease-out',
+  };
+
+  return (
+    <div style={wrapperStyle}>
+      <div style={containerStyle}>
+        <button style={backButtonStyle} onClick={onBack} aria-label="Back">
+          <FiArrowLeft size={22} />
+        </button>
+
+        <textarea
+          ref={textareaRef}
+          style={editorStyle}
+          value={content}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          placeholder="Start writing..."
+          autoComplete="off"
+          autoCorrect="on"
+          spellCheck
+        />
+      </div>
     </div>
   );
 }
