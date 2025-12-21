@@ -1,204 +1,111 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Overview
 
-## Project Overview
+JournAi is a Tauri v2 journaling app with React 19 + TypeScript frontend and Rust backend. Uses Bun as package manager.
 
-JournAi is a Tauri v2 application with a React + TypeScript frontend built with Vite. The project uses Bun as its package manager.
+## Commands
+
+```bash
+bun run tauri dev    # Full app dev mode
+bun run tauri build  # Production build
+```
 
 ## Architecture
 
-### Frontend (React + TypeScript)
-- **Framework**: React 19 with TypeScript
-- **Build Tool**: Vite 7
-- **Entry Point**: `src/main.tsx`
-- **Main Component**: `src/App.tsx`
-- **Tauri API**: Uses `@tauri-apps/api` for frontend-backend communication via `invoke()`
+### Frontend (`/src`)
 
-### Backend (Rust)
-- **Framework**: Tauri v2
-- **Entry Point**: `src-tauri/src/main.rs`
-- **Library**: `src-tauri/src/lib.rs` (exports as `journai_lib`)
-- **Commands**: Rust functions exposed to frontend via `#[tauri::command]` macro
-- **Plugins**: `tauri-plugin-opener`, `tauri-plugin-store`
+| Directory | Responsibility |
+|-----------|----------------|
+| `pages/` | Route-level components (Entries, Calendar, Chat, Projections) |
+| `components/` | Reusable UI components |
+| `components/themed/` | Design system primitives (Button, Card, Text, Container) |
+| `components/mobile/` | Mobile-specific components |
+| `contexts/` | React contexts (Theme, FocusMode, Sidebar) |
+| `hooks/` | Custom hooks (useEntries, useMediaQuery, useKeyboard) |
+| `services/` | Business logic and data operations |
+| `lib/` | Infrastructure (db.ts, store.ts) |
+| `styles/` | CSS files per feature |
+| `theme/` | Design tokens |
+| `types/` | TypeScript interfaces |
 
-### Communication Pattern
-Frontend calls Rust backend using:
-```typescript
-import { invoke } from "@tauri-apps/api/core";
-const result = await invoke("command_name", { param: value });
+### Backend (`/src-tauri`)
+
+| File | Responsibility |
+|------|----------------|
+| `src/lib.rs` | Tauri app builder and command handlers |
+| `src/main.rs` | Application launcher |
+| `tauri.conf.json` | App configuration |
+
+SQLite database via `tauri-plugin-sql`. Settings persisted via `tauri-plugin-store`.
+
+## Mobile Implementation
+
+### Layout Switching
+
+`App.tsx` switches between `Layout` (desktop) and `MobileLayout` (mobile) based on `useIsMobile()` hook. Page components like `Entries.tsx` also render different component trees per platform.
+
+### MobileLayout (`components/mobile/MobileLayout.tsx`)
+
+Handles all mobile container concerns:
+- Uses `100dvh` for dynamic viewport height (handles address bar)
+- Applies safe area insets via CSS custom properties
+- Adjusts padding when keyboard opens
+- Hides bottom nav during keyboard input
+
+### Mobile Hooks
+
+| Hook | Purpose |
+|------|---------|
+| `useKeyboard()` | Returns `{ isOpen, height }` for soft keyboard state |
+| `useMediaQuery()` | Breakpoint detection (mobile < 768px) |
+| `useSwipeAction()` | Horizontal swipe gesture handling with threshold detection |
+
+### Mobile Components
+
+| Component | Purpose |
+|-----------|---------|
+| `BottomNav` | Fixed bottom navigation bar |
+| `BottomSheet` | Draggable modal from bottom, swipe-to-dismiss |
+| `SwipeableListItem` | List item with swipe actions (delete/edit) |
+| `MobileEntries` | Mobile entries list with FAB and search |
+| `MobileEntryEditor` | Keyboard-aware entry editor |
+
+### CSS Variables (`styles/mobile.css`)
+
+```css
+--mobile-nav-height: 56px;
+--mobile-safe-area-top: env(safe-area-inset-top, 0px);
+--mobile-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+--mobile-touch-target-min: 48px;
+--keyboard-height: 0px;
 ```
 
-Backend exposes commands via:
-```rust
-#[tauri::command]
-fn command_name(param: Type) -> ReturnType { }
+### Mobile Practices
+
+1. **Safe areas**: MobileLayout handles all safe area padding. Components should not add their own.
+
+2. **Keyboard handling**: Use `useKeyboard()` hook. Adjust bottom padding when keyboard opens:
+   ```typescript
+   paddingBottom: isKeyboardOpen ? '20px' : 'calc(20px + var(--mobile-nav-height) + var(--mobile-safe-area-bottom))'
+   ```
+
+3. **Touch targets**: Minimum 48px for tappable elements (`--mobile-touch-target-min`).
+
+4. **Input font size**: Always 16px+ on inputs to prevent iOS auto-zoom.
+
+5. **Scroll behavior**: Use `overscroll-behavior: none` to prevent bounce. Momentum scrolling enabled via `-webkit-overflow-scrolling: touch`.
+
+6. **Transitions**: Use 0.25s ease-out for layout changes (keyboard, nav visibility).
+
+7. **Bottom nav visibility**: Hide during keyboard input, show otherwise.
+
+8. **FAB positioning**: Positioned above bottom nav, moves down when keyboard opens.
+
+### Viewport Configuration (`index.html`)
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 ```
 
-Register commands in `src-tauri/src/lib.rs` using `tauri::generate_handler![]`
-
-## Development Commands
-
-```bash
-bun install          # Install dependencies
-bun run dev          # Start Vite dev server (frontend only)
-bun run tauri dev    # Start full Tauri app in dev mode (recommended)
-bun run build        # Build frontend
-bun run tauri build  # Build complete Tauri application
-```
-
-## TypeScript Configuration
-
-- **Strict Mode**: Enabled with `noUnusedLocals` and `noUnusedParameters`
-- **Module Resolution**: Uses "bundler" mode
-- **Target**: ES2020
-
-## Tauri Configuration
-
-- **Dev Server**: Runs on port 1420 (strict port)
-- **HMR**: Port 1421
-- **Before Dev**: Runs `bun run dev`
-- **Before Build**: Runs `bun run build`
-- **Frontend Dist**: `../dist` (relative to `src-tauri/`)
-- **App Identifier**: `com.younesbenketira.journai`
-
-## Adding New Tauri Commands
-
-1. Define command in `src-tauri/src/lib.rs`:
-```rust
-#[tauri::command]
-fn my_command(param: &str) -> String {
-    // implementation
-}
-```
-
-2. Register in `invoke_handler`:
-```rust
-.invoke_handler(tauri::generate_handler![greet, my_command])
-```
-
-3. Call from frontend:
-```typescript
-const result = await invoke("my_command", { param: "value" });
-```
-
-## Rust Dependencies
-
-Core dependencies (in `src-tauri/Cargo.toml`):
-- `tauri` v2
-- `tauri-plugin-opener` v2
-- `tauri-plugin-store` v2
-- `serde` with derive features
-- `serde_json`
-
-## Theme System
-
-The application uses a custom theme system with light/dark mode support, persistent storage via Tauri's store plugin, and system preference detection.
-
-### Key Files
-
-**Core Infrastructure:**
-- `src/lib/store.ts` - Type-safe abstraction over Tauri's LazyStore plugin
-- `src/theme/tokens.ts` - Theme token definitions (colors, spacing, typography)
-- `src/contexts/ThemeContext.tsx` - ThemeProvider and useTheme() hook
-
-**Components:**
-- `src/components/themed/` - Themed wrapper components (Container, Text, Card)
-- `src/components/ThemeToggle.tsx` - Theme toggle button in Layout
-
-**Styling:**
-- `src/App.css` and `src/styles/layout.css` use CSS custom properties (e.g., `var(--bg-primary)`, `var(--text-primary)`)
-- Theme values are applied to `document.documentElement` by ThemeProvider
-
-### Usage
-
-```typescript
-import { useTheme } from './contexts/ThemeContext';
-import { Container, Text, Card } from './components/themed';
-
-function MyComponent() {
-  const { theme, mode, toggleTheme } = useTheme();
-  return <Container variant="primary"><Text variant="accent">Hello</Text></Container>;
-}
-```
-
-## Entries Feature (Journal Entries)
-
-The Entries page displays a list of journal entries with virtual scrolling for performance at scale. Currently uses dummy data; will be replaced with Tauri backend integration.
-
-### Key Files
-
-**Components:**
-- `src/pages/Entries.tsx` - Main entries page with two-column layout (sidebar + detail view)
-- `src/components/entries/EntriesSidebar.tsx` - Virtualized list of entries with smart date grouping
-- `src/components/entries/EntryDetail.tsx` - Displays full content of selected entry
-
-**Data & Utilities:**
-- `src/data/dummyEntries.ts` - **TEMPORARY** dummy data (60 sample entries). Replace with real backend integration
-- `src/types/entry.ts` - TypeScript interface for `JournalEntry` type
-- `src/utils/dateGrouping.ts` - Smart date grouping logic (Today, Yesterday, This Week, etc. for recent entries; Month/Year for older entries)
-
-**Styling:**
-- `src/styles/entries.css` - Layout and styling for entries list and detail view
-
-### Virtual Scrolling Implementation
-
-Uses **TanStack React Virtual** (`@tanstack/react-virtual`) for high-performance rendering of large lists:
-- Only renders visible items in DOM (~10-15 at a time)
-- Maintains 60 FPS smooth scrolling even with thousands of entries
-- Dynamic height estimation (headers: 45px, entries: 46px)
-- 5-item overscan buffer for seamless scrolling
-
-**Why Virtual Scrolling:**
-- Handles 10,000+ entries without performance degradation
-- Constant memory usage regardless of entry count
-- Industry standard for scalable list UIs (messaging apps, notes apps, email clients)
-
-**Implementation Pattern:**
-```typescript
-import { useVirtualizer } from '@tanstack/react-virtual';
-
-const virtualizer = useVirtualizer({
-  count: items.length,
-  getScrollElement: () => scrollRef.current,
-  estimateSize: (index) => itemHeights[index],
-  overscan: 5,
-});
-```
-
-### Date Grouping Logic
-
-Entries are automatically grouped by date for easy scanning:
-- **Recent entries** (last 5 weeks): "Today", "Yesterday", "This Week", "Last Week", "This Month"
-- **Older entries**: Grouped by "Month YYYY" (e.g., "November 2025", "October 2025")
-- Groups sorted chronologically (newest first)
-- Implemented in `src/utils/dateGrouping.ts`
-
-### Data Model
-
-```typescript
-interface JournalEntry {
-  id: string;
-  date: string;        // ISO date format: YYYY-MM-DD
-  preview: string;     // First ~50 chars for list view
-  content: string;     // Full entry content
-}
-```
-
-### Integration Notes
-
-**Current State:**
-- Uses static dummy data from `src/data/dummyEntries.ts`
-- No backend persistence yet
-
-**Next Steps for Backend Integration:**
-1. Create Tauri commands in `src-tauri/src/lib.rs` for CRUD operations:
-   - `get_entries() -> Vec<JournalEntry>`
-   - `get_entry(id: String) -> JournalEntry`
-   - `create_entry(entry: JournalEntry) -> JournalEntry`
-   - `update_entry(id: String, entry: JournalEntry) -> JournalEntry`
-   - `delete_entry(id: String) -> bool`
-2. Implement SQLite/database storage in Rust backend
-3. Replace `dummyEntries` import with `invoke("get_entries")`
-4. Add state management (React Query or similar) for caching and optimistic updates
-5. Implement cursor-based pagination for backend queries (better performance than offset-based)
+`viewport-fit=cover` allows content to extend into safe areas (notches).

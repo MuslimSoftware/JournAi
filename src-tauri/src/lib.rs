@@ -1,4 +1,7 @@
+use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
+
+mod ios_webview;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -33,6 +36,15 @@ pub fn run() {
                 .add_migrations("sqlite:journai.db", migrations)
                 .build(),
         )
+        .setup(|app| {
+            #[cfg(target_os = "ios")]
+            {
+                if let Some(webview_window) = app.get_webview_window("main") {
+                    ios_webview::configure_webview_for_fullscreen(&webview_window);
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![greet])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

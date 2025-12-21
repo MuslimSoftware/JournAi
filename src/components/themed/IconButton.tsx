@@ -19,7 +19,7 @@ export default function IconButton({
   const { theme } = useTheme();
 
   const sizeStyles = {
-    sm: { padding: theme.spacing.xs, fontSize: '1rem' },
+    sm: { padding: theme.spacing.sm, fontSize: '1rem' },
     md: { padding: theme.spacing.sm, fontSize: '1.25rem' },
     lg: { padding: theme.spacing.md, fontSize: '1.5rem' },
   };
@@ -52,8 +52,8 @@ export default function IconButton({
     justifyContent: 'center',
     transition: 'all 0.2s',
     border: variant === 'secondary' ? `1px solid ${theme.colors.border.primary}` : 'none',
-    minWidth: size === 'sm' ? '32px' : size === 'md' ? '40px' : '48px',
-    minHeight: size === 'sm' ? '32px' : size === 'md' ? '40px' : '48px',
+    minWidth: size === 'sm' ? '44px' : size === 'md' ? '48px' : '56px',
+    minHeight: size === 'sm' ? '44px' : size === 'md' ? '48px' : '56px',
     ...style,
   };
 

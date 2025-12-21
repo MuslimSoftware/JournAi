@@ -23,9 +23,9 @@ export default function Button({
   const { theme } = useTheme();
 
   const sizeStyles = {
-    sm: { padding: `${theme.spacing.xs} ${theme.spacing.sm}`, fontSize: '0.875rem', gap: theme.spacing.xs },
-    md: { padding: `${theme.spacing.xs} ${theme.spacing.md}`, fontSize: '1rem', gap: theme.spacing.sm },
-    lg: { padding: `${theme.spacing.sm} ${theme.spacing.lg}`, fontSize: '1.125rem', gap: theme.spacing.sm },
+    sm: { padding: `${theme.spacing.sm} ${theme.spacing.md}`, fontSize: '0.875rem', gap: theme.spacing.xs, minHeight: '44px' },
+    md: { padding: `${theme.spacing.sm} ${theme.spacing.lg}`, fontSize: '1rem', gap: theme.spacing.sm, minHeight: '48px' },
+    lg: { padding: `${theme.spacing.md} ${theme.spacing.xl}`, fontSize: '1.125rem', gap: theme.spacing.sm, minHeight: '56px' },
   };
 
   const variantStyles: Record<string, CSSProperties> = {

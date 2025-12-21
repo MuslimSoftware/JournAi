@@ -1,12 +1,24 @@
+import { useIsMobile } from '../hooks/useMediaQuery';
 import { useEntries } from '../hooks/useEntries';
 import { useFocusMode } from '../contexts/FocusModeContext';
 import { Spinner } from '../components/themed';
 import EntriesSidebar from '../components/entries/EntriesSidebar';
 import EntryDetail from '../components/entries/EntryDetail';
+import MobileEntries from '../components/mobile/MobileEntries';
 import '../styles/entries.css';
 import '../styles/focus-mode.css';
 
 export default function Entries() {
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return <MobileEntries />;
+  }
+
+  return <DesktopEntries />;
+}
+
+function DesktopEntries() {
   const { isFocusMode } = useFocusMode();
   const {
     entries,
