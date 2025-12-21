@@ -313,6 +313,18 @@
   min-height: 32px !important;
   max-width: 32px !important;
   max-height: 32px !important;
+  padding: 6px !important;
+  border-radius: 6px !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+
+.toolbar-button:hover {
+  background-color: var(--bg-subtle) !important;
+  color: var(--text-primary) !important;
+}
+
+.toolbar-button:active {
+  background-color: var(--bg-secondary) !important;
 }
 
 .search-container {
@@ -930,6 +942,8 @@
     min-height: 28px !important;
     max-width: 28px !important;
     max-height: 28px !important;
+    padding: 5px !important;
+    border-radius: 6px !important;
   }
 
   .search-container {

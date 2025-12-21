@@ -233,18 +233,20 @@ export default function EntriesSidebar({
           rightAction={
             <div style={{ display: 'flex', gap: '4px' }}>
               <IconButton
-                icon={<FiPlus />}
+                icon={<FiPlus size={18} />}
                 label="New entry"
                 onClick={() => onCreateEntry()}
                 variant="ghost"
                 size="sm"
+                className="toolbar-button"
               />
               <IconButton
-                icon={entriesPinned ? <TbPinFilled /> : <TbPin />}
+                icon={entriesPinned ? <TbPinFilled size={18} /> : <TbPin size={18} />}
                 label={entriesPinned ? "Unpin sidebar" : "Pin sidebar"}
                 onClick={toggleEntriesPin}
                 variant="ghost"
                 size="sm"
+                className="toolbar-button"
               />
             </div>
           }
