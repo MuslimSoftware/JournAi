@@ -24,7 +24,7 @@ export default function Sidebar({ items, onOpenSettings }: SidebarProps) {
     <aside className={`sidebar ${navPinned ? 'pinned' : ''}`}>
       <div className="sidebar-header">
         <IconButton
-          icon={navPinned ? <TbPinFilled /> : <TbPin />}
+          icon={navPinned ? <TbPinFilled size={18} /> : <TbPin size={18} />}
           label={navPinned ? "Unpin sidebar" : "Pin sidebar"}
           onClick={toggleNavPin}
           variant="ghost"

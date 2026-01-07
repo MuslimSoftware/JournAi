@@ -1,6 +1,8 @@
+#[cfg(target_os = "ios")]
 use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
+#[cfg(target_os = "ios")]
 mod ios_webview;
 
 #[tauri::command]
@@ -23,6 +25,34 @@ pub fn run() {
             );
             CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(date DESC);",
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "create_todos_table",
+            sql: "CREATE TABLE IF NOT EXISTS todos (
+                id TEXT PRIMARY KEY NOT NULL,
+                date TEXT NOT NULL,
+                content TEXT NOT NULL,
+                scheduled_time TEXT,
+                completed INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_todos_date ON todos(date);",
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 3,
+            description: "create_sticky_notes_table",
+            sql: "CREATE TABLE IF NOT EXISTS sticky_notes (
+                id TEXT PRIMARY KEY NOT NULL,
+                date TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_sticky_notes_date ON sticky_notes(date);",
+            kind: MigrationKind::Up,
         }
     ];
 
@@ -36,10 +66,10 @@ pub fn run() {
                 .add_migrations("sqlite:journai.db", migrations)
                 .build(),
         )
-        .setup(|app| {
+        .setup(|_app| {
             #[cfg(target_os = "ios")]
             {
-                if let Some(webview_window) = app.get_webview_window("main") {
+                if let Some(webview_window) = _app.get_webview_window("main") {
                     ios_webview::configure_webview_for_fullscreen(&webview_window);
                 }
             }

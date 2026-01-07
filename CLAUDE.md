@@ -15,27 +15,27 @@ bun run tauri build  # Production build
 
 ### Frontend (`/src`)
 
-| Directory | Responsibility |
-|-----------|----------------|
-| `pages/` | Route-level components (Entries, Calendar, Chat, Projections) |
-| `components/` | Reusable UI components |
-| `components/themed/` | Design system primitives (Button, Card, Text, Container) |
-| `components/mobile/` | Mobile-specific components |
-| `contexts/` | React contexts (Theme, FocusMode, Sidebar) |
-| `hooks/` | Custom hooks (useEntries, useMediaQuery, useKeyboard) |
-| `services/` | Business logic and data operations |
-| `lib/` | Infrastructure (db.ts, store.ts) |
-| `styles/` | CSS files per feature |
-| `theme/` | Design tokens |
-| `types/` | TypeScript interfaces |
+| Directory            | Responsibility                                                |
+| -------------------- | ------------------------------------------------------------- |
+| `pages/`             | Route-level components (Entries, Calendar, Chat, Projections) |
+| `components/`        | Reusable UI components                                        |
+| `components/themed/` | Design system primitives (Button, Card, Text, Container)      |
+| `components/mobile/` | Mobile-specific components                                    |
+| `contexts/`          | React contexts (Theme, FocusMode, Sidebar)                    |
+| `hooks/`             | Custom hooks (useEntries, useMediaQuery, useKeyboard)         |
+| `services/`          | Business logic and data operations                            |
+| `lib/`               | Infrastructure (db.ts, store.ts)                              |
+| `styles/`            | CSS files per feature                                         |
+| `theme/`             | Design tokens                                                 |
+| `types/`             | TypeScript interfaces                                         |
 
 ### Backend (`/src-tauri`)
 
-| File | Responsibility |
-|------|----------------|
-| `src/lib.rs` | Tauri app builder and command handlers |
-| `src/main.rs` | Application launcher |
-| `tauri.conf.json` | App configuration |
+| File              | Responsibility                         |
+| ----------------- | -------------------------------------- |
+| `src/lib.rs`      | Tauri app builder and command handlers |
+| `src/main.rs`     | Application launcher                   |
+| `tauri.conf.json` | App configuration                      |
 
 SQLite database via `tauri-plugin-sql`. Settings persisted via `tauri-plugin-store`.
 
@@ -48,6 +48,7 @@ SQLite database via `tauri-plugin-sql`. Settings persisted via `tauri-plugin-sto
 ### MobileLayout (`components/mobile/MobileLayout.tsx`)
 
 Handles all mobile container concerns:
+
 - Uses `100dvh` for dynamic viewport height (handles address bar)
 - Applies safe area insets via CSS custom properties
 - Adjusts padding when keyboard opens
@@ -55,21 +56,21 @@ Handles all mobile container concerns:
 
 ### Mobile Hooks
 
-| Hook | Purpose |
-|------|---------|
-| `useKeyboard()` | Returns `{ isOpen, height }` for soft keyboard state |
-| `useMediaQuery()` | Breakpoint detection (mobile < 768px) |
+| Hook               | Purpose                                                    |
+| ------------------ | ---------------------------------------------------------- |
+| `useKeyboard()`    | Returns `{ isOpen, height }` for soft keyboard state       |
+| `useMediaQuery()`  | Breakpoint detection (mobile < 768px)                      |
 | `useSwipeAction()` | Horizontal swipe gesture handling with threshold detection |
 
 ### Mobile Components
 
-| Component | Purpose |
-|-----------|---------|
-| `BottomNav` | Fixed bottom navigation bar |
-| `BottomSheet` | Draggable modal from bottom, swipe-to-dismiss |
-| `SwipeableListItem` | List item with swipe actions (delete/edit) |
-| `MobileEntries` | Mobile entries list with FAB and search |
-| `MobileEntryEditor` | Keyboard-aware entry editor |
+| Component           | Purpose                                       |
+| ------------------- | --------------------------------------------- |
+| `BottomNav`         | Fixed bottom navigation bar                   |
+| `BottomSheet`       | Draggable modal from bottom, swipe-to-dismiss |
+| `SwipeableListItem` | List item with swipe actions (delete/edit)    |
+| `MobileEntries`     | Mobile entries list with FAB and search       |
+| `MobileEntryEditor` | Keyboard-aware entry editor                   |
 
 ### CSS Variables (`styles/mobile.css`)
 
@@ -86,6 +87,7 @@ Handles all mobile container concerns:
 1. **Safe areas**: MobileLayout handles all safe area padding. Components should not add their own.
 
 2. **Keyboard handling**: Use `useKeyboard()` hook. Adjust bottom padding when keyboard opens:
+   
    ```typescript
    paddingBottom: isKeyboardOpen ? '20px' : 'calc(20px + var(--mobile-nav-height) + var(--mobile-safe-area-bottom))'
    ```

@@ -78,7 +78,7 @@ export const lightTheme: ThemeTokens = {
       secondary: '#424242',
       muted: '#757575',
       emphasis: '#1a1a1a',
-      accent: '#1a1a1a',
+      accent: '#f59e0b',
     },
     border: {
       primary: '#e0e0e0',
@@ -145,7 +145,7 @@ export const darkTheme: ThemeTokens = {
       secondary: '#b0b0b0',
       muted: '#757575',
       emphasis: '#ffffff',
-      accent: '#ffffff',
+      accent: '#fbbf24',
     },
     border: {
       primary: '#2e2e2e',

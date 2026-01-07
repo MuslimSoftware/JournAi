@@ -6,6 +6,7 @@ interface CardProps {
   className?: string;
   padding?: keyof typeof import('../../theme/tokens').lightTheme.spacing;
   style?: CSSProperties;
+  onClick?: () => void;
 }
 
 export default function Card({
@@ -13,6 +14,7 @@ export default function Card({
   className = '',
   padding = 'lg',
   style,
+  onClick,
 }: CardProps) {
   const { theme } = useTheme();
 
@@ -21,11 +23,12 @@ export default function Card({
     border: `1px solid ${theme.colors.border.primary}`,
     borderRadius: '8px',
     padding: theme.spacing[padding],
+    cursor: onClick ? 'pointer' : undefined,
     ...style,
   };
 
   return (
-    <div className={className} style={cardStyle}>
+    <div className={className} style={cardStyle} onClick={onClick}>
       {children}
     </div>
   );
