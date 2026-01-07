@@ -604,6 +604,21 @@
   fill: var(--text-primary);
 }
 
+.custom-day-picker .rdp-dropdowns .rdp-chevron {
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: width 0.15s ease, opacity 0.15s ease, margin 0.15s ease;
+  margin-left: 0;
+}
+
+.custom-day-picker .rdp-dropdown_root:hover .rdp-chevron,
+.custom-day-picker .rdp-dropdown_root:focus-within .rdp-chevron {
+  width: 14px;
+  opacity: 1;
+  margin-left: 0.25rem;
+}
+
 .custom-day-picker .rdp-weekday {
   color: var(--text-muted);
   font-size: 0.75rem;

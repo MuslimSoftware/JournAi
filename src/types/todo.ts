@@ -2,7 +2,6 @@ export interface Todo {
   id: string;
   date: string;
   content: string;
-  scheduledTime: string | null;
   completed: boolean;
 }
 

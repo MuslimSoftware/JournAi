@@ -88,9 +88,9 @@ export function useCalendar() {
     setCurrentYear(year);
   }, []);
 
-  const createTodo = useCallback(async (content: string, scheduledTime?: string) => {
+  const createTodo = useCallback(async (content: string) => {
     if (!selectedDate) return null;
-    const todo = await todosService.createTodo(selectedDate, content, scheduledTime);
+    const todo = await todosService.createTodo(selectedDate, content);
     await loadDayData(selectedDate);
     await loadIndicators();
     return todo;
@@ -98,7 +98,7 @@ export function useCalendar() {
 
   const updateTodo = useCallback(async (
     id: string,
-    updates: { content?: string; scheduledTime?: string | null; completed?: boolean }
+    updates: { content?: string; completed?: boolean }
   ) => {
     const updated = await todosService.updateTodo(id, updates);
     if (selectedDate) {

@@ -11,14 +11,13 @@ function rowToTodo(row: TodoRow): Todo {
     id: row.id,
     date: row.date,
     content: row.content,
-    scheduledTime: row.scheduled_time,
     completed: row.completed === 1,
   };
 }
 
 export async function getTodosByDate(date: string): Promise<Todo[]> {
   const rows = await select<TodoRow>(
-    'SELECT * FROM todos WHERE date = $1 ORDER BY scheduled_time ASC NULLS LAST, created_at ASC',
+    'SELECT * FROM todos WHERE date = $1 ORDER BY created_at ASC',
     [date]
   );
   return rows.map(rowToTodo);
@@ -26,31 +25,27 @@ export async function getTodosByDate(date: string): Promise<Todo[]> {
 
 export async function getTodosByDateRange(startDate: string, endDate: string): Promise<Todo[]> {
   const rows = await select<TodoRow>(
-    'SELECT * FROM todos WHERE date >= $1 AND date <= $2 ORDER BY date ASC, scheduled_time ASC NULLS LAST',
+    'SELECT * FROM todos WHERE date >= $1 AND date <= $2 ORDER BY date ASC, created_at ASC',
     [startDate, endDate]
   );
   return rows.map(rowToTodo);
 }
 
-export async function createTodo(
-  date: string,
-  content: string,
-  scheduledTime?: string
-): Promise<Todo> {
+export async function createTodo(date: string, content: string): Promise<Todo> {
   const id = generateId();
   const timestamp = getTimestamp();
 
   await execute(
-    'INSERT INTO todos (id, date, content, scheduled_time, completed, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-    [id, date, content, scheduledTime ?? null, 0, timestamp, timestamp]
+    'INSERT INTO todos (id, date, content, completed, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)',
+    [id, date, content, 0, timestamp, timestamp]
   );
 
-  return { id, date, content, scheduledTime: scheduledTime ?? null, completed: false };
+  return { id, date, content, completed: false };
 }
 
 export async function updateTodo(
   id: string,
-  updates: { content?: string; scheduledTime?: string | null; completed?: boolean }
+  updates: { content?: string; completed?: boolean }
 ): Promise<Todo | null> {
   const timestamp = getTimestamp();
   const setClauses: string[] = ['updated_at = $1'];
@@ -60,11 +55,6 @@ export async function updateTodo(
   if (updates.content !== undefined) {
     setClauses.push(`content = $${paramIndex}`);
     values.push(updates.content);
-    paramIndex++;
-  }
-  if (updates.scheduledTime !== undefined) {
-    setClauses.push(`scheduled_time = $${paramIndex}`);
-    values.push(updates.scheduledTime);
     paramIndex++;
   }
   if (updates.completed !== undefined) {
