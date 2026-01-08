@@ -16,19 +16,20 @@ export default function SettingsSidebar({ items, activeId, onSelect }: SettingsS
   const { theme } = useTheme();
 
   const containerStyle: CSSProperties = {
-    width: '200px',
+    width: '180px',
     borderRight: `1px solid ${theme.colors.border.primary}`,
-    padding: theme.spacing.md,
+    padding: '12px',
   };
 
   const itemStyle: CSSProperties = {
-    padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+    padding: '8px 12px',
     cursor: 'pointer',
     borderRadius: '6px',
-    marginBottom: theme.spacing.xs,
+    marginBottom: '4px',
     color: theme.colors.text.secondary,
+    fontSize: '0.875rem',
     fontWeight: 500,
-    transition: 'all 0.2s',
+    transition: 'all 0.15s',
   };
 
   const activeItemStyle: CSSProperties = {

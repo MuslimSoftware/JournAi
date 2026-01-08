@@ -4,6 +4,7 @@ interface UseAutoScrollOptions {
   enabled?: boolean;
   threshold?: number;
   behavior?: ScrollBehavior;
+  deps?: unknown[];
 }
 
 interface UseAutoScrollReturn {
@@ -21,6 +22,7 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}): UseAutoScroll
     enabled = true,
     threshold = DEFAULT_THRESHOLD,
     behavior = 'smooth',
+    deps = [],
   } = options;
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -91,6 +93,15 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}): UseAutoScroll
       scrollToBottom();
     }
   }, [autoScrollEnabled, enabled, scrollToBottom]);
+
+  useEffect(() => {
+    if (deps.length > 0 && autoScrollEnabled && enabled) {
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
 
   const enableAutoScroll = useCallback(() => {
     setAutoScrollEnabled(true);

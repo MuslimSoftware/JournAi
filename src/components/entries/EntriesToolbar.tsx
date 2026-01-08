@@ -30,6 +30,7 @@ interface EntriesToolbarProps {
   resultCount: number;
   rightAction?: ReactNode;
   onDropdownOpenChange?: (isOpen: boolean) => void;
+  hideSearch?: boolean;
 }
 
 export default function EntriesToolbar({
@@ -38,6 +39,7 @@ export default function EntriesToolbar({
   resultCount,
   rightAction,
   onDropdownOpenChange,
+  hideSearch = false,
 }: EntriesToolbarProps) {
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [filterExpanded, setFilterExpanded] = useState(false);
@@ -170,30 +172,32 @@ export default function EntriesToolbar({
   };
 
   return (
-    <div className="entries-toolbar">
+    <div className={hideSearch ? "entries-toolbar-inline" : "entries-toolbar"}>
       <div className="entries-toolbar-controls">
-        <div
-          ref={searchContainerRef}
-          className={`search-container ${searchExpanded ? 'expanded' : ''}`}
-        >
-          <IconButton
-            icon={searchExpanded && searchQuery ? <IoClose size={18} /> : <IoSearch size={18} />}
-            label={searchExpanded && searchQuery ? 'Clear search' : 'Search'}
-            variant="ghost"
-            size="sm"
-            onClick={handleSearchIconClick}
-            className="search-button toolbar-button"
-            style={{ backgroundColor: 'transparent' }}
-          />
-          <Input
-            ref={searchInputRef}
-            type="text"
-            className="search-input"
-            placeholder="Search entries..."
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-          />
-        </div>
+        {!hideSearch && (
+          <div
+            ref={searchContainerRef}
+            className={`search-container ${searchExpanded ? 'expanded' : ''}`}
+          >
+            <IconButton
+              icon={searchExpanded && searchQuery ? <IoClose size={18} /> : <IoSearch size={18} />}
+              label={searchExpanded && searchQuery ? 'Clear search' : 'Search'}
+              variant="ghost"
+              size="sm"
+              onClick={handleSearchIconClick}
+              className="search-button toolbar-button"
+              style={{ backgroundColor: 'transparent' }}
+            />
+            <Input
+              ref={searchInputRef}
+              type="text"
+              className="search-input"
+              placeholder="Search entries..."
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+            />
+          </div>
+        )}
 
         <div ref={filterContainerRef} className="filter-container">
           <IconButton

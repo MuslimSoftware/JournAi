@@ -1,7 +1,75 @@
+.chat-layout {
+  position: relative;
+  display: flex;
+  height: 100vh;
+  gap: 0;
+  margin: -2rem;
+  width: calc(100% + 4rem);
+}
+
+.chat-sidebar .chat-list-item-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.chat-sidebar .chat-list-item-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-sidebar .chat-list-item-title {
+  font-size: 0.875rem;
+  line-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-sidebar .chat-list-item-preview {
+  font-size: 0.75rem;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-sidebar .nested-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
 .chat-container {
   max-width: 680px;
   margin: 0 auto;
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 1rem;
+}
+
+.chat-message-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 4rem;
 }
 
 .chat-input-wrapper {

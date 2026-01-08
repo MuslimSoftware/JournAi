@@ -74,20 +74,6 @@
   min-width: var(--entries-sidebar-expanded);
 }
 
-.entries-sidebar-action-bar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 0;
-}
-
-.entries-sidebar.pinned .entries-sidebar-action-bar,
-.entries-sidebar.dropdown-open .entries-sidebar-action-bar,
-.entries-sidebar:has(.entries-sidebar-hover-zone:hover) .entries-sidebar-action-bar {
-  display: none;
-}
-
 .entries-sidebar-hover-zone {
   flex: 1;
   display: flex;
@@ -326,6 +312,11 @@
 
 .entries-toolbar {
   padding: 1rem 1rem 0.25rem 1rem;
+}
+
+.entries-toolbar-inline {
+  display: inline-flex;
+  align-items: center;
 }
 
 .entries-toolbar-controls {

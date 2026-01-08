@@ -17,9 +17,8 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
     const { theme } = useTheme();
 
     const containerStyle: CSSProperties = {
-      flex: 1,
-      overflow: 'auto',
       padding: theme.spacing.md,
+      paddingTop: '2rem',
       display: 'flex',
       flexDirection: 'column',
       gap: theme.spacing.md,
@@ -27,14 +26,14 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
 
     if (messages.length === 0) {
       return (
-        <div ref={ref} style={containerStyle}>
+        <div ref={ref} style={containerStyle} className="chat-message-list">
           <WelcomeScreen onSuggestionClick={onSuggestionClick} />
         </div>
       );
     }
 
     return (
-      <div ref={ref} style={containerStyle} onScroll={onScroll}>
+      <div ref={ref} style={containerStyle} className="chat-message-list" onScroll={onScroll}>
         {messages.map(message => (
           <MessageBubble
             key={message.id}

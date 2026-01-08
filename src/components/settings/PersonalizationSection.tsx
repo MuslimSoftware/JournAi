@@ -6,7 +6,7 @@ import Text from '../themed/Text';
 import { CSSProperties } from 'react';
 
 export default function PersonalizationSection() {
-  const { theme, mode, setTheme } = useTheme();
+  const { mode, setTheme } = useTheme();
 
   const getSystemThemeColors = () => {
     const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -43,16 +43,17 @@ export default function PersonalizationSection() {
   ];
 
   const sectionStyle: CSSProperties = {
-    marginBottom: theme.spacing.xl,
+    marginBottom: '16px',
   };
 
   const headerStyle: CSSProperties = {
-    marginBottom: theme.spacing.md,
+    marginBottom: '12px',
+    fontSize: '1rem',
   };
 
   const cardsContainerStyle: CSSProperties = {
     display: 'flex',
-    gap: theme.spacing.md,
+    gap: '12px',
     flexWrap: 'wrap',
   };
 

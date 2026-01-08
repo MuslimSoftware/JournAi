@@ -38,57 +38,58 @@ export default function DataManagementSection() {
     };
 
     const sectionStyle: CSSProperties = {
-        marginBottom: theme.spacing.xl,
+        marginBottom: '16px',
     };
 
     const headerStyle: CSSProperties = {
-        marginBottom: theme.spacing.md,
+        marginBottom: '8px',
+        fontSize: '1rem',
     };
 
     const descriptionStyle: CSSProperties = {
-        marginBottom: theme.spacing.lg,
+        marginBottom: '12px',
         color: theme.colors.text.secondary,
-        fontSize: theme.typography.fontSize.h6,
+        fontSize: '0.8125rem',
         lineHeight: 1.5,
     };
 
     const buttonStyle: CSSProperties = {
         display: 'flex',
         alignItems: 'center',
-        gap: theme.spacing.sm,
-        padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+        gap: '8px',
+        padding: '8px 12px',
         backgroundColor: theme.colors.background.subtle,
         color: theme.colors.text.primary,
         border: `1px solid ${theme.colors.border.primary}`,
-        borderRadius: '8px',
+        borderRadius: '6px',
         cursor: isImporting ? 'not-allowed' : 'pointer',
-        fontSize: theme.typography.fontSize.h6,
+        fontSize: '0.8125rem',
         fontWeight: 500,
         opacity: isImporting ? 0.7 : 1,
-        transition: 'all 0.2s',
+        transition: 'all 0.15s',
     };
 
     const resultStyle: CSSProperties = {
-        marginTop: theme.spacing.md,
-        padding: theme.spacing.md,
+        marginTop: '12px',
+        padding: '12px',
         backgroundColor: theme.colors.background.subtle,
-        borderRadius: '8px',
-        fontSize: theme.typography.fontSize.h6,
+        borderRadius: '6px',
+        fontSize: '0.8125rem',
     };
 
     const successStyle: CSSProperties = {
-        color: '#22c55e',
-        marginBottom: theme.spacing.xs,
+        color: theme.colors.status.success,
+        marginBottom: '4px',
     };
 
     const skipStyle: CSSProperties = {
         color: theme.colors.text.secondary,
-        marginBottom: theme.spacing.xs,
+        marginBottom: '4px',
     };
 
     const errorStyle: CSSProperties = {
-        color: '#ef4444',
-        marginTop: theme.spacing.sm,
+        color: theme.colors.status.error,
+        marginTop: '8px',
     };
 
     return (
@@ -98,15 +99,14 @@ export default function DataManagementSection() {
                     Import Data
                 </Text>
                 <p style={descriptionStyle}>
-                    Import journal entries, todos, and sticky notes from a LifeOS backup folder. Files should be named with dates (e.g., 2024-01-15.md).
-                    Entries for dates that already exist will be skipped.
+                    Import entries from a backup folder. Files should be named with dates (e.g., 2024-01-15.md).
                 </p>
                 <button
                     style={buttonStyle}
                     onClick={handleImport}
                     disabled={isImporting}
                 >
-                    <IoFolderOpenOutline size={18} />
+                    <IoFolderOpenOutline size={14} />
                     {isImporting
                         ? progress
                             ? `Importing... (${progress.current}/${progress.total})`

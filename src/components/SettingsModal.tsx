@@ -3,6 +3,7 @@ import { IoClose } from 'react-icons/io5';
 import Modal from './Modal';
 import SettingsSidebar from './settings/SettingsSidebar';
 import PersonalizationSection from './settings/PersonalizationSection';
+import AISection from './settings/AISection';
 import DataManagementSection from './settings/DataManagementSection';
 import { useTheme } from '../contexts/ThemeContext';
 import IconButton from './themed/IconButton';
@@ -16,6 +17,7 @@ interface SettingsModalProps {
 
 const SECTIONS = [
   { id: 'personalization', label: 'Personalization' },
+  { id: 'ai', label: 'AI' },
   { id: 'data-management', label: 'Data Management' },
 ];
 
@@ -26,12 +28,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const contentStyle: CSSProperties = {
     display: 'flex',
-    height: '600px',
+    height: '420px',
   };
 
   const mainStyle: CSSProperties = {
     flex: 1,
-    padding: theme.spacing.xl,
+    padding: '20px 24px',
     overflowY: 'auto',
   };
 
@@ -39,13 +41,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    padding: '12px 16px',
     borderBottom: `1px solid ${theme.colors.border.primary}`,
   };
 
   const titleStyle: CSSProperties = {
-    fontSize: theme.typography.fontSize.h3,
-    fontWeight: theme.typography.fontWeight.h3,
+    fontSize: '1rem',
+    fontWeight: 600,
     color: theme.colors.text.primary,
     margin: 0,
   };
@@ -80,6 +82,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             ))}
           </div>
           {activeSection === 'personalization' && <PersonalizationSection />}
+          {activeSection === 'ai' && <AISection />}
           {activeSection === 'data-management' && <DataManagementSection />}
         </div>
       ) : (
@@ -91,6 +94,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           />
           <div style={mainStyle}>
             {activeSection === 'personalization' && <PersonalizationSection />}
+            {activeSection === 'ai' && <AISection />}
             {activeSection === 'data-management' && <DataManagementSection />}
           </div>
         </div>

@@ -1,5 +1,16 @@
-import { useState, useCallback, useRef } from 'react';
-import type { ChatMessage, ChatState, MessageRole, ToolCall } from '../types/chat';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import type { ChatMessage, ChatState, MessageRole, OpenAIModel } from '../types/chat';
+import { sendChatMessage, formatMessagesForAPI } from '../services/ai';
+import * as chatMessagesService from '../services/chatMessages';
+import * as chatsService from '../services/chats';
+import { appStore, STORE_KEYS } from '../lib/store';
+import { getApiKey } from '../lib/secureStorage';
+
+interface UseChatOptions {
+  chatId: string | null;
+  onTitleGenerated?: (chatId: string, title: string) => void;
+  onMessageAdded?: (chatId: string) => void;
+}
 
 interface UseChatReturn extends ChatState {
   sendMessage: (content: string) => Promise<void>;
@@ -8,9 +19,7 @@ interface UseChatReturn extends ChatState {
   toggleThinkingExpanded: (messageId: string) => void;
 }
 
-const STREAM_DELAY = 30;
-
-export function useChat(): UseChatReturn {
+export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOptions): UseChatReturn {
   const [state, setState] = useState<ChatState>({
     messages: [],
     isLoading: false,
@@ -18,7 +27,73 @@ export function useChat(): UseChatReturn {
     error: null,
   });
 
+  const [aiSettings, setAiSettings] = useState<{ apiKey: string; model: OpenAIModel } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const titleGeneratedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const apiKey = getApiKey();
+      const model = await appStore.get<OpenAIModel>(STORE_KEYS.AI_MODEL);
+      if (apiKey) {
+        setAiSettings({ apiKey, model: model || 'gpt-5.2' });
+      }
+    };
+    loadSettings();
+  }, []);
+
+  useEffect(() => {
+    if (!chatId) {
+      setState({
+        messages: [],
+        isLoading: false,
+        isThinking: false,
+        error: null,
+      });
+      return;
+    }
+
+    const loadMessages = async () => {
+      try {
+        const messages = await chatMessagesService.getMessages(chatId);
+        setState(prev => ({
+          ...prev,
+          messages,
+        }));
+      } catch (error) {
+        console.error('Failed to load messages:', error);
+      }
+    };
+
+    loadMessages();
+  }, [chatId]);
+
+  const generateTitleIfNeeded = useCallback(async (currentChatId: string, messages: ChatMessage[]) => {
+    if (!aiSettings?.apiKey || titleGeneratedRef.current.has(currentChatId)) return;
+
+    const userMessages = messages.filter(m => m.role === 'user');
+    const assistantMessages = messages.filter(m => m.role === 'assistant' && m.content && !m.isStreaming);
+
+    if (userMessages.length >= 1 && assistantMessages.length >= 1) {
+      titleGeneratedRef.current.add(currentChatId);
+      try {
+        const conversationForTitle = messages
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+
+        const title = await chatsService.generateChatTitle(
+          conversationForTitle,
+          aiSettings.apiKey,
+          aiSettings.model
+        );
+
+        await chatsService.updateChat(currentChatId, { title });
+        onTitleGenerated?.(currentChatId, title);
+      } catch (error) {
+        console.error('Failed to generate title:', error);
+      }
+    }
+  }, [aiSettings, onTitleGenerated]);
 
   const addMessage = useCallback((message: ChatMessage) => {
     setState(prev => ({
@@ -36,66 +111,8 @@ export function useChat(): UseChatReturn {
     }));
   }, []);
 
-  const simulateToolCall = async (messageId: string, toolName: string, args: string): Promise<string> => {
-    const toolCall: ToolCall = {
-      id: `tool-${Date.now()}`,
-      name: toolName,
-      arguments: args,
-      status: 'pending',
-    };
-
-    updateMessage(messageId, {
-      toolCalls: [toolCall],
-    });
-
-    await new Promise(resolve => setTimeout(resolve, 500));
-    toolCall.status = 'running';
-    updateMessage(messageId, { toolCalls: [{ ...toolCall }] });
-
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toolCall.status = 'completed';
-    toolCall.result = `Found 5 entries matching your criteria`;
-    updateMessage(messageId, { toolCalls: [{ ...toolCall }] });
-
-    return toolCall.result;
-  };
-
-  const simulateStreamingResponse = async (messageId: string, content: string): Promise<void> => {
-    let streamedContent = '';
-
-    for (let i = 0; i < content.length; i++) {
-      if (abortControllerRef.current?.signal.aborted) {
-        throw new Error('Aborted');
-      }
-
-      await new Promise(resolve => setTimeout(resolve, STREAM_DELAY));
-      streamedContent += content[i];
-      updateMessage(messageId, { content: streamedContent, isStreaming: true });
-    }
-
-    updateMessage(messageId, { isStreaming: false, status: 'sent' });
-  };
-
-  const generateMockResponse = (userMessage: string): string => {
-    const lower = userMessage.toLowerCase();
-
-    if (lower.includes('mood') || lower.includes('feel')) {
-      return "Based on your recent entries, I notice you've been experiencing a mix of emotions. Your journal shows moments of excitement about work projects balanced with some stress about deadlines. Would you like me to analyze specific time periods?";
-    }
-
-    if (lower.includes('pattern') || lower.includes('trend')) {
-      return "I've identified several patterns in your journaling habits:\n\n1. You tend to write more on weekdays, especially Monday and Wednesday\n2. Evening entries are typically longer and more reflective\n3. Recurring themes include work-life balance and personal growth\n\nWould you like me to dive deeper into any of these patterns?";
-    }
-
-    if (lower.includes('summary') || lower.includes('summarize')) {
-      return "Here's a summary of your recent journal entries:\n\nThis week, you've documented your progress on the new project, reflected on team dynamics, and explored ideas for improving your morning routine. Key themes include productivity optimization and building better habits.";
-    }
-
-    return "I'm here to help you explore and understand your journal entries. I can analyze patterns, summarize periods, track your mood over time, or answer specific questions about your entries. What would you like to know?";
-  };
-
   const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim()) return;
+    if (!content.trim() || !chatId) return;
 
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
@@ -110,6 +127,16 @@ export function useChat(): UseChatReturn {
 
     addMessage(userMessage);
 
+    await chatMessagesService.addMessage(chatId, {
+      id: userMessage.id,
+      role: userMessage.role,
+      content: userMessage.content,
+      status: userMessage.status,
+    });
+
+    await chatsService.touchChat(chatId);
+    onMessageAdded?.(chatId);
+
     setState(prev => ({
       ...prev,
       isLoading: true,
@@ -117,37 +144,110 @@ export function useChat(): UseChatReturn {
       error: null,
     }));
 
+    const assistantMessage: ChatMessage = {
+      id: `msg-${Date.now() + 1}`,
+      role: 'assistant' as MessageRole,
+      content: '',
+      timestamp: new Date(),
+      isStreaming: true,
+    };
+
+    addMessage(assistantMessage);
+
+    if (!aiSettings?.apiKey) {
+      setState(prev => ({ ...prev, isThinking: false }));
+      const errorContent = 'Please configure your OpenAI API key in Settings > AI to use the chat feature.';
+      updateMessage(assistantMessage.id, {
+        content: errorContent,
+        isStreaming: false,
+        status: 'sent',
+      });
+      await chatMessagesService.addMessage(chatId, {
+        id: assistantMessage.id,
+        role: 'assistant',
+        content: errorContent,
+        status: 'sent',
+      });
+      setState(prev => ({ ...prev, isLoading: false }));
+      return;
+    }
+
     try {
-      const assistantMessage: ChatMessage = {
-        id: `msg-${Date.now() + 1}`,
-        role: 'assistant' as MessageRole,
-        content: '',
-        timestamp: new Date(),
-        isStreaming: true,
-      };
-
-      addMessage(assistantMessage);
-
-      if (content.toLowerCase().includes('find') || content.toLowerCase().includes('search')) {
-        await simulateToolCall(assistantMessage.id, 'searchEntries', JSON.stringify({
-          query: content,
-          limit: 5,
-        }));
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 800));
-      }
-
       setState(prev => ({ ...prev, isThinking: false }));
 
-      const response = generateMockResponse(content);
-      await simulateStreamingResponse(assistantMessage.id, response);
+      const conversationHistory = state.messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-      setState(prev => ({ ...prev, isLoading: false }));
+      conversationHistory.push({ role: 'user', content: content.trim() });
+
+      const apiMessages = formatMessagesForAPI(conversationHistory);
+      let accumulatedContent = '';
+
+      await sendChatMessage(
+        apiMessages,
+        aiSettings.apiKey,
+        aiSettings.model,
+        {
+          onToken: (token) => {
+            accumulatedContent += token;
+            setState(prev => ({
+              ...prev,
+              messages: prev.messages.map(msg =>
+                msg.id === assistantMessage.id
+                  ? { ...msg, content: msg.content + token }
+                  : msg
+              ),
+            }));
+          },
+          onComplete: async () => {
+            setState(prev => ({
+              ...prev,
+              messages: prev.messages.map(msg =>
+                msg.id === assistantMessage.id
+                  ? { ...msg, isStreaming: false, status: 'sent' }
+                  : msg
+              ),
+              isLoading: false,
+            }));
+
+            await chatMessagesService.addMessage(chatId, {
+              id: assistantMessage.id,
+              role: 'assistant',
+              content: accumulatedContent,
+              status: 'sent',
+            });
+
+            const updatedMessages = [...state.messages, userMessage, { ...assistantMessage, content: accumulatedContent, isStreaming: false }];
+            generateTitleIfNeeded(chatId, updatedMessages);
+          },
+          onError: async (error) => {
+            const errorContent = `Error: ${error.message}`;
+            setState(prev => ({
+              ...prev,
+              messages: prev.messages.map(msg =>
+                msg.id === assistantMessage.id
+                  ? { ...msg, content: errorContent, isStreaming: false, status: 'error' }
+                  : msg
+              ),
+              isLoading: false,
+              error: error.message,
+            }));
+
+            await chatMessagesService.addMessage(chatId, {
+              id: assistantMessage.id,
+              role: 'assistant',
+              content: errorContent,
+              status: 'error',
+            });
+          },
+        },
+        abortControllerRef.current.signal
+      );
     } catch (error) {
-      if (error instanceof Error && error.message === 'Aborted') {
+      if (error instanceof Error && error.name === 'AbortError') {
         return;
       }
-
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -155,7 +255,7 @@ export function useChat(): UseChatReturn {
         error: 'Failed to send message. Please try again.',
       }));
     }
-  }, [addMessage, updateMessage]);
+  }, [addMessage, updateMessage, state.messages, aiSettings, chatId, onMessageAdded, generateTitleIfNeeded]);
 
   const retryMessage = useCallback(async (messageId: string) => {
     const message = state.messages.find(m => m.id === messageId);
@@ -164,7 +264,7 @@ export function useChat(): UseChatReturn {
     const index = state.messages.findIndex(m => m.id === messageId);
     setState(prev => ({
       ...prev,
-      messages: prev.messages.slice(0, index + 1),
+      messages: prev.messages.slice(0, index),
       error: null,
     }));
 

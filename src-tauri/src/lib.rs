@@ -5,6 +5,8 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 #[cfg(target_os = "ios")]
 mod ios_webview;
 
+mod secure_storage;
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -63,6 +65,28 @@ pub fn run() {
                 WHERE t2.date = todos.date AND t2.created_at <= todos.created_at
             ) - 1;",
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 5,
+            description: "create_chats_tables",
+            sql: "CREATE TABLE IF NOT EXISTS chats (
+                id TEXT PRIMARY KEY NOT NULL,
+                title TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_chats_updated_at ON chats(updated_at DESC);
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id TEXT PRIMARY KEY NOT NULL,
+                chat_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                status TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_chat_messages_chat_id ON chat_messages(chat_id);",
+            kind: MigrationKind::Up,
         }
     ];
 
@@ -85,7 +109,13 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            secure_storage::secure_storage_set,
+            secure_storage::secure_storage_get,
+            secure_storage::secure_storage_delete,
+            secure_storage::secure_storage_is_available
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

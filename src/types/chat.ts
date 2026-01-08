@@ -33,3 +33,34 @@ export interface ChatState {
   isThinking: boolean;
   error: string | null;
 }
+
+export type OpenAIModel = 'gpt-5.2' | 'gpt-5.1' | 'gpt-4.1-mini' | 'gpt-4.1-nano';
+
+export interface OpenAIMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface OpenAIStreamDelta {
+  role?: string;
+  content?: string;
+}
+
+export interface OpenAIStreamChoice {
+  index: number;
+  delta: OpenAIStreamDelta;
+  finish_reason: string | null;
+}
+
+export interface OpenAIStreamChunk {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: OpenAIStreamChoice[];
+}
+
+export interface AISettings {
+  apiKey: string;
+  model: OpenAIModel;
+}

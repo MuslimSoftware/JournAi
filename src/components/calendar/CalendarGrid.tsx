@@ -59,6 +59,7 @@ export default function CalendarGrid({
       <CalendarHeader
         month={month}
         year={year}
+        indicators={indicators}
         onPreviousMonth={onPreviousMonth}
         onNextMonth={onNextMonth}
         onToday={onToday}

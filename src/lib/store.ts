@@ -1,5 +1,11 @@
 import { LazyStore } from '@tauri-apps/plugin-store';
 
+export const STORE_KEYS = {
+  AI_API_KEY: 'ai.apiKey',
+  AI_MODEL: 'ai.model',
+  THEME_MODE: 'theme.mode',
+} as const;
+
 class AppStore {
   private store: LazyStore;
 
