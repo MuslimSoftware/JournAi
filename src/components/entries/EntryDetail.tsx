@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { FiPlus } from 'react-icons/fi';
-import { Text, Button } from '../themed';
+import { Text, Button, TextArea } from '../themed';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 
 interface EntryDetailProps {
@@ -80,7 +80,7 @@ export default function EntryDetail({ entry, hasEntries, onUpdate, onCreateEntry
 
   return (
     <div className="entries-content">
-      <textarea
+      <TextArea
         className="entry-content-editor"
         value={content}
         onChange={handleTextareaChange}

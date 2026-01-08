@@ -26,7 +26,6 @@ export default function MobileCalendar() {
     deleteTodo,
     reorderTodos,
     updateStickyNote,
-    clearStickyNote,
   } = useCalendar();
 
   if (isLoadingIndicators && !indicators) {
@@ -66,7 +65,6 @@ export default function MobileCalendar() {
           onDeleteTodo={deleteTodo}
           onReorderTodos={reorderTodos}
           onUpdateStickyNote={updateStickyNote}
-          onClearStickyNote={clearStickyNote}
         />
       </BottomSheet>
     </div>

@@ -3,7 +3,7 @@ import { DayPicker } from 'react-day-picker';
 import { format, parseISO } from 'date-fns';
 import { useEntries } from '../../hooks/useEntries';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Text, Button, Spinner } from '../themed';
+import { Text, Button, Spinner, Input } from '../themed';
 import SwipeableListItem from './SwipeableListItem';
 import MobileEntryEditor from './MobileEntryEditor';
 import BottomSheet from './BottomSheet';
@@ -240,14 +240,12 @@ export default function MobileEntries() {
                   pointerEvents: 'none',
                 }}
               />
-              <input
+              <Input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search entries..."
-                autoComplete="off"
-                autoCorrect="off"
                 style={{
                   ...searchInputStyle,
                   paddingLeft: '40px',

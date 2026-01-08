@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { TrashButton } from '../themed';
+import { TrashButton, Input } from '../themed';
 import type { Todo } from '../../types/todo';
 
 interface TodoItemPropsBase {
@@ -81,7 +81,7 @@ export default function TodoItem(props: TodoItemProps) {
         </span>
       </label>
 
-      <input
+      <Input
         ref={inputRef}
         type="text"
         value={content}

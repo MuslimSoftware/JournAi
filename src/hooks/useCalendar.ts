@@ -153,6 +153,13 @@ export function useCalendar() {
       return newNote;
     }
 
+    if (id && content.length === 0) {
+      await stickyNotesService.deleteStickyNote(id);
+      setStickyNote({ id: '', date: selectedDate, content: '' });
+      await loadIndicators();
+      return null;
+    }
+
     if (id) {
       const updated = await stickyNotesService.updateStickyNote(id, content);
       if (updated) {
@@ -163,16 +170,6 @@ export function useCalendar() {
     }
 
     return null;
-  }, [selectedDate, loadIndicators]);
-
-  const clearStickyNote = useCallback(async (id: string) => {
-    if (!selectedDate) return false;
-    if (id) {
-      await stickyNotesService.deleteStickyNote(id);
-      await loadIndicators();
-    }
-    setStickyNote({ id: '', date: selectedDate, content: '' });
-    return true;
   }, [selectedDate, loadIndicators]);
 
   const refreshData = useCallback(async () => {
@@ -202,7 +199,6 @@ export function useCalendar() {
     deleteTodo,
     reorderTodos,
     updateStickyNote,
-    clearStickyNote,
     refreshData,
   };
 }

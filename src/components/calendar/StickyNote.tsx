@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { TextArea } from '../themed';
 
 interface StickyNoteProps {
   id: string;
   content: string;
   onUpdate: (id: string, content: string) => void;
-  onDelete: (id: string) => void;
 }
 
-export default function StickyNote({ id, content, onUpdate, onDelete }: StickyNoteProps) {
+export default function StickyNote({ id, content, onUpdate }: StickyNoteProps) {
   const { theme } = useTheme();
   const [value, setValue] = useState(content);
   const debounceRef = useRef<NodeJS.Timeout>(null);
@@ -32,18 +32,12 @@ export default function StickyNote({ id, content, onUpdate, onDelete }: StickyNo
       className="sticky-note"
       style={{ backgroundColor: theme.colors.background.secondary }}
     >
-      <textarea
+      <TextArea
         value={value}
         onChange={handleChange}
         placeholder="Write a note..."
         className="sticky-note-textarea"
       />
-      <button
-        className="sticky-note-clear"
-        onClick={() => onDelete(id)}
-      >
-        Clear
-      </button>
     </div>
   );
 }

@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom';
+import { FiPlus } from 'react-icons/fi';
 import { Text, Card, Spinner } from '../themed';
 import TodoList from './TodoList';
 import StickyNote from './StickyNote';
+import { createEntry } from '../../services/entries';
 import type { DayData, Todo, StickyNote as StickyNoteType } from '../../types/todo';
 
 interface DayDetailProps {
@@ -13,7 +15,6 @@ interface DayDetailProps {
   onDeleteTodo: (id: string) => Promise<boolean>;
   onReorderTodos: (todoIds: string[], reorderedTodos: Todo[]) => Promise<void>;
   onUpdateStickyNote: (id: string, content: string) => Promise<StickyNoteType | null>;
-  onClearStickyNote: (id: string) => Promise<boolean>;
 }
 
 export default function DayDetail({
@@ -25,7 +26,6 @@ export default function DayDetail({
   onDeleteTodo,
   onReorderTodos,
   onUpdateStickyNote,
-  onClearStickyNote,
 }: DayDetailProps) {
   const navigate = useNavigate();
 
@@ -63,7 +63,16 @@ export default function DayDetail({
             </Text>
           </Card>
         ) : (
-          <Text variant="muted" className="day-detail-no-entry">No entry for this day</Text>
+          <button
+            className="entry-add-button"
+            onClick={async () => {
+              await createEntry(dayData.date);
+              navigate('/entries');
+            }}
+          >
+            <FiPlus size={16} />
+            <span>Add entry</span>
+          </button>
         )}
       </div>
 
@@ -85,7 +94,6 @@ export default function DayDetail({
             id={stickyNote.id}
             content={stickyNote.content}
             onUpdate={onUpdateStickyNote}
-            onDelete={onClearStickyNote}
           />
         )}
       </div>

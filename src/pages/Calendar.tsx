@@ -38,7 +38,6 @@ function DesktopCalendar() {
     deleteTodo,
     reorderTodos,
     updateStickyNote,
-    clearStickyNote,
   } = useCalendar();
 
   if (isLoadingIndicators && !indicators) {
@@ -75,7 +74,6 @@ function DesktopCalendar() {
           onDeleteTodo={deleteTodo}
           onReorderTodos={reorderTodos}
           onUpdateStickyNote={updateStickyNote}
-          onClearStickyNote={clearStickyNote}
         />
       </SlidePanel>
     </div>

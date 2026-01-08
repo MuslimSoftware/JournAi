@@ -4,6 +4,7 @@ import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useKeyboard } from '../../hooks/useKeyboard';
 import { useSwipeNavigation } from '../../hooks/useSwipeNavigation';
+import { TextArea } from '../themed';
 
 interface MobileEntryEditorProps {
   entry: JournalEntry;
@@ -107,16 +108,13 @@ export default function MobileEntryEditor({
           <FiArrowLeft size={22} />
         </button>
 
-        <textarea
+        <TextArea
           ref={textareaRef}
           style={editorStyle}
           value={content}
           onChange={handleChange}
           onBlur={handleBlur}
           placeholder="Start writing..."
-          autoComplete="off"
-          autoCorrect="on"
-          spellCheck
         />
       </div>
     </div>

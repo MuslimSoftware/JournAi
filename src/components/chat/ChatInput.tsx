@@ -1,7 +1,7 @@
 import { CSSProperties, useState, useRef, KeyboardEvent } from 'react';
 import { IoSend } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
-import { IconButton } from '../themed';
+import { IconButton, TextArea } from '../themed';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -63,6 +63,7 @@ export default function ChatInput({ onSend, disabled, placeholder = "Message..."
     border: `1px solid ${getBorderColor()}`,
     padding: `${theme.spacing.sm} ${theme.spacing.md}`,
     transition: 'border-color 0.15s ease-out',
+    cursor: 'text',
   };
 
   const textareaStyle: CSSProperties = {
@@ -84,8 +85,9 @@ export default function ChatInput({ onSend, disabled, placeholder = "Message..."
         style={inputWrapperStyle}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onClick={() => textareaRef.current?.focus()}
       >
-        <textarea
+        <TextArea
           ref={textareaRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}

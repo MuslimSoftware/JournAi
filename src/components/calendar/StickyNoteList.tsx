@@ -7,10 +7,9 @@ interface StickyNoteListProps {
   notes: StickyNoteType[];
   onCreateNote: () => Promise<StickyNoteType | null>;
   onUpdateNote: (id: string, content: string) => Promise<StickyNoteType | null>;
-  onDeleteNote: (id: string) => Promise<boolean>;
 }
 
-export default function StickyNoteList({ notes, onCreateNote, onUpdateNote, onDeleteNote }: StickyNoteListProps) {
+export default function StickyNoteList({ notes, onCreateNote, onUpdateNote }: StickyNoteListProps) {
   return (
     <div className="sticky-notes-container">
       <div className="sticky-notes-header">
@@ -30,7 +29,6 @@ export default function StickyNoteList({ notes, onCreateNote, onUpdateNote, onDe
               id={note.id}
               content={note.content}
               onUpdate={onUpdateNote}
-              onDelete={onDeleteNote}
             />
           ))
         )}

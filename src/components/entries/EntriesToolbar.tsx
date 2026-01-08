@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { IoSearch, IoClose, IoFilter, IoCheckmark } from 'react-icons/io5';
 import { DayPicker, DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
-import { Text, IconButton, Button } from '../themed';
+import { Text, IconButton, Button, Input } from '../themed';
 import { TimeFilter as ImportedTimeFilter } from '../../utils/timeFilters';
 import 'react-day-picker/style.css';
 
@@ -162,7 +162,7 @@ export default function EntriesToolbar({
             className="search-button toolbar-button"
             style={{ backgroundColor: 'transparent' }}
           />
-          <input
+          <Input
             ref={searchInputRef}
             type="text"
             className="search-input"
