@@ -3,6 +3,7 @@ export interface Todo {
   date: string;
   content: string;
   completed: boolean;
+  position: number;
 }
 
 export interface TodoRow {
@@ -11,6 +12,7 @@ export interface TodoRow {
   content: string;
   scheduled_time: string | null;
   completed: number;
+  position: number;
   created_at: string;
   updated_at: string;
 }

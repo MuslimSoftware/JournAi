@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "tauri-mcp": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/Users/younesbenketira/Code/personal/JournAi/tauri-mcp-server/index.js"
+      ],
+      "env": {
+        "TAURI_MCP_LOG_LEVEL": "info"
+      }
+    }
+  }
+}

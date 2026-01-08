@@ -24,6 +24,7 @@ export default function MobileCalendar() {
     createTodo,
     updateTodo,
     deleteTodo,
+    reorderTodos,
     updateStickyNote,
     clearStickyNote,
   } = useCalendar();
@@ -63,6 +64,7 @@ export default function MobileCalendar() {
           onCreateTodo={createTodo}
           onUpdateTodo={updateTodo}
           onDeleteTodo={deleteTodo}
+          onReorderTodos={reorderTodos}
           onUpdateStickyNote={updateStickyNote}
           onClearStickyNote={clearStickyNote}
         />

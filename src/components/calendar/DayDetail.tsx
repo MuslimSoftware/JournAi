@@ -11,6 +11,7 @@ interface DayDetailProps {
   onCreateTodo: (content: string, scheduledTime?: string) => Promise<Todo | null>;
   onUpdateTodo: (id: string, updates: { content?: string; scheduledTime?: string | null; completed?: boolean }) => Promise<Todo | null>;
   onDeleteTodo: (id: string) => Promise<boolean>;
+  onReorderTodos: (todoIds: string[], reorderedTodos: Todo[]) => Promise<void>;
   onUpdateStickyNote: (id: string, content: string) => Promise<StickyNoteType | null>;
   onClearStickyNote: (id: string) => Promise<boolean>;
 }
@@ -22,6 +23,7 @@ export default function DayDetail({
   onCreateTodo,
   onUpdateTodo,
   onDeleteTodo,
+  onReorderTodos,
   onUpdateStickyNote,
   onClearStickyNote,
 }: DayDetailProps) {
@@ -70,6 +72,7 @@ export default function DayDetail({
         onCreateTodo={onCreateTodo}
         onUpdateTodo={onUpdateTodo}
         onDeleteTodo={onDeleteTodo}
+        onReorderTodos={onReorderTodos}
       />
 
       <div className="sticky-note-section">

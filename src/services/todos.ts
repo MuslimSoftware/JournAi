@@ -12,12 +12,13 @@ function rowToTodo(row: TodoRow): Todo {
     date: row.date,
     content: row.content,
     completed: row.completed === 1,
+    position: row.position,
   };
 }
 
 export async function getTodosByDate(date: string): Promise<Todo[]> {
   const rows = await select<TodoRow>(
-    'SELECT * FROM todos WHERE date = $1 ORDER BY created_at ASC',
+    'SELECT * FROM todos WHERE date = $1 ORDER BY position ASC',
     [date]
   );
   return rows.map(rowToTodo);
@@ -25,7 +26,7 @@ export async function getTodosByDate(date: string): Promise<Todo[]> {
 
 export async function getTodosByDateRange(startDate: string, endDate: string): Promise<Todo[]> {
   const rows = await select<TodoRow>(
-    'SELECT * FROM todos WHERE date >= $1 AND date <= $2 ORDER BY date ASC, created_at ASC',
+    'SELECT * FROM todos WHERE date >= $1 AND date <= $2 ORDER BY date ASC, position ASC',
     [startDate, endDate]
   );
   return rows.map(rowToTodo);
@@ -35,12 +36,18 @@ export async function createTodo(date: string, content: string): Promise<Todo> {
   const id = generateId();
   const timestamp = getTimestamp();
 
+  const maxPositionRows = await select<{ max_pos: number | null }>(
+    'SELECT MAX(position) as max_pos FROM todos WHERE date = $1',
+    [date]
+  );
+  const position = (maxPositionRows[0]?.max_pos ?? -1) + 1;
+
   await execute(
-    'INSERT INTO todos (id, date, content, completed, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)',
-    [id, date, content, 0, timestamp, timestamp]
+    'INSERT INTO todos (id, date, content, completed, position, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    [id, date, content, 0, position, timestamp, timestamp]
   );
 
-  return { id, date, content, completed: false };
+  return { id, date, content, completed: false, position };
 }
 
 export async function updateTodo(
@@ -89,4 +96,14 @@ export async function getTodosCountByDate(startDate: string, endDate: string): P
   const map = new Map<string, { total: number; completed: number }>();
   rows.forEach(row => map.set(row.date, { total: row.total, completed: row.completed }));
   return map;
+}
+
+export async function reorderTodos(todoIds: string[]): Promise<void> {
+  const timestamp = getTimestamp();
+  for (let i = 0; i < todoIds.length; i++) {
+    await execute(
+      'UPDATE todos SET position = $1, updated_at = $2 WHERE id = $3',
+      [i, timestamp, todoIds[i]]
+    );
+  }
 }

@@ -1,10 +1,14 @@
-import { Container, Text } from '../components/themed';
+import { useIsMobile } from '../hooks/useMediaQuery';
+import { ChatContainer } from '../components/chat';
+import MobileChat from '../components/mobile/MobileChat';
+import '../styles/chat.css';
 
 export default function Chat() {
-  return (
-    <Container variant="primary" padding="lg">
-      <Text as="h1" variant="primary">Chat</Text>
-      <Text as="p" variant="secondary">Chat page content goes here.</Text>
-    </Container>
-  );
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return <MobileChat />;
+  }
+
+  return <ChatContainer />;
 }

@@ -184,19 +184,6 @@
   pointer-events: auto;
 }
 
-.delete-button-wrapper {
-  border-radius: 6px;
-  transition: background-color 0.2s ease;
-}
-
-.delete-button-wrapper:hover {
-  background-color: rgba(239, 68, 68, 0.15);
-}
-
-.delete-button-wrapper:hover button {
-  color: #ef4444 !important;
-}
-
 .entry-list-item-date {
   font-size: 0.6875rem;
   line-height: 16px;

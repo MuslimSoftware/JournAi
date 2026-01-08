@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { FiTrash2 } from 'react-icons/fi';
 import { useTheme } from '../../contexts/ThemeContext';
-import { IconButton } from '../themed';
 
 interface StickyNoteProps {
   id: string;
@@ -13,7 +11,6 @@ interface StickyNoteProps {
 export default function StickyNote({ id, content, onUpdate, onDelete }: StickyNoteProps) {
   const { theme } = useTheme();
   const [value, setValue] = useState(content);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>(null);
 
   useEffect(() => {
@@ -36,20 +33,17 @@ export default function StickyNote({ id, content, onUpdate, onDelete }: StickyNo
       style={{ backgroundColor: theme.colors.background.secondary }}
     >
       <textarea
-        ref={textareaRef}
         value={value}
         onChange={handleChange}
         placeholder="Write a note..."
         className="sticky-note-textarea"
       />
-      <IconButton
-        icon={<FiTrash2 size={14} />}
-        label="Delete note"
-        variant="ghost"
-        size="sm"
+      <button
+        className="sticky-note-clear"
         onClick={() => onDelete(id)}
-        className="sticky-note-delete"
-      />
+      >
+        Clear
+      </button>
     </div>
   );
 }

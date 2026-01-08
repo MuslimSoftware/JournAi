@@ -53,6 +53,16 @@ pub fn run() {
             );
             CREATE INDEX IF NOT EXISTS idx_sticky_notes_date ON sticky_notes(date);",
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 4,
+            description: "add_position_to_todos",
+            sql: "ALTER TABLE todos ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+            UPDATE todos SET position = (
+                SELECT COUNT(*) FROM todos t2
+                WHERE t2.date = todos.date AND t2.created_at <= todos.created_at
+            ) - 1;",
+            kind: MigrationKind::Up,
         }
     ];
 

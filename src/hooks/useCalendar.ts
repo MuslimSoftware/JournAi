@@ -5,12 +5,17 @@ import { getMonthIndicators, getDayData } from '../services/calendar';
 import { getTodayString } from '../utils/date';
 import * as todosService from '../services/todos';
 import * as stickyNotesService from '../services/stickyNotes';
+import { useCalendarContext } from '../contexts/CalendarContext';
 
 export function useCalendar() {
-  const today = new Date();
-  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
-  const [currentYear, setCurrentYear] = useState(today.getFullYear());
-  const [selectedDate, setSelectedDate] = useState<string | null>(getTodayString());
+  const {
+    currentMonth,
+    currentYear,
+    selectedDate,
+    setCurrentMonth,
+    setCurrentYear,
+    setSelectedDate,
+  } = useCalendarContext();
   const [indicators, setIndicators] = useState<MonthIndicators | null>(null);
   const [dayData, setDayData] = useState<DayData | null>(null);
   const [stickyNote, setStickyNote] = useState<StickyNote | null>(null);
@@ -91,31 +96,52 @@ export function useCalendar() {
   const createTodo = useCallback(async (content: string) => {
     if (!selectedDate) return null;
     const todo = await todosService.createTodo(selectedDate, content);
-    await loadDayData(selectedDate);
-    await loadIndicators();
+    if (todo) {
+      setDayData(prev => {
+        if (!prev) return prev;
+        return { ...prev, todos: [...prev.todos, todo] };
+      });
+      await loadIndicators();
+    }
     return todo;
-  }, [selectedDate, loadDayData, loadIndicators]);
+  }, [selectedDate, loadIndicators]);
 
   const updateTodo = useCallback(async (
     id: string,
     updates: { content?: string; completed?: boolean }
   ) => {
+    setDayData(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        todos: prev.todos.map(t => t.id === id ? { ...t, ...updates } : t)
+      };
+    });
+
     const updated = await todosService.updateTodo(id, updates);
-    if (selectedDate) {
-      await loadDayData(selectedDate);
+    if (selectedDate && updates.completed !== undefined) {
       await loadIndicators();
     }
     return updated;
-  }, [selectedDate, loadDayData, loadIndicators]);
+  }, [selectedDate, loadIndicators]);
 
   const deleteTodo = useCallback(async (id: string) => {
+    setDayData(prev => {
+      if (!prev) return prev;
+      return { ...prev, todos: prev.todos.filter(t => t.id !== id) };
+    });
+
     const success = await todosService.deleteTodo(id);
     if (success && selectedDate) {
-      await loadDayData(selectedDate);
       await loadIndicators();
     }
     return success;
-  }, [selectedDate, loadDayData, loadIndicators]);
+  }, [selectedDate, loadIndicators]);
+
+  const reorderTodos = useCallback(async (todoIds: string[], reorderedTodos: DayData['todos']) => {
+    setDayData(prev => prev ? { ...prev, todos: reorderedTodos } : prev);
+    await todosService.reorderTodos(todoIds);
+  }, []);
 
   const updateStickyNote = useCallback(async (id: string, content: string) => {
     if (!selectedDate) return null;
@@ -174,6 +200,7 @@ export function useCalendar() {
     createTodo,
     updateTodo,
     deleteTodo,
+    reorderTodos,
     updateStickyNote,
     clearStickyNote,
     refreshData,

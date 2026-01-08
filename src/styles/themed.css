@@ -1,0 +1,39 @@
+.trash-button {
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.trash-button:hover:not(:disabled) {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.trash-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.trash-button.size-sm {
+  padding: 4px;
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.trash-button.size-md {
+  padding: 8px;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.trash-button.size-lg {
+  padding: 12px;
+  min-width: 56px;
+  min-height: 56px;
+}

@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { DateRange, DayPicker } from 'react-day-picker';
 import { TbPin, TbPinFilled } from 'react-icons/tb';
-import { FiPlus, FiTrash2, FiEdit2, FiCalendar, FiFeather } from 'react-icons/fi';
-import { Text, IconButton, Button, Spinner } from '../themed';
+import { FiPlus, FiEdit2, FiCalendar, FiFeather } from 'react-icons/fi';
+import { Text, IconButton, Button, Spinner, TrashButton } from '../themed';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { groupEntriesByDate } from '../../utils/dateGrouping';
 import { parseLocalDate, toDateString, formatEntryDate } from '../../utils/date';
@@ -337,19 +337,14 @@ export default function EntriesSidebar({
                               </div>
                             )}
                           </div>
-                          <div className="delete-button-wrapper">
-                            <IconButton
-                              icon={<FiTrash2 size={12} />}
-                              label="Delete entry"
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteEntry(item.id);
-                              }}
-                              style={{ minWidth: '24px', minHeight: '24px', padding: '4px' }}
-                            />
-                          </div>
+                          <TrashButton
+                            label="Delete entry"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteEntry(item.id);
+                            }}
+                          />
                         </div>
                       </div>
                     )}

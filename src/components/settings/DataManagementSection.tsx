@@ -27,6 +27,8 @@ export default function DataManagementSection() {
             setResult({
                 imported: 0,
                 skipped: 0,
+                todosImported: 0,
+                stickyNotesImported: 0,
                 errors: [`Import failed: ${err}`],
             });
         } finally {
@@ -96,8 +98,7 @@ export default function DataManagementSection() {
                     Import Data
                 </Text>
                 <p style={descriptionStyle}>
-                    Import journal entries from a LifeOS backup folder. Files should be named with dates (e.g., 2024-01-15.md).
-                    Only the main journal content will be imported; Notes and TODOs sections will be excluded.
+                    Import journal entries, todos, and sticky notes from a LifeOS backup folder. Files should be named with dates (e.g., 2024-01-15.md).
                     Entries for dates that already exist will be skipped.
                 </p>
                 <button
@@ -117,6 +118,16 @@ export default function DataManagementSection() {
                         <div style={successStyle}>
                             ✓ Imported {result.imported} {result.imported === 1 ? 'entry' : 'entries'}
                         </div>
+                        {result.todosImported > 0 && (
+                            <div style={successStyle}>
+                                ✓ Imported {result.todosImported} {result.todosImported === 1 ? 'todo' : 'todos'}
+                            </div>
+                        )}
+                        {result.stickyNotesImported > 0 && (
+                            <div style={successStyle}>
+                                ✓ Imported {result.stickyNotesImported} {result.stickyNotesImported === 1 ? 'sticky note' : 'sticky notes'}
+                            </div>
+                        )}
                         {result.skipped > 0 && (
                             <div style={skipStyle}>
                                 Skipped {result.skipped} (already exist or invalid format)

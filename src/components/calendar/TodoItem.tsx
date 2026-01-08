@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { FiTrash2 } from 'react-icons/fi';
+import { TrashButton } from '../themed';
 import type { Todo } from '../../types/todo';
 
 interface TodoItemPropsBase {
@@ -93,13 +93,13 @@ export default function TodoItem(props: TodoItemProps) {
       />
 
       {!isNew && (
-        <button
+        <TrashButton
           className="todo-delete-button"
+          label="Delete todo"
+          size="sm"
+          iconSize={14}
           onClick={() => props.onDelete(props.todo.id)}
-          aria-label="Delete todo"
-        >
-          <FiTrash2 size={14} />
-        </button>
+        />
       )}
     </div>
   );

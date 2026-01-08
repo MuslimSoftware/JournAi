@@ -1,5 +1,3 @@
-import { useTheme } from '../../contexts/ThemeContext';
-
 interface CalendarIndicatorsProps {
   hasEntry: boolean;
   hasStickyNote: boolean;
@@ -11,33 +9,37 @@ export default function CalendarIndicators({
   hasStickyNote,
   todosCount,
 }: CalendarIndicatorsProps) {
-  const { theme } = useTheme();
-
-  const pendingTodos = todosCount ? todosCount.total - todosCount.completed : 0;
   const completedTodos = todosCount?.completed ?? 0;
+  const pendingTodos = todosCount ? todosCount.total - todosCount.completed : 0;
+  const hasTodos = completedTodos > 0 || pendingTodos > 0;
 
   return (
-    <div className="calendar-indicators">
-      {hasEntry && (
-        <span
-          className="calendar-indicator entry-indicator"
-          style={{ backgroundColor: theme.colors.text.accent }}
-        />
+    <div className="calendar-indicators-container">
+      {(hasEntry || hasStickyNote) && (
+        <div className="calendar-indicators">
+          {hasEntry && (
+            <span className="calendar-indicator entry-indicator" />
+          )}
+          {hasStickyNote && (
+            <span className="calendar-indicator sticky-note-indicator" />
+          )}
+        </div>
       )}
-      {hasStickyNote && (
-        <span className="calendar-indicator sticky-note-indicator" />
-      )}
-      {completedTodos > 0 && (
-        <span
-          className="calendar-indicator todo-indicator filled"
-          style={{ backgroundColor: theme.colors.text.muted }}
-        />
-      )}
-      {pendingTodos > 0 && (
-        <span
-          className="calendar-indicator todo-indicator hollow"
-          style={{ borderColor: theme.colors.text.secondary }}
-        />
+      {hasTodos && (
+        <div className="calendar-indicators">
+          {Array.from({ length: completedTodos }).map((_, i) => (
+            <span
+              key={`completed-${i}`}
+              className="calendar-indicator todo-indicator filled"
+            />
+          ))}
+          {Array.from({ length: pendingTodos }).map((_, i) => (
+            <span
+              key={`pending-${i}`}
+              className="calendar-indicator todo-indicator hollow"
+            />
+          ))}
+        </div>
       )}
     </div>
   );

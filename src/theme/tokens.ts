@@ -22,6 +22,12 @@ export interface ThemeTokens {
       hover: string;
       active: string;
     };
+    indicator: {
+      entry: string;
+      stickyNote: string;
+      todoComplete: string;
+      todoPending: string;
+    };
   };
   spacing: {
     xs: string;
@@ -89,6 +95,12 @@ export const lightTheme: ThemeTokens = {
       hover: '#1a1a1a',
       active: '#f0f0f0',
     },
+    indicator: {
+      entry: '#f59e0b',
+      stickyNote: '#8b5cf6',
+      todoComplete: '#757575',
+      todoPending: '#424242',
+    },
   },
   spacing: {
     xs: '0.5rem',
@@ -155,6 +167,12 @@ export const darkTheme: ThemeTokens = {
       default: '#1e1e1e',
       hover: '#e0e0e0',
       active: '#2a2a2a',
+    },
+    indicator: {
+      entry: '#fbbf24',
+      stickyNote: '#a78bfa',
+      todoComplete: '#757575',
+      todoPending: '#b0b0b0',
     },
   },
   spacing: lightTheme.spacing,

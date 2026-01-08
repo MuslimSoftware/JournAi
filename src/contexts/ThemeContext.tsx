@@ -60,6 +60,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       root.style.setProperty('--interactive-default', newTheme.colors.interactive.default);
       root.style.setProperty('--interactive-hover', newTheme.colors.interactive.hover);
       root.style.setProperty('--interactive-active', newTheme.colors.interactive.active);
+      root.style.setProperty('--indicator-entry', newTheme.colors.indicator.entry);
+      root.style.setProperty('--indicator-sticky-note', newTheme.colors.indicator.stickyNote);
+      root.style.setProperty('--indicator-todo-complete', newTheme.colors.indicator.todoComplete);
+      root.style.setProperty('--indicator-todo-pending', newTheme.colors.indicator.todoPending);
     };
 
     mediaQuery.addEventListener('change', handler);
@@ -86,6 +90,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--interactive-default', theme.colors.interactive.default);
     root.style.setProperty('--interactive-hover', theme.colors.interactive.hover);
     root.style.setProperty('--interactive-active', theme.colors.interactive.active);
+    root.style.setProperty('--indicator-entry', theme.colors.indicator.entry);
+    root.style.setProperty('--indicator-sticky-note', theme.colors.indicator.stickyNote);
+    root.style.setProperty('--indicator-todo-complete', theme.colors.indicator.todoComplete);
+    root.style.setProperty('--indicator-todo-pending', theme.colors.indicator.todoPending);
   }, [mode, theme, isLoaded]);
 
   const setTheme = (newMode: ThemeMode) => {

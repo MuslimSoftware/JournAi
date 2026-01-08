@@ -36,6 +36,7 @@ function DesktopCalendar() {
     createTodo,
     updateTodo,
     deleteTodo,
+    reorderTodos,
     updateStickyNote,
     clearStickyNote,
   } = useCalendar();
@@ -72,6 +73,7 @@ function DesktopCalendar() {
           onCreateTodo={createTodo}
           onUpdateTodo={updateTodo}
           onDeleteTodo={deleteTodo}
+          onReorderTodos={reorderTodos}
           onUpdateStickyNote={updateStickyNote}
           onClearStickyNote={clearStickyNote}
         />
