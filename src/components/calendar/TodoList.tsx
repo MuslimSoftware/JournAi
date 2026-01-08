@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
-import { FiPlus } from 'react-icons/fi';
 import { MdDragIndicator } from 'react-icons/md';
-import { Text } from '../themed';
 import TodoItem from './TodoItem';
+import SectionHeader from './SectionHeader';
+import AddItemButton from './AddItemButton';
+import { DRAG_THRESHOLD_PX } from './constants';
 import type { Todo } from '../../types/todo';
 
 interface TodoListProps {
@@ -46,8 +47,6 @@ export default function TodoList({ todos, onCreateTodo, onUpdateTodo, onDeleteTo
     setIsAdding(false);
   };
 
-  const DRAG_THRESHOLD = 8;
-
   const handlePointerDown = useCallback((e: React.PointerEvent, index: number) => {
     e.preventDefault();
     const target = e.currentTarget as HTMLElement;
@@ -81,7 +80,7 @@ export default function TodoList({ todos, onCreateTodo, onUpdateTodo, onDeleteTo
 
     const deltaY = e.clientY - dragState.startY;
 
-    if (!dragState.isDragging && Math.abs(deltaY) < DRAG_THRESHOLD) {
+    if (!dragState.isDragging && Math.abs(deltaY) < DRAG_THRESHOLD_PX) {
       return;
     }
 
@@ -190,11 +189,7 @@ export default function TodoList({ todos, onCreateTodo, onUpdateTodo, onDeleteTo
 
   return (
     <div className="todo-list-container">
-      <div className="day-detail-section-header">
-        <span className="section-indicator todo-indicator" />
-        <Text as="h4" variant="secondary" className="todo-list-header">Todos</Text>
-      </div>
-
+      <SectionHeader title="Todos" indicatorType="todo" />
       <div className="todo-list" ref={listRef}>
 
         {todos.map((todo, index) => {
@@ -242,10 +237,7 @@ export default function TodoList({ todos, onCreateTodo, onUpdateTodo, onDeleteTo
       </div>
 
       {!isAdding && (
-        <button className="todo-add-button" onClick={handleAddClick}>
-          <FiPlus size={16} />
-          <span>Add todo</span>
-        </button>
+        <AddItemButton label="Add todo" onClick={handleAddClick} />
       )}
     </div>
   );

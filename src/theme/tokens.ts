@@ -28,6 +28,11 @@ export interface ThemeTokens {
       todoComplete: string;
       todoPending: string;
     };
+    status: {
+      success: string;
+      error: string;
+      warning: string;
+    };
   };
   spacing: {
     xs: string;
@@ -101,6 +106,11 @@ export const lightTheme: ThemeTokens = {
       todoComplete: '#757575',
       todoPending: '#424242',
     },
+    status: {
+      success: '#22c55e',
+      error: '#ef4444',
+      warning: '#f59e0b',
+    },
   },
   spacing: {
     xs: '0.5rem',
@@ -173,6 +183,11 @@ export const darkTheme: ThemeTokens = {
       stickyNote: '#a78bfa',
       todoComplete: '#757575',
       todoPending: '#b0b0b0',
+    },
+    status: {
+      success: '#4ade80',
+      error: '#f87171',
+      warning: '#fbbf24',
     },
   },
   spacing: lightTheme.spacing,

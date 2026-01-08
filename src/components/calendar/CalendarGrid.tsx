@@ -2,6 +2,7 @@ import type { MonthIndicators } from '../../services/calendar';
 import { toDateString, getTodayString } from '../../utils/date';
 import CalendarHeader from './CalendarHeader';
 import DayCell from './DayCell';
+import { WEEKDAYS } from './constants';
 
 interface CalendarGridProps {
   month: number;
@@ -15,8 +16,6 @@ interface CalendarGridProps {
   onMonthChange: (month: number) => void;
   onYearChange: (year: number) => void;
 }
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function getCalendarDays(year: number, month: number): Date[] {
   const firstDay = new Date(year, month, 1);

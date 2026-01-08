@@ -11,14 +11,19 @@ import { parseLocalDate, toDateString, formatEntryDate } from '../../utils/date'
 import { matchesTimeFilter } from '../../utils/timeFilters';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useFocusMode } from '../../contexts/FocusModeContext';
+import { ENTRIES_CONSTANTS } from '../../constants/entries';
 import EntriesToolbar, { TimeFilter } from './EntriesToolbar';
 
-const FADE_DELAY_MS = 2000;
-const EDGE_THRESHOLD_PX = 150;
-const HEADER_HEIGHT_PX = 40;
-const ENTRY_HEIGHT_PX = 64;
-const PAGINATION_THRESHOLD = 10;
-const LOADING_INDICATOR_HEIGHT_PX = 40;
+const {
+  FOCUS_MODE_FADE_DELAY_MS,
+  FOCUS_MODE_EDGE_THRESHOLD_PX,
+  HEADER_HEIGHT_PX,
+  ENTRY_ITEM_HEIGHT_PX,
+  PAGINATION_THRESHOLD,
+  LOADING_INDICATOR_HEIGHT_PX,
+  DATE_PICKER_FROM_YEAR,
+  DATE_PICKER_TO_YEAR,
+} = ENTRIES_CONSTANTS;
 
 interface EntriesSidebarProps {
   entries: JournalEntry[];
@@ -68,16 +73,15 @@ export default function EntriesSidebar({
   useEffect(() => {
     if (isFocusMode) {
       setButtonHidden(false);
-      const timer = setTimeout(() => setButtonHidden(true), FADE_DELAY_MS);
+      const timer = setTimeout(() => setButtonHidden(true), FOCUS_MODE_FADE_DELAY_MS);
       return () => clearTimeout(timer);
-    } else {
-      setButtonHidden(false);
-      setIsNearEdge(false);
     }
+    setButtonHidden(false);
+    setIsNearEdge(false);
   }, [isFocusMode]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    setIsNearEdge(e.clientX <= EDGE_THRESHOLD_PX);
+    setIsNearEdge(e.clientX <= FOCUS_MODE_EDGE_THRESHOLD_PX);
   }, []);
 
   useEffect(() => {
@@ -137,33 +141,28 @@ export default function EntriesSidebar({
     let filtered = entries;
 
     if (timeFilter) {
-      if (timeFilter === 'custom') {
-        const from = customDateRange?.from;
-        const to = customDateRange?.to;
-        if (from && to) {
-          filtered = filtered.filter((entry) => {
-            const entryDay = parseLocalDate(entry.date);
-            const rangeStart = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-            const rangeEnd = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-            return entryDay >= rangeStart && entryDay <= rangeEnd;
-          });
-        }
-      } else if (timeFilter === 'this-year') {
-        const today = new Date();
+      if (timeFilter === 'custom' && customDateRange?.from && customDateRange?.to) {
+        const { from, to } = customDateRange;
+        const rangeStart = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+        const rangeEnd = new Date(to.getFullYear(), to.getMonth(), to.getDate());
         filtered = filtered.filter((entry) => {
           const entryDay = parseLocalDate(entry.date);
-          return entryDay.getFullYear() === today.getFullYear();
+          return entryDay >= rangeStart && entryDay <= rangeEnd;
         });
-      } else {
+      } else if (timeFilter === 'this-year') {
+        const currentYear = new Date().getFullYear();
+        filtered = filtered.filter((entry) => {
+          const entryDay = parseLocalDate(entry.date);
+          return entryDay.getFullYear() === currentYear;
+        });
+      } else if (timeFilter !== 'custom') {
         filtered = filtered.filter((entry) => matchesTimeFilter(entry.date, timeFilter));
       }
     }
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (entry) => entry.content.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter((entry) => entry.content.toLowerCase().includes(query));
     }
 
     return filtered;
@@ -187,7 +186,7 @@ export default function EntriesSidebar({
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
       const item = flattenedItems[index];
-      return item.type === 'header' ? HEADER_HEIGHT_PX : ENTRY_HEIGHT_PX;
+      return item.type === 'header' ? HEADER_HEIGHT_PX : ENTRY_ITEM_HEIGHT_PX;
     },
     overscan: 5,
   });
@@ -206,8 +205,21 @@ export default function EntriesSidebar({
     }
   }, [virtualizer.getVirtualItems(), hasMore, isLoadingMore, onLoadMore, flattenedItems.length, isFiltering]);
 
+  const sidebarClassName = [
+    'entries-sidebar',
+    entriesPinned && 'pinned',
+    (isDropdownOpen || datePickerOpen || moreMenuOpen) && 'dropdown-open',
+  ].filter(Boolean).join(' ');
+
+  const focusModeButtonClassName = [
+    'focus-mode-button',
+    isFocusMode && 'active',
+    buttonHidden && 'hidden',
+    isNearEdge && 'near-edge',
+  ].filter(Boolean).join(' ');
+
   return (
-    <div className={`entries-sidebar ${entriesPinned ? 'pinned' : ''} ${isDropdownOpen || datePickerOpen || moreMenuOpen ? 'dropdown-open' : ''}`}>
+    <div className={sidebarClassName}>
       <div className="entries-sidebar-action-bar">
         <IconButton
           icon={<FiFeather size={16} />}
@@ -215,7 +227,7 @@ export default function EntriesSidebar({
           variant="ghost"
           size="sm"
           onClick={toggleFocusMode}
-          className={`focus-mode-button${isFocusMode ? ' active' : ''}${buttonHidden ? ' hidden' : ''}${isNearEdge ? ' near-edge' : ''}`}
+          className={focusModeButtonClassName}
         />
       </div>
       <div className="entries-sidebar-hover-zone">
@@ -224,153 +236,153 @@ export default function EntriesSidebar({
             {totalCount}
           </Text>
         </div>
-      <div className="entries-sidebar-expanded-content">
-        <EntriesToolbar
-          onSearchChange={setSearchQuery}
-          onFilterChange={handleFilterChange}
-          resultCount={filteredEntries.length}
-          onDropdownOpenChange={setIsDropdownOpen}
-          rightAction={
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <IconButton
-                icon={<FiPlus size={18} />}
-                label="New entry"
-                onClick={() => onCreateEntry()}
-                variant="ghost"
+        <div className="entries-sidebar-expanded-content">
+          <EntriesToolbar
+            onSearchChange={setSearchQuery}
+            onFilterChange={handleFilterChange}
+            resultCount={filteredEntries.length}
+            onDropdownOpenChange={setIsDropdownOpen}
+            rightAction={
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <IconButton
+                  icon={<FiPlus size={18} />}
+                  label="New entry"
+                  onClick={onCreateEntry}
+                  variant="ghost"
+                  size="sm"
+                  className="toolbar-button"
+                />
+                <IconButton
+                  icon={entriesPinned ? <TbPinFilled size={18} /> : <TbPin size={18} />}
+                  label={entriesPinned ? "Unpin sidebar" : "Pin sidebar"}
+                  onClick={toggleEntriesPin}
+                  variant="ghost"
+                  size="sm"
+                  className="toolbar-button"
+                />
+              </div>
+            }
+          />
+          {entries.length === 0 ? (
+            <div className="sidebar-empty-state">
+              <Text variant="secondary" style={{ fontSize: '0.875rem', fontWeight: 500 }}>No entries yet</Text>
+              <Text variant="muted" style={{ fontSize: '0.8125rem' }}>Start journaling today</Text>
+              <Button
+                variant="primary"
                 size="sm"
-                className="toolbar-button"
-              />
-              <IconButton
-                icon={entriesPinned ? <TbPinFilled size={18} /> : <TbPin size={18} />}
-                label={entriesPinned ? "Unpin sidebar" : "Pin sidebar"}
-                onClick={toggleEntriesPin}
-                variant="ghost"
-                size="sm"
-                className="toolbar-button"
-              />
+                icon={<FiPlus size={14} />}
+                onClick={onCreateEntry}
+              >
+                Create your first entry
+              </Button>
             </div>
-          }
-        />
-        {entries.length === 0 ? (
-          <div className="sidebar-empty-state">
-            <Text variant="secondary" style={{ fontSize: '0.875rem', fontWeight: 500 }}>No entries yet</Text>
-            <Text variant="muted" style={{ fontSize: '0.8125rem' }}>Start journaling today</Text>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<FiPlus size={14} />}
-              onClick={() => onCreateEntry()}
-            >
-              Create your first entry
-            </Button>
-          </div>
-        ) : (
-          <div ref={parentRef} className="entries-sidebar-list">
-            <div
-              style={{
-                height: `${virtualizer.getTotalSize() + (isLoadingMore ? LOADING_INDICATOR_HEIGHT_PX : 0)}px`,
-                width: '100%',
-                position: 'relative',
-              }}
-            >
-              {virtualizer.getVirtualItems().map((virtualItem) => {
-                const item = flattenedItems[virtualItem.index];
+          ) : (
+            <div ref={parentRef} className="entries-sidebar-list">
+              <div
+                style={{
+                  height: `${virtualizer.getTotalSize() + (isLoadingMore ? LOADING_INDICATOR_HEIGHT_PX : 0)}px`,
+                  width: '100%',
+                  position: 'relative',
+                }}
+              >
+                {virtualizer.getVirtualItems().map((virtualItem) => {
+                  const item = flattenedItems[virtualItem.index];
 
-                return (
+                  return (
+                    <div
+                      key={virtualItem.key}
+                      data-index={virtualItem.index}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: `${virtualItem.size}px`,
+                        transform: `translateY(${virtualItem.start}px)`,
+                      }}
+                    >
+                      {item.type === 'header' ? (
+                        <div className="entry-group-header">
+                          <Text variant="muted">{item.label}</Text>
+                        </div>
+                      ) : (
+                        <div
+                          className={`entry-list-item ${selectedId === item.id ? 'selected' : ''}`}
+                          onClick={() => onSelectEntry(item.id)}
+                          onMouseLeave={() => {
+                            if (moreMenuOpen === item.id) setMoreMenuOpen(null);
+                          }}
+                        >
+                          <div className="entry-list-item-content">
+                            <div className="entry-list-item-date">
+                              <Text variant="muted">{formatEntryDate(item.entry.date)}</Text>
+                            </div>
+                            <div className="entry-list-item-preview">
+                              <Text variant="secondary">{item.entry.preview}</Text>
+                            </div>
+                          </div>
+                          <div className="entry-list-item-actions">
+                            <div
+                              className="more-button-wrapper"
+                              ref={(el) => {
+                                if (el) editButtonRefs.current.set(item.id, el);
+                                if (moreMenuOpen === item.id && el) moreMenuRef.current = el;
+                              }}
+                            >
+                              <IconButton
+                                icon={<FiEdit2 size={12} />}
+                                label="Edit options"
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => handleMoreClick(e, item.id)}
+                                style={{ minWidth: '24px', minHeight: '24px', padding: '4px' }}
+                              />
+                              {moreMenuOpen === item.id && (
+                                <div className="entry-more-dropdown">
+                                  <button
+                                    className="entry-more-option"
+                                    onClick={(e) => handleChangeDateClick(e, item.id)}
+                                  >
+                                    <FiCalendar size={14} />
+                                    <span>Change Date</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            <TrashButton
+                              label="Delete entry"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteEntry(item.id);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {isLoadingMore && (
                   <div
-                    key={virtualItem.key}
-                    data-index={virtualItem.index}
                     style={{
                       position: 'absolute',
-                      top: 0,
+                      bottom: 0,
                       left: 0,
-                      width: '100%',
-                      height: `${virtualItem.size}px`,
-                      transform: `translateY(${virtualItem.start}px)`,
+                      right: 0,
+                      height: `${LOADING_INDICATOR_HEIGHT_PX}px`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
-                    {item.type === 'header' ? (
-                      <div className="entry-group-header">
-                        <Text variant="muted">{item.label}</Text>
-                      </div>
-                    ) : (
-                      <div
-                        className={`entry-list-item ${selectedId === item.id ? 'selected' : ''}`}
-                        onClick={() => onSelectEntry(item.id)}
-                        onMouseLeave={() => {
-                          if (moreMenuOpen === item.id) setMoreMenuOpen(null);
-                        }}
-                      >
-                        <div className="entry-list-item-content">
-                          <div className="entry-list-item-date">
-                            <Text variant="muted">{formatEntryDate(item.entry.date)}</Text>
-                          </div>
-                          <div className="entry-list-item-preview">
-                            <Text variant="secondary">{item.entry.preview}</Text>
-                          </div>
-                        </div>
-                        <div className="entry-list-item-actions">
-                          <div
-                            className="more-button-wrapper"
-                            ref={(el) => {
-                              if (el) editButtonRefs.current.set(item.id, el);
-                              if (moreMenuOpen === item.id && el) moreMenuRef.current = el;
-                            }}
-                          >
-                            <IconButton
-                              icon={<FiEdit2 size={12} />}
-                              label="Edit options"
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => handleMoreClick(e, item.id)}
-                              style={{ minWidth: '24px', minHeight: '24px', padding: '4px' }}
-                            />
-                            {moreMenuOpen === item.id && (
-                              <div className="entry-more-dropdown">
-                                <button
-                                  className="entry-more-option"
-                                  onClick={(e) => handleChangeDateClick(e, item.id)}
-                                >
-                                  <FiCalendar size={14} />
-                                  <span>Change Date</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          <TrashButton
-                            label="Delete entry"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteEntry(item.id);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                    <Spinner size="sm" />
                   </div>
-                );
-              })}
-              {isLoadingMore && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: `${LOADING_INDICATOR_HEIGHT_PX}px`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Spinner size="sm" />
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
       </div>
 
       {datePickerOpen && createPortal(
@@ -397,8 +409,8 @@ export default function EntriesSidebar({
             numberOfMonths={1}
             className="custom-day-picker"
             captionLayout="dropdown"
-            fromYear={2020}
-            toYear={2030}
+            fromYear={DATE_PICKER_FROM_YEAR}
+            toYear={DATE_PICKER_TO_YEAR}
           />
         </div>,
         document.body

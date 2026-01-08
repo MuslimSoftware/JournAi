@@ -7,9 +7,10 @@ import ChatInput from './ChatInput';
 
 interface ChatContainerProps {
   style?: CSSProperties;
+  inputWrapperStyle?: CSSProperties;
 }
 
-export default function ChatContainer({ style }: ChatContainerProps) {
+export default function ChatContainer({ style, inputWrapperStyle }: ChatContainerProps) {
   const { theme } = useTheme();
   const { messages, isLoading, isThinking, sendMessage, toggleThinkingExpanded } = useChat();
   const { scrollRef } = useAutoScroll();
@@ -22,10 +23,6 @@ export default function ChatContainer({ style }: ChatContainerProps) {
     ...style,
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    sendMessage(suggestion);
-  };
-
   return (
     <div style={containerStyle} className="chat-container">
       <MessageList
@@ -33,13 +30,15 @@ export default function ChatContainer({ style }: ChatContainerProps) {
         messages={messages}
         isThinking={isThinking}
         onToggleThinking={toggleThinkingExpanded}
-        onSuggestionClick={handleSuggestionClick}
+        onSuggestionClick={sendMessage}
       />
-      <ChatInput
-        onSend={sendMessage}
-        disabled={isLoading}
-        placeholder="Ask about your journal..."
-      />
+      <div style={inputWrapperStyle}>
+        <ChatInput
+          onSend={sendMessage}
+          disabled={isLoading}
+          placeholder="Ask about your journal..."
+        />
+      </div>
     </div>
   );
 }

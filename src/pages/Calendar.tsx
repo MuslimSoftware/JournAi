@@ -64,7 +64,7 @@ function DesktopCalendar() {
           onYearChange={setYear}
         />
       </div>
-      <SlidePanel isOpen>
+      <SlidePanel>
         <DayDetail
           dayData={dayData}
           isLoading={isLoadingDayData}

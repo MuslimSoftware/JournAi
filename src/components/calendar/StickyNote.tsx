@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { useTheme } from '../../contexts/ThemeContext';
 import { TextArea } from '../themed';
+import { STICKY_NOTE_DEBOUNCE_MS } from './constants';
 
 interface StickyNoteProps {
   id: string;
@@ -9,7 +9,6 @@ interface StickyNoteProps {
 }
 
 export default function StickyNote({ id, content, onUpdate }: StickyNoteProps) {
-  const { theme } = useTheme();
   const [value, setValue] = useState(content);
   const debounceRef = useRef<NodeJS.Timeout>(null);
 
@@ -24,14 +23,11 @@ export default function StickyNote({ id, content, onUpdate }: StickyNoteProps) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       onUpdate(id, newValue);
-    }, 500);
+    }, STICKY_NOTE_DEBOUNCE_MS);
   };
 
   return (
-    <div
-      className="sticky-note"
-      style={{ backgroundColor: theme.colors.background.secondary }}
-    >
+    <div className="sticky-note">
       <TextArea
         value={value}
         onChange={handleChange}

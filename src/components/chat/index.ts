@@ -6,3 +6,5 @@ export { default as ThinkingIndicator } from './ThinkingIndicator';
 export { default as ToolCallDisplay } from './ToolCallDisplay';
 export { default as StreamingText } from './StreamingText';
 export { default as WelcomeScreen } from './WelcomeScreen';
+export { default as ExpandableSection } from './ExpandableSection';
+export { CHAT } from './constants';

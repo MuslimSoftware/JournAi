@@ -5,7 +5,10 @@ import { DayPicker, DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { Text, IconButton, Button, Input } from '../themed';
 import { TimeFilter as ImportedTimeFilter } from '../../utils/timeFilters';
+import { ENTRIES_CONSTANTS } from '../../constants/entries';
 import 'react-day-picker/style.css';
+
+const { DATE_PICKER_FROM_YEAR, DATE_PICKER_TO_YEAR } = ENTRIES_CONSTANTS;
 
 export type TimeFilter = ImportedTimeFilter | 'this-year' | 'custom';
 
@@ -62,26 +65,28 @@ export default function EntriesToolbar({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
       if (
         searchContainerRef.current &&
-        !searchContainerRef.current.contains(event.target as Node) &&
+        !searchContainerRef.current.contains(target) &&
         !searchQuery
       ) {
         setSearchExpanded(false);
       }
       if (
         filterContainerRef.current &&
-        !filterContainerRef.current.contains(event.target as Node) &&
+        !filterContainerRef.current.contains(target) &&
         filterDropdownRef.current &&
-        !filterDropdownRef.current.contains(event.target as Node)
+        !filterDropdownRef.current.contains(target)
       ) {
         setFilterExpanded(false);
       }
       if (
         datePickerRef.current &&
-        !datePickerRef.current.contains(event.target as Node) &&
+        !datePickerRef.current.contains(target) &&
         filterContainerRef.current &&
-        !filterContainerRef.current.contains(event.target as Node)
+        !filterContainerRef.current.contains(target)
       ) {
         setShowDatePicker(false);
       }
@@ -146,6 +151,24 @@ export default function EntriesToolbar({
     setShowDatePicker(false);
   };
 
+  const handleFilterButtonClick = () => {
+    if (!filterExpanded && filterContainerRef.current) {
+      const rect = filterContainerRef.current.getBoundingClientRect();
+      setFilterDropdownPosition({
+        top: rect.bottom + 8,
+        left: rect.left,
+      });
+    }
+    setFilterExpanded(!filterExpanded);
+  };
+
+  const formatDateRange = () => {
+    if (customDateRange?.from && customDateRange?.to) {
+      return `${format(customDateRange.from, 'MMM d')} - ${format(customDateRange.to, 'MMM d, yyyy')}`;
+    }
+    return '';
+  };
+
   return (
     <div className="entries-toolbar">
       <div className="entries-toolbar-controls">
@@ -178,16 +201,7 @@ export default function EntriesToolbar({
             label="Filter"
             variant={activeFilter ? 'primary' : 'ghost'}
             size="sm"
-            onClick={() => {
-              if (!filterExpanded && filterContainerRef.current) {
-                const rect = filterContainerRef.current.getBoundingClientRect();
-                setFilterDropdownPosition({
-                  top: rect.bottom + 8,
-                  left: rect.left,
-                });
-              }
-              setFilterExpanded(!filterExpanded);
-            }}
+            onClick={handleFilterButtonClick}
             className="toolbar-button"
             style={!activeFilter ? { backgroundColor: 'transparent' } : undefined}
           />
@@ -244,8 +258,8 @@ export default function EntriesToolbar({
                 numberOfMonths={1}
                 className="custom-day-picker"
                 captionLayout="dropdown"
-                fromYear={2020}
-                toYear={2030}
+                fromYear={DATE_PICKER_FROM_YEAR}
+                toYear={DATE_PICKER_TO_YEAR}
               />
               <div className="date-picker-footer">
                 <Button
@@ -278,9 +292,7 @@ export default function EntriesToolbar({
           </Text>
           {activeFilter && (
             <span className="active-filter-badge">
-              {activeFilter === 'custom' && customDateRange?.from && customDateRange?.to
-                ? `${format(customDateRange.from, 'MMM d')} - ${format(customDateRange.to, 'MMM d, yyyy')}`
-                : TIME_FILTER_LABELS[activeFilter]}
+              {activeFilter === 'custom' ? formatDateRange() : TIME_FILTER_LABELS[activeFilter]}
               <button className="filter-badge-close" onClick={handleClearFilters} aria-label="Clear filter">
                 ×
               </button>

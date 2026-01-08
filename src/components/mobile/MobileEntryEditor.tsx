@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback, CSSProperties } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { FiArrowLeft } from 'react-icons/fi';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useKeyboard } from '../../hooks/useKeyboard';
 import { useSwipeNavigation } from '../../hooks/useSwipeNavigation';
 import { TextArea } from '../themed';
+import { ENTRIES_CONSTANTS, MOBILE_ENTRIES_CONSTANTS } from '../../constants/entries';
 
 interface MobileEntryEditorProps {
   entry: JournalEntry;
@@ -26,8 +27,8 @@ export default function MobileEntryEditor({
   const { progress: swipeProgress, isActive: isSwipeActive } = useSwipeNavigation({
     onSwipeBack: onBack,
     enabled: true,
-    edgeWidth: 40,
-    threshold: 70,
+    edgeWidth: MOBILE_ENTRIES_CONSTANTS.SWIPE_EDGE_WIDTH,
+    threshold: MOBILE_ENTRIES_CONSTANTS.SWIPE_THRESHOLD,
   });
 
   useEffect(() => {
@@ -47,7 +48,10 @@ export default function MobileEntryEditor({
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    saveTimeoutRef.current = setTimeout(() => saveContent(newContent), 500);
+    saveTimeoutRef.current = setTimeout(
+      () => saveContent(newContent),
+      ENTRIES_CONSTANTS.AUTOSAVE_DELAY_MS
+    );
   };
 
   const handleBlur = () => {
@@ -57,60 +61,38 @@ export default function MobileEntryEditor({
     saveContent(content);
   };
 
-  const backButtonStyle: CSSProperties = {
-    position: 'absolute',
-    top: '12px',
-    left: '8px',
-    background: 'none',
-    border: 'none',
-    padding: '8px',
-    color: theme.colors.text.primary,
-    cursor: 'pointer',
-    zIndex: 10,
-  };
-
-  const editorStyle: CSSProperties = {
-    flex: 1,
-    width: '100%',
-    padding: '60px 16px 20px',
-    paddingBottom: isKeyboardOpen ? '20px' : 'calc(20px + var(--mobile-nav-height) + var(--mobile-safe-area-bottom))',
-    background: 'transparent',
-    border: 'none',
-    color: theme.colors.text.primary,
-    fontSize: '16px',
-    lineHeight: 1.7,
-    resize: 'none',
-    outline: 'none',
-    fontFamily: 'inherit',
-    WebkitAppearance: 'none',
-    transition: 'padding-bottom 0.25s ease-out',
-  };
-
-  const wrapperStyle: CSSProperties = {
-    height: '100%',
-    backgroundColor: theme.colors.background.primary,
-  };
-
-  const containerStyle: CSSProperties = {
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    backgroundColor: theme.colors.background.primary,
-    position: 'relative',
-    transform: isSwipeActive ? `translateX(${swipeProgress * 30}px)` : 'translateX(0)',
-    transition: isSwipeActive ? 'none' : 'transform 0.2s ease-out',
-  };
+  const containerTransform = isSwipeActive
+    ? `translateX(${swipeProgress * 30}px)`
+    : 'translateX(0)';
 
   return (
-    <div style={wrapperStyle}>
-      <div style={containerStyle}>
-        <button style={backButtonStyle} onClick={onBack} aria-label="Back">
+    <div style={{ height: '100%', backgroundColor: theme.colors.background.primary }}>
+      <div
+        className="mobile-editor-container"
+        style={{
+          backgroundColor: theme.colors.background.primary,
+          transform: containerTransform,
+          transition: isSwipeActive ? 'none' : undefined,
+        }}
+      >
+        <button
+          className="mobile-editor-back"
+          onClick={onBack}
+          aria-label="Back"
+          style={{ color: theme.colors.text.primary }}
+        >
           <FiArrowLeft size={22} />
         </button>
 
         <TextArea
           ref={textareaRef}
-          style={editorStyle}
+          className="mobile-editor-textarea"
+          style={{
+            color: theme.colors.text.primary,
+            paddingBottom: isKeyboardOpen
+              ? '20px'
+              : 'calc(20px + var(--mobile-nav-height) + var(--mobile-safe-area-bottom))',
+          }}
           value={content}
           onChange={handleChange}
           onBlur={handleBlur}

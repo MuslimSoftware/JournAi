@@ -1,7 +1,9 @@
 import { CSSProperties, useState } from 'react';
-import { IoConstruct, IoCheckmarkCircle, IoAlertCircle, IoChevronDown, IoChevronForward } from 'react-icons/io5';
+import { IoConstruct, IoCheckmarkCircle, IoAlertCircle } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ToolCall } from '../../types/chat';
+import ExpandableSection from './ExpandableSection';
+import { CHAT } from './constants';
 
 interface ToolCallDisplayProps {
   toolCalls: ToolCall[];
@@ -24,60 +26,43 @@ export default function ToolCallDisplay({ toolCalls }: ToolCallDisplayProps) {
     display: 'flex',
     flexDirection: 'column',
     gap: theme.spacing.xs,
-    maxWidth: 'min(80%, 600px)',
-  };
-
-  const toolStyle: CSSProperties = {
-    borderRadius: '8px',
-    backgroundColor: theme.colors.background.tertiary,
-    border: `1px solid ${theme.colors.border.secondary}`,
-    overflow: 'hidden',
-  };
-
-  const headerStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-    cursor: 'pointer',
-    fontSize: '0.8125rem',
+    maxWidth: CHAT.bubble.maxWidth,
   };
 
   const detailsStyle: CSSProperties = {
-    padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-    fontSize: '0.75rem',
     fontFamily: 'monospace',
-    backgroundColor: theme.colors.background.secondary,
-    color: theme.colors.text.muted,
-    borderTop: `1px solid ${theme.colors.border.secondary}`,
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-all',
   };
 
   const getStatusIcon = (status: ToolCall['status']) => {
+    const size = CHAT.iconSize.sm;
     switch (status) {
-      case 'completed': return <IoCheckmarkCircle color="#22c55e" size={14} />;
-      case 'error': return <IoAlertCircle color="#ef4444" size={14} />;
-      default: return <IoConstruct color={theme.colors.text.secondary} size={14} />;
+      case 'completed':
+        return <IoCheckmarkCircle color={theme.colors.status.success} size={size} />;
+      case 'error':
+        return <IoAlertCircle color={theme.colors.status.error} size={size} />;
+      default:
+        return <IoConstruct color={theme.colors.text.secondary} size={size} />;
     }
   };
 
   return (
     <div style={containerStyle}>
       {toolCalls.map(tool => (
-        <div key={tool.id} style={toolStyle}>
-          <div style={headerStyle} onClick={() => toggleExpand(tool.id)}>
-            {getStatusIcon(tool.status)}
-            <span style={{ flex: 1, color: theme.colors.text.secondary }}>{tool.name}</span>
-            {expandedIds.has(tool.id) ? <IoChevronDown size={14} /> : <IoChevronForward size={14} />}
+        <ExpandableSection
+          key={tool.id}
+          icon={getStatusIcon(tool.status)}
+          title={tool.name}
+          isExpanded={expandedIds.has(tool.id)}
+          onToggle={() => toggleExpand(tool.id)}
+          borderRadius={CHAT.toolCall.borderRadius}
+        >
+          <div style={detailsStyle}>
+            <div>Args: {tool.arguments}</div>
+            {tool.result && <div>Result: {tool.result}</div>}
           </div>
-          {expandedIds.has(tool.id) && (
-            <div style={detailsStyle}>
-              <div>Args: {tool.arguments}</div>
-              {tool.result && <div>Result: {tool.result}</div>}
-            </div>
-          )}
-        </div>
+        </ExpandableSection>
       ))}
     </div>
   );

@@ -1,3 +1,51 @@
+:root {
+  --entries-sidebar-collapsed: 48px;
+  --entries-sidebar-expanded: 300px;
+  --entries-content-max-width: 720px;
+  --entries-header-height: 40px;
+  --entries-item-height: 56px;
+  --entries-item-height-small: 52px;
+  --entries-toolbar-button-size: 32px;
+  --entries-toolbar-button-size-small: 28px;
+  --dropdown-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.25s ease-out;
+}
+
+.dropdown-base {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 0.5rem;
+  box-shadow: var(--dropdown-shadow);
+  animation: slideDown var(--transition-normal);
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
+}
+
+.scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 .entries-layout {
   position: relative;
   display: flex;
@@ -8,22 +56,22 @@
 }
 
 .entries-sidebar {
-  width: 48px;
-  min-width: 48px;
+  width: var(--entries-sidebar-collapsed);
+  min-width: var(--entries-sidebar-collapsed);
   flex-shrink: 0;
   background-color: var(--bg-tertiary);
   border-right: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
-  transition: width 0.2s ease, min-width 0.2s ease;
+  transition: width var(--transition-normal), min-width var(--transition-normal);
   overflow: hidden;
 }
 
 .entries-sidebar.pinned,
 .entries-sidebar.dropdown-open,
 .entries-sidebar:has(.entries-sidebar-hover-zone:hover) {
-  width: 300px;
-  min-width: 300px;
+  width: var(--entries-sidebar-expanded);
+  min-width: var(--entries-sidebar-expanded);
 }
 
 .entries-sidebar-action-bar {
@@ -101,7 +149,7 @@
 .entry-content-editor {
   flex: 1;
   width: 100%;
-  max-width: 720px;
+  max-width: var(--entries-content-max-width);
   padding: 2rem;
   background: transparent;
   border: none;
@@ -111,13 +159,7 @@
   resize: none;
   outline: none;
   font-family: inherit;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
   transition: max-width 0.4s ease;
-}
-
-.entry-content-editor::-webkit-scrollbar {
-  display: none;
 }
 
 .entry-content-editor::placeholder {
@@ -125,7 +167,7 @@
 }
 
 .entry-group-header {
-  height: 40px;
+  height: var(--entries-header-height);
   padding: 0 20px;
   font-size: 0.6875rem;
   font-weight: 700;
@@ -138,12 +180,12 @@
 
 .entry-list-item {
   position: relative;
-  height: 56px;
+  height: var(--entries-item-height);
   padding: 8px 12px;
   margin: 0 8px 8px 8px;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   border: 1px solid transparent;
   box-sizing: border-box;
   display: flex;
@@ -294,15 +336,15 @@
 }
 
 .toolbar-button {
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px !important;
-  min-height: 32px !important;
-  max-width: 32px !important;
-  max-height: 32px !important;
+  width: var(--entries-toolbar-button-size) !important;
+  height: var(--entries-toolbar-button-size) !important;
+  min-width: var(--entries-toolbar-button-size) !important;
+  min-height: var(--entries-toolbar-button-size) !important;
+  max-width: var(--entries-toolbar-button-size) !important;
+  max-height: var(--entries-toolbar-button-size) !important;
   padding: 6px !important;
   border-radius: 6px !important;
-  transition: background-color 0.15s ease, color 0.15s ease !important;
+  transition: background-color var(--transition-fast), color var(--transition-fast) !important;
 }
 
 .toolbar-button:hover {
@@ -381,10 +423,10 @@
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--dropdown-shadow);
   min-width: 200px;
   z-index: 10000;
-  animation: slideDown 0.2s ease;
+  animation: slideDown var(--transition-normal);
 }
 
 @keyframes slideDown {
@@ -518,9 +560,9 @@
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--dropdown-shadow);
   z-index: 9999;
-  animation: slideDown 0.2s ease;
+  animation: slideDown var(--transition-normal);
 }
 
 
@@ -742,10 +784,10 @@
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--dropdown-shadow);
   min-width: 140px;
   z-index: 10000;
-  animation: slideDown 0.2s ease;
+  animation: slideDown var(--transition-normal);
   overflow: hidden;
 }
 
@@ -773,9 +815,9 @@
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--dropdown-shadow);
   z-index: 10000;
-  animation: slideDown 0.2s ease;
+  animation: slideDown var(--transition-normal);
 }
 
 .date-picker-footer {
@@ -914,7 +956,7 @@
   }
 
   .entry-list-item {
-    height: 52px;
+    height: var(--entries-item-height-small);
     padding: 6px 10px;
     margin: 0 4px 6px 4px;
   }
@@ -938,19 +980,19 @@
   }
 
   .toolbar-button {
-    width: 28px !important;
-    height: 28px !important;
-    min-width: 28px !important;
-    min-height: 28px !important;
-    max-width: 28px !important;
-    max-height: 28px !important;
+    width: var(--entries-toolbar-button-size-small) !important;
+    height: var(--entries-toolbar-button-size-small) !important;
+    min-width: var(--entries-toolbar-button-size-small) !important;
+    min-height: var(--entries-toolbar-button-size-small) !important;
+    max-width: var(--entries-toolbar-button-size-small) !important;
+    max-height: var(--entries-toolbar-button-size-small) !important;
     padding: 5px !important;
     border-radius: 6px !important;
   }
 
   .search-container {
-    flex: 0 0 28px;
-    height: 28px;
+    flex: 0 0 var(--entries-toolbar-button-size-small);
+    height: var(--entries-toolbar-button-size-small);
   }
 
   .entries-empty-state {

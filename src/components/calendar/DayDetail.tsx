@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom';
-import { FiPlus } from 'react-icons/fi';
 import { Text, Card, Spinner } from '../themed';
 import TodoList from './TodoList';
 import StickyNote from './StickyNote';
+import SectionHeader from './SectionHeader';
+import AddItemButton from './AddItemButton';
 import { createEntry } from '../../services/entries';
 import type { DayData, Todo, StickyNote as StickyNoteType } from '../../types/todo';
 
@@ -45,13 +46,15 @@ export default function DayDetail({
     );
   }
 
+  const handleAddEntry = async () => {
+    await createEntry(dayData.date);
+    navigate('/entries');
+  };
+
   return (
     <div className="day-detail">
       <div className="day-detail-section">
-        <div className="day-detail-section-header">
-          <span className="section-indicator entry-indicator" />
-          <Text as="h4" variant="secondary">Journal Entry</Text>
-        </div>
+        <SectionHeader title="Journal Entry" indicatorType="entry" />
         {dayData.hasEntry ? (
           <Card
             padding="md"
@@ -63,16 +66,7 @@ export default function DayDetail({
             </Text>
           </Card>
         ) : (
-          <button
-            className="entry-add-button"
-            onClick={async () => {
-              await createEntry(dayData.date);
-              navigate('/entries');
-            }}
-          >
-            <FiPlus size={16} />
-            <span>Add entry</span>
-          </button>
+          <AddItemButton label="Add entry" onClick={handleAddEntry} />
         )}
       </div>
 
@@ -84,11 +78,8 @@ export default function DayDetail({
         onReorderTodos={onReorderTodos}
       />
 
-      <div className="sticky-note-section">
-        <div className="day-detail-section-header">
-          <span className="section-indicator sticky-note-indicator" />
-          <Text as="h4" variant="secondary">Sticky Note</Text>
-        </div>
+      <div className="day-detail-section">
+        <SectionHeader title="Sticky Note" indicatorType="sticky-note" />
         {stickyNote && (
           <StickyNote
             id={stickyNote.id}

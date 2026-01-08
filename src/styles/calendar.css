@@ -308,7 +308,7 @@
   gap: 0.75rem;
 }
 
-.day-detail-section-header {
+.section-header {
   display: flex;
   flex-direction: row-reverse;
   justify-content: flex-end;
@@ -316,7 +316,7 @@
   gap: 0.5rem;
 }
 
-.day-detail-section-header h4 {
+.section-header h4 {
   margin: 0;
   font-size: 0.875rem;
 }
@@ -362,7 +362,7 @@
   overflow: hidden;
 }
 
-.entry-add-button {
+.add-item-button {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -379,12 +379,12 @@
   text-align: left;
 }
 
-.entry-add-button:hover {
+.add-item-button:hover {
   background-color: var(--bg-subtle);
   color: var(--text-secondary);
 }
 
-.entry-add-button:active {
+.add-item-button:active {
   transform: scale(0.99);
 }
 
@@ -393,37 +393,6 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-}
-
-.todo-list-header {
-  margin: 0;
-  font-size: 0.875rem;
-}
-
-.todo-add-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 0.75rem;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  width: 100%;
-  text-align: left;
-}
-
-.todo-add-button:hover {
-  background-color: var(--bg-subtle);
-  color: var(--text-secondary);
-}
-
-.todo-add-button:active {
-  transform: scale(0.99);
 }
 
 .todo-list {
@@ -626,16 +595,18 @@
   gap: 0.75rem;
 }
 
-.sticky-note-section h4 {
-  margin: 0;
-  font-size: 0.875rem;
-}
-
 .sticky-note {
   position: relative;
+  background-color: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: 8px;
   padding: 0.75rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.sticky-note:hover {
+  background-color: var(--bg-subtle);
+  border-color: var(--text-muted);
 }
 
 .sticky-note-textarea {

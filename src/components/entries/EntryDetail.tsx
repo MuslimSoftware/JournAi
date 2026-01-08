@@ -2,6 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { FiPlus } from 'react-icons/fi';
 import { Text, Button, TextArea } from '../themed';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
+import { ENTRIES_CONSTANTS } from '../../constants/entries';
+
+const { AUTOSAVE_DELAY_MS } = ENTRIES_CONSTANTS;
 
 interface EntryDetailProps {
   entry: JournalEntry | null;
@@ -26,17 +29,14 @@ export default function EntryDetail({ entry, hasEntries, onUpdate, onCreateEntry
     }
   }, [entry, onUpdate]);
 
-  const handleContentChange = (newContent: string) => {
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value;
     setContent(newContent);
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    saveTimeoutRef.current = setTimeout(() => saveContent(newContent), 500);
-  };
-
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    handleContentChange(e.target.value);
+    saveTimeoutRef.current = setTimeout(() => saveContent(newContent), AUTOSAVE_DELAY_MS);
   };
 
   const handleBlur = () => {
@@ -68,7 +68,7 @@ export default function EntryDetail({ entry, hasEntries, onUpdate, onCreateEntry
               variant="primary"
               size="sm"
               icon={<FiPlus size={16} />}
-              onClick={() => onCreateEntry()}
+              onClick={onCreateEntry}
             >
               Create your first entry
             </Button>
@@ -81,9 +81,9 @@ export default function EntryDetail({ entry, hasEntries, onUpdate, onCreateEntry
   return (
     <div className="entries-content">
       <TextArea
-        className="entry-content-editor"
+        className="entry-content-editor scrollbar-hidden"
         value={content}
-        onChange={handleTextareaChange}
+        onChange={handleContentChange}
         onBlur={handleBlur}
         placeholder="Start writing..."
       />

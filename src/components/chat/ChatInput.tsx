@@ -2,6 +2,7 @@ import { CSSProperties, useState, useRef, KeyboardEvent } from 'react';
 import { IoSend } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
 import { IconButton, TextArea } from '../themed';
+import { CHAT } from './constants';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -12,8 +13,6 @@ interface ChatInputProps {
 export default function ChatInput({ onSend, disabled, placeholder = "Message..." }: ChatInputProps) {
   const { theme } = useTheme();
   const [value, setValue] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSend = () => {
@@ -36,7 +35,7 @@ export default function ChatInput({ onSend, disabled, placeholder = "Message..."
   const handleInput = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, CHAT.input.maxHeight)}px`;
     }
   };
 
@@ -48,23 +47,18 @@ export default function ChatInput({ onSend, disabled, placeholder = "Message..."
     backgroundColor: theme.colors.background.primary,
   };
 
-  const getBorderColor = () => {
-    if (isFocused) return theme.colors.text.secondary;
-    if (isHovered) return theme.colors.text.muted;
-    return theme.colors.border.primary;
-  };
-
   const inputWrapperStyle: CSSProperties = {
     flex: 1,
     display: 'flex',
     alignItems: 'flex-end',
     backgroundColor: theme.colors.background.secondary,
-    borderRadius: '24px',
-    border: `1px solid ${getBorderColor()}`,
+    borderRadius: CHAT.input.borderRadius,
+    border: `1px solid ${theme.colors.border.primary}`,
     padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-    transition: 'border-color 0.15s ease-out',
     cursor: 'text',
-  };
+    '--chat-border-hover': theme.colors.text.muted,
+    '--chat-border-focus': theme.colors.text.secondary,
+  } as CSSProperties;
 
   const textareaStyle: CSSProperties = {
     flex: 1,
@@ -75,16 +69,15 @@ export default function ChatInput({ onSend, disabled, placeholder = "Message..."
     fontFamily: theme.typography.fontFamily,
     resize: 'none',
     outline: 'none',
-    maxHeight: '150px',
+    maxHeight: `${CHAT.input.maxHeight}px`,
     lineHeight: '1.5',
   };
 
   return (
     <div style={containerStyle}>
       <div
+        className="chat-input-wrapper"
         style={inputWrapperStyle}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
         onClick={() => textareaRef.current?.focus()}
       >
         <TextArea
@@ -93,15 +86,13 @@ export default function ChatInput({ onSend, disabled, placeholder = "Message..."
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onInput={handleInput}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
           placeholder={placeholder}
           rows={1}
           style={textareaStyle}
         />
       </div>
       <IconButton
-        icon={<IoSend size={18} />}
+        icon={<IoSend size={CHAT.iconSize.lg} />}
         label="Send message"
         variant={value.trim() ? 'primary' : 'secondary'}
         size="sm"

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, CSSProperties } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { format, parseISO } from 'date-fns';
 import { useEntries } from '../../hooks/useEntries';
@@ -91,7 +91,7 @@ export default function MobileEntries() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+      <div className="mobile-entries-empty">
         <Spinner size="lg" />
       </div>
     );
@@ -107,138 +107,34 @@ export default function MobileEntries() {
     );
   }
 
-  const headerStyle: CSSProperties = {
-    position: 'sticky',
-    top: 0,
-    zIndex: 100,
-    backgroundColor: theme.colors.background.primary,
-  };
-
-  const searchRowStyle: CSSProperties = {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    padding: '8px 16px 4px',
-  };
-
-  const searchBarContainerStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    overflow: 'hidden',
-    maxHeight: isSearching ? '60px' : '0px',
-    opacity: isSearching ? 1 : 0,
-    padding: isSearching ? '0 16px 12px' : '0 16px',
-    transition: 'max-height 0.25s ease-out, opacity 0.2s ease-out, padding 0.25s ease-out',
-  };
-
-  const searchInputStyle: CSSProperties = {
-    flex: 1,
-    padding: '10px 14px',
-    fontSize: '16px',
-    border: 'none',
-    borderRadius: '10px',
-    backgroundColor: theme.colors.background.secondary,
-    color: theme.colors.text.primary,
-    outline: 'none',
-    WebkitAppearance: 'none',
-  };
-
-  const cancelButtonStyle: CSSProperties = {
-    background: 'none',
-    border: 'none',
-    padding: '8px',
-    color: theme.colors.text.accent,
-    fontSize: '1rem',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  };
-
-  const iconButtonStyle: CSSProperties = {
-    background: 'none',
-    border: 'none',
-    padding: '8px',
-    color: theme.colors.text.muted,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  };
-
-  const listStyle: CSSProperties = {
-    padding: '0 0 80px 0',
-  };
-
-  const groupHeaderStyle: CSSProperties = {
-    padding: '24px 16px 8px',
-    fontSize: '0.6875rem',
-    fontWeight: 600,
-    color: theme.colors.text.muted,
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-  };
-
-  const getEntryItemStyle = (entryId: string): CSSProperties => ({
-    padding: '14px 16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    backgroundColor: pressedEntryId === entryId ? theme.colors.background.secondary : 'transparent',
-    transition: 'background-color 0.1s ease-out',
-    borderRadius: '8px',
-    margin: '0 8px',
-  });
-
-  const entryDateStyle: CSSProperties = {
-    fontSize: '0.75rem',
-    color: theme.colors.text.muted,
-  };
-
-  const entryPreviewStyle: CSSProperties = {
-    fontSize: '1rem',
-    color: theme.colors.text.primary,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    lineHeight: 1.4,
-  };
-
-  const emptyStyle: CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
-    gap: '12px',
-    padding: '24px',
-    textAlign: 'center',
-  };
-
-  const noResultsStyle: CSSProperties = {
-    padding: '40px 24px',
-    textAlign: 'center',
-  };
-
   return (
-    <div style={{ height: '100%', backgroundColor: theme.colors.background.primary, display: 'flex', flexDirection: 'column' }}>
+    <div
+      className="mobile-entries-container"
+      style={{ backgroundColor: theme.colors.background.primary }}
+    >
       {entries.length > 0 && (
-        <header style={headerStyle}>
+        <header
+          className="mobile-entries-header"
+          style={{ backgroundColor: theme.colors.background.primary }}
+        >
           {!isSearching && (
-            <div style={searchRowStyle}>
-              <button onClick={handleSearchOpen} style={iconButtonStyle} aria-label="Search">
+            <div className="mobile-search-row">
+              <button
+                onClick={handleSearchOpen}
+                className="mobile-icon-button"
+                style={{ color: theme.colors.text.muted }}
+                aria-label="Search"
+              >
                 <FiSearch size={20} />
               </button>
             </div>
           )}
-          <div style={searchBarContainerStyle}>
-            <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+          <div className={`mobile-search-bar-container ${isSearching ? 'expanded' : ''}`}>
+            <div className="mobile-search-input-wrapper">
               <FiSearch
                 size={18}
-                style={{
-                  position: 'absolute',
-                  left: '12px',
-                  color: theme.colors.text.muted,
-                  pointerEvents: 'none',
-                }}
+                className="mobile-search-input-icon"
+                style={{ color: theme.colors.text.muted }}
               />
               <Input
                 ref={searchInputRef}
@@ -246,26 +142,28 @@ export default function MobileEntries() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search entries..."
+                className="mobile-search-input"
                 style={{
-                  ...searchInputStyle,
-                  paddingLeft: '40px',
+                  backgroundColor: theme.colors.background.secondary,
+                  color: theme.colors.text.primary,
                 }}
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  style={{
-                    ...iconButtonStyle,
-                    position: 'absolute',
-                    right: '4px',
-                  }}
+                  className="mobile-search-clear"
+                  style={{ color: theme.colors.text.muted }}
                   aria-label="Clear search"
                 >
                   <FiX size={18} />
                 </button>
               )}
             </div>
-            <button onClick={handleSearchClose} style={cancelButtonStyle}>
+            <button
+              onClick={handleSearchClose}
+              className="mobile-cancel-button"
+              style={{ color: theme.colors.text.accent }}
+            >
               Cancel
             </button>
           </div>
@@ -273,7 +171,7 @@ export default function MobileEntries() {
       )}
 
       {entries.length === 0 ? (
-        <div style={emptyStyle}>
+        <div className="mobile-entries-empty">
           <Text variant="muted" style={{ fontSize: '1rem' }}>
             Start your journal
           </Text>
@@ -282,15 +180,20 @@ export default function MobileEntries() {
           </Button>
         </div>
       ) : (
-        <div style={{ ...listStyle, flex: 1, overflowY: 'auto' }}>
+        <div className="mobile-entries-list">
           {filteredEntries.length === 0 && searchQuery ? (
-            <div style={noResultsStyle}>
+            <div className="mobile-no-results">
               <Text variant="muted">No entries found for "{searchQuery}"</Text>
             </div>
           ) : (
             Array.from(groupedEntries).map(([group, groupEntries]) => (
               <div key={group}>
-                <div style={groupHeaderStyle}>{group}</div>
+                <div
+                  className="mobile-entry-group-header"
+                  style={{ color: theme.colors.text.muted }}
+                >
+                  {group}
+                </div>
                 {groupEntries.map((entry) => (
                   <SwipeableListItem
                     key={entry.id}
@@ -298,14 +201,24 @@ export default function MobileEntries() {
                     onEditDate={() => handleEditDate(entry)}
                   >
                     <div
-                      style={getEntryItemStyle(entry.id)}
+                      className={`mobile-entry-item ${pressedEntryId === entry.id ? 'pressed' : ''}`}
                       onClick={() => handleEntrySelect(entry.id)}
                       onTouchStart={() => setPressedEntryId(entry.id)}
                       onTouchEnd={() => setPressedEntryId(null)}
                       onTouchCancel={() => setPressedEntryId(null)}
                     >
-                      <span style={entryDateStyle}>{formatEntryDate(entry.date)}</span>
-                      <span style={entryPreviewStyle}>{entry.preview}</span>
+                      <span
+                        className="mobile-entry-date"
+                        style={{ color: theme.colors.text.muted }}
+                      >
+                        {formatEntryDate(entry.date)}
+                      </span>
+                      <span
+                        className="mobile-entry-preview"
+                        style={{ color: theme.colors.text.primary }}
+                      >
+                        {entry.preview}
+                      </span>
                     </div>
                   </SwipeableListItem>
                 ))}
@@ -334,12 +247,7 @@ export default function MobileEntries() {
         onClose={() => setEditingDateEntry(null)}
         title="Change Date"
       >
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          paddingBottom: '16px',
-        }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: '16px' }}>
           <DayPicker
             mode="single"
             selected={editingDateEntry ? parseISO(editingDateEntry.date) : undefined}

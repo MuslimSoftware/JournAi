@@ -11,8 +11,8 @@
 }
 
 .trash-button:hover:not(:disabled) {
-  background-color: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  background-color: var(--trash-button-hover-bg, rgba(239, 68, 68, 0.15));
+  color: var(--trash-button-hover-color, #ef4444);
 }
 
 .trash-button:disabled {

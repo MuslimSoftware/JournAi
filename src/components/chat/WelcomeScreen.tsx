@@ -2,6 +2,7 @@ import { CSSProperties } from 'react';
 import { IoChatbubbleEllipses, IoSparkles, IoTrendingUp, IoCalendar } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../themed';
+import { CHAT } from './constants';
 
 interface WelcomeScreenProps {
   onSuggestionClick?: (suggestion: string) => void;
@@ -43,13 +44,13 @@ export default function WelcomeScreen({ onSuggestionClick }: WelcomeScreenProps)
     padding: theme.spacing.md,
     backgroundColor: theme.colors.background.secondary,
     border: `1px solid ${theme.colors.border.primary}`,
-    borderRadius: '12px',
+    borderRadius: CHAT.expandable.borderRadius,
     cursor: 'pointer',
-    transition: 'all 0.2s',
     textAlign: 'left',
-    fontSize: '0.875rem',
+    fontSize: CHAT.fontSize.small,
     color: theme.colors.text.secondary,
-  };
+    '--chat-border-focus': theme.colors.text.secondary,
+  } as CSSProperties;
 
   return (
     <div style={containerStyle}>
@@ -65,16 +66,11 @@ export default function WelcomeScreen({ onSuggestionClick }: WelcomeScreenProps)
         {SUGGESTIONS.map(({ icon: Icon, text }) => (
           <div
             key={text}
+            className="chat-suggestion"
             style={suggestionStyle}
             onClick={() => onSuggestionClick?.(text)}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = theme.colors.text.secondary;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = theme.colors.border.primary;
-            }}
           >
-            <Icon size={18} color={theme.colors.text.secondary} />
+            <Icon size={CHAT.iconSize.lg} color={theme.colors.text.secondary} />
             <span>{text}</span>
           </div>
         ))}
