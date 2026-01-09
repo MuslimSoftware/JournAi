@@ -1,7 +1,8 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { IconType } from 'react-icons';
 import { useTheme } from '../../contexts/ThemeContext';
-import { CSSProperties } from 'react';
+import { hapticSelection } from '../../hooks/useHaptics';
+import { CSSProperties, useCallback, useRef } from 'react';
 
 interface NavItem {
   path: string;
@@ -17,6 +18,15 @@ interface BottomNavProps {
 
 export default function BottomNav({ items }: BottomNavProps) {
   const { theme } = useTheme();
+  const location = useLocation();
+  const lastPath = useRef(location.pathname);
+
+  const handleNavClick = useCallback((path: string) => {
+    if (path !== lastPath.current) {
+      hapticSelection();
+      lastPath.current = path;
+    }
+  }, []);
 
   const containerStyle: CSSProperties = {
     position: 'fixed',
@@ -44,7 +54,7 @@ export default function BottomNav({ items }: BottomNavProps) {
     height: '100%',
     textDecoration: 'none',
     color: theme.colors.text.muted,
-    transition: 'color 0.2s',
+    transition: 'color 0.15s ease, transform 0.1s ease',
     background: 'transparent',
     border: 'none',
     WebkitTapHighlightColor: 'transparent',
@@ -64,9 +74,17 @@ export default function BottomNav({ items }: BottomNavProps) {
             to={item.path}
             style={({ isActive }) => isActive ? activeLinkStyle : linkStyle}
             aria-label={item.label}
+            onClick={() => handleNavClick(item.path)}
           >
             {({ isActive }) => (
-              isActive ? <item.iconFilled size={26} /> : <item.icon size={26} />
+              <div
+                style={{
+                  transform: isActive ? 'scale(1.05)' : 'scale(1)',
+                  transition: 'transform 0.15s ease',
+                }}
+              >
+                {isActive ? <item.iconFilled size={26} /> : <item.icon size={26} />}
+              </div>
             )}
           </NavLink>
         ))}

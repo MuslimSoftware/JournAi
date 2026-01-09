@@ -1,8 +1,10 @@
+import { useCallback } from 'react';
 import { useCalendar } from '../../hooks/useCalendar';
-import { Spinner } from '../themed';
+import { hapticSelection } from '../../hooks/useHaptics';
 import CalendarGrid from '../calendar/CalendarGrid';
 import DayDetail from '../calendar/DayDetail';
 import BottomSheet from './BottomSheet';
+import { SkeletonCalendarGrid } from './Skeleton';
 import '../../styles/calendar.css';
 
 export default function MobileCalendar() {
@@ -28,10 +30,26 @@ export default function MobileCalendar() {
     updateStickyNote,
   } = useCalendar();
 
+  const handleSelectDate = useCallback((date: string | null) => {
+    if (date) {
+      hapticSelection();
+    }
+    selectDate(date);
+  }, [selectDate]);
+
+  const handleMonthChange = useCallback((direction: 'prev' | 'next') => {
+    hapticSelection();
+    if (direction === 'prev') {
+      goToPreviousMonth();
+    } else {
+      goToNextMonth();
+    }
+  }, [goToPreviousMonth, goToNextMonth]);
+
   if (isLoadingIndicators && !indicators) {
     return (
       <div className="mobile-calendar-page loading">
-        <Spinner size="lg" />
+        <SkeletonCalendarGrid />
       </div>
     );
   }
@@ -43,10 +61,10 @@ export default function MobileCalendar() {
         year={currentYear}
         selectedDate={selectedDate}
         indicators={indicators}
-        onPreviousMonth={goToPreviousMonth}
-        onNextMonth={goToNextMonth}
+        onPreviousMonth={() => handleMonthChange('prev')}
+        onNextMonth={() => handleMonthChange('next')}
         onToday={goToToday}
-        onSelectDate={selectDate}
+        onSelectDate={handleSelectDate}
         onMonthChange={setMonth}
         onYearChange={setYear}
       />
@@ -55,6 +73,7 @@ export default function MobileCalendar() {
         isOpen={!!selectedDate}
         onClose={() => selectDate(null)}
         title="Day Details"
+        height="half"
       >
         <DayDetail
           dayData={dayData}

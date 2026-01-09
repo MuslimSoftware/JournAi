@@ -1,7 +1,8 @@
-import { ReactNode, CSSProperties, useState } from 'react';
+import { ReactNode, CSSProperties, useState, useRef, useEffect } from 'react';
 import { FiTrash2, FiCalendar } from 'react-icons/fi';
 import { useSwipeAction } from '../../hooks/useSwipeAction';
 import { useTheme } from '../../contexts/ThemeContext';
+import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
 import { lightTheme } from '../../theme/tokens';
 
 interface SwipeableListItemProps {
@@ -19,6 +20,8 @@ export default function SwipeableListItem({
 }: SwipeableListItemProps) {
   const { theme } = useTheme();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const hadThresholdHaptic = useRef(false);
+  const hadFullSwipeHaptic = useRef(false);
 
   const { offsetX, isDragging, isFullSwipe, isOpen, handlers, close } = useSwipeAction({
     actionThreshold: 60,
@@ -26,25 +29,49 @@ export default function SwipeableListItem({
     openPosition: 160,
   });
 
+  const revealedOffset = Math.abs(offsetX);
+
+  useEffect(() => {
+    if (revealedOffset > 60 && !hadThresholdHaptic.current) {
+      hapticSelection();
+      hadThresholdHaptic.current = true;
+    }
+    if (revealedOffset < 50) {
+      hadThresholdHaptic.current = false;
+    }
+
+    if (isFullSwipe && !hadFullSwipeHaptic.current) {
+      hapticImpact('medium');
+      hadFullSwipeHaptic.current = true;
+    }
+    if (!isFullSwipe) {
+      hadFullSwipeHaptic.current = false;
+    }
+  }, [revealedOffset, isFullSwipe]);
+
   const handleTouchEnd = () => {
     const result = handlers.onTouchEnd();
     if (result.isFullSwipe && onDelete) {
+      hapticImpact('heavy');
       setShowDeleteConfirm(true);
     }
   };
 
   const handleDelete = () => {
+    hapticImpact('medium');
     close();
     setShowDeleteConfirm(false);
     onDelete?.();
   };
 
   const handleCancelDelete = () => {
+    hapticImpact('light');
     close();
     setShowDeleteConfirm(false);
   };
 
   const handleEditDate = () => {
+    hapticSelection();
     close();
     onEditDate?.();
   };
@@ -61,12 +88,11 @@ export default function SwipeableListItem({
     overflow: 'hidden',
   };
 
-  const revealedOffset = Math.abs(offsetX);
   const actionsWidth = isOpen ? 160 : Math.min(revealedOffset, 160);
 
   const contentStyle: CSSProperties = {
     transform: `translateX(${offsetX}px)`,
-    transition: isDragging ? 'none' : 'transform 0.3s ease',
+    transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)',
     backgroundColor: theme.colors.background.primary,
     position: 'relative',
     zIndex: 1,
@@ -84,7 +110,7 @@ export default function SwipeableListItem({
   };
 
   const isLightMode = theme === lightTheme;
-  const deleteColor = isLightMode ? '#b91c1c' : '#f87171';
+  const deleteColor = isLightMode ? '#dc2626' : '#ef4444';
   const editDateColor = isLightMode ? '#6b7280' : '#9ca3af';
 
   const actionButtonStyle = (bgColor: string): CSSProperties => ({
@@ -97,6 +123,7 @@ export default function SwipeableListItem({
     border: 'none',
     cursor: 'pointer',
     minWidth: '60px',
+    WebkitTapHighlightColor: 'transparent',
   });
 
   const swipeProgress = Math.min(revealedOffset / 200, 1);
@@ -147,6 +174,7 @@ export default function SwipeableListItem({
     fontWeight: 600,
     fontSize: '0.875rem',
     cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent',
   };
 
   const cancelButtonStyle: CSSProperties = {
@@ -158,6 +186,7 @@ export default function SwipeableListItem({
     fontWeight: 500,
     fontSize: '0.875rem',
     cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent',
   };
 
   const showActions = revealedOffset > 20;

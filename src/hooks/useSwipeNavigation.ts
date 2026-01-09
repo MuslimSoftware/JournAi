@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { hapticImpact } from './useHaptics';
 
 interface SwipeNavigationState {
   progress: number;
@@ -29,6 +30,7 @@ export function useSwipeNavigation(options: UseSwipeNavigationOptions = {}) {
   const startY = useRef(0);
   const isEdgeSwipe = useRef(false);
   const isHorizontal = useRef<boolean | null>(null);
+  const hasReachedThreshold = useRef(false);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (!enabled) return;
@@ -38,6 +40,7 @@ export function useSwipeNavigation(options: UseSwipeNavigationOptions = {}) {
     startY.current = touch.clientY;
     isEdgeSwipe.current = touch.clientX <= edgeWidth;
     isHorizontal.current = null;
+    hasReachedThreshold.current = false;
 
     if (isEdgeSwipe.current) {
       setState({ progress: 0, isActive: true });
@@ -64,6 +67,14 @@ export function useSwipeNavigation(options: UseSwipeNavigationOptions = {}) {
     if (diffX > 0) {
       e.preventDefault();
       const progress = Math.min(diffX / threshold, 1);
+
+      if (progress >= 1 && !hasReachedThreshold.current) {
+        hasReachedThreshold.current = true;
+        hapticImpact('light');
+      } else if (progress < 1 && hasReachedThreshold.current) {
+        hasReachedThreshold.current = false;
+      }
+
       setState({ progress, isActive: true });
     }
   }, [enabled, threshold]);
@@ -78,6 +89,7 @@ export function useSwipeNavigation(options: UseSwipeNavigationOptions = {}) {
     setState({ progress: 0, isActive: false });
     isEdgeSwipe.current = false;
     isHorizontal.current = null;
+    hasReachedThreshold.current = false;
   }, [enabled, state.progress, onSwipeBack]);
 
   useEffect(() => {
