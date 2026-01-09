@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { JournalEntry, EntryUpdate } from '../types/entry';
 import { usePaginatedQuery } from './usePaginatedQuery';
 import * as entriesService from '../services/entries';
@@ -46,9 +47,11 @@ export function useEntries(): UseEntriesReturn {
         pageSize: PAGE_SIZE,
     });
 
+    const [searchParams, setSearchParams] = useSearchParams();
     const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
     const [localEntries, setLocalEntries] = useState<JournalEntry[]>([]);
     const [totalCount, setTotalCount] = useState(0);
+    const urlEntryHandled = useRef(false);
 
     useEffect(() => {
         entriesService.getEntriesCount().then(setTotalCount);
@@ -59,10 +62,30 @@ export function useEntries(): UseEntriesReturn {
     }, [entries]);
 
     useEffect(() => {
-        if (localEntries.length > 0 && !selectedEntryId) {
+        const urlEntryId = searchParams.get('id');
+        if (urlEntryId && !urlEntryHandled.current && localEntries.length > 0) {
+            urlEntryHandled.current = true;
+            setSearchParams({}, { replace: true });
+
+            const existsInList = localEntries.some(e => e.id === urlEntryId);
+            if (existsInList) {
+                setSelectedEntryId(urlEntryId);
+            } else {
+                entriesService.getEntriesByIds([urlEntryId]).then(fetched => {
+                    if (fetched.length > 0) {
+                        setLocalEntries(prev => {
+                            const newList = [fetched[0], ...prev];
+                            newList.sort((a, b) => b.date.localeCompare(a.date));
+                            return newList;
+                        });
+                        setSelectedEntryId(urlEntryId);
+                    }
+                });
+            }
+        } else if (localEntries.length > 0 && !selectedEntryId && !urlEntryId) {
             setSelectedEntryId(localEntries[0].id);
         }
-    }, [localEntries, selectedEntryId]);
+    }, [localEntries, selectedEntryId, searchParams, setSearchParams]);
 
     const selectedEntry = useMemo(
         () => localEntries.find(e => e.id === selectedEntryId) || null,

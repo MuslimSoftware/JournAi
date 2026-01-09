@@ -24,6 +24,40 @@ export function createCursor(values: string[], config: CursorConfig): string {
     return values.join(sep);
 }
 
+export interface FTSResult {
+  id: string;
+  date: string;
+  content: string;
+  rank: number;
+}
+
+export async function searchFTS(
+  query: string,
+  limit: number = 10,
+  dateRange?: { start: string; end: string }
+): Promise<FTSResult[]> {
+  const sanitized = query.replace(/['\"]/g, '').trim();
+  if (!sanitized) return [];
+
+  let sql = `SELECT e.id, e.date, e.content, bm25(entries_fts) as rank
+     FROM entries_fts fts
+     JOIN entries e ON e.rowid = fts.rowid
+     WHERE entries_fts MATCH $1`;
+
+  const values: unknown[] = [sanitized];
+
+  if (dateRange) {
+    sql += ` AND e.date >= $2 AND e.date <= $3`;
+    values.push(dateRange.start, dateRange.end);
+  }
+
+  sql += ` ORDER BY rank LIMIT $${values.length + 1}`;
+  values.push(limit);
+
+  const results = await select<FTSResult>(sql, values);
+  return results;
+}
+
 export async function selectPaginated<TRow, TResult>(
     baseQuery: string,
     orderColumns: { column: string; direction: 'ASC' | 'DESC' }[],

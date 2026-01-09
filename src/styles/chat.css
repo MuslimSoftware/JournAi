@@ -45,6 +45,10 @@
   gap: 12px;
 }
 
+.chat-sidebar .nested-sidebar-item:not(.selected):hover .nested-sidebar-item-actions {
+  padding-left: 8px;
+}
+
 .chat-content {
   flex: 1;
   min-height: 0;

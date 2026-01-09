@@ -87,6 +87,90 @@ pub fn run() {
             );
             CREATE INDEX IF NOT EXISTS idx_chat_messages_chat_id ON chat_messages(chat_id);",
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 6,
+            description: "create_entries_fts",
+            sql: "CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
+                content,
+                content='entries',
+                content_rowid='rowid'
+            );
+
+            CREATE TRIGGER IF NOT EXISTS entries_ai AFTER INSERT ON entries BEGIN
+                INSERT INTO entries_fts(rowid, content) VALUES (NEW.rowid, NEW.content);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS entries_ad AFTER DELETE ON entries BEGIN
+                INSERT INTO entries_fts(entries_fts, rowid, content) VALUES('delete', OLD.rowid, OLD.content);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS entries_au AFTER UPDATE ON entries BEGIN
+                INSERT INTO entries_fts(entries_fts, rowid, content) VALUES('delete', OLD.rowid, OLD.content);
+                INSERT INTO entries_fts(rowid, content) VALUES (NEW.rowid, NEW.content);
+            END;
+
+            INSERT INTO entries_fts(rowid, content) SELECT rowid, content FROM entries;",
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 7,
+            description: "create_embeddings_table",
+            sql: "CREATE TABLE IF NOT EXISTS embedding_chunks (
+                id TEXT PRIMARY KEY NOT NULL,
+                entry_id TEXT NOT NULL,
+                entry_date TEXT NOT NULL,
+                content TEXT NOT NULL,
+                embedding BLOB NOT NULL,
+                chunk_index INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_embedding_chunks_entry ON embedding_chunks(entry_id);
+            CREATE INDEX IF NOT EXISTS idx_embedding_chunks_date ON embedding_chunks(entry_date);",
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 8,
+            description: "create_entities_tables",
+            sql: "CREATE TABLE IF NOT EXISTS entities (
+                id TEXT PRIMARY KEY NOT NULL,
+                name TEXT NOT NULL,
+                type TEXT NOT NULL,
+                first_mentioned TEXT NOT NULL,
+                last_mentioned TEXT NOT NULL,
+                mention_count INTEGER NOT NULL DEFAULT 1,
+                aliases TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_entities_name ON entities(name);
+            CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(type);
+
+            CREATE TABLE IF NOT EXISTS entity_mentions (
+                id TEXT PRIMARY KEY NOT NULL,
+                entity_id TEXT NOT NULL,
+                entry_id TEXT NOT NULL,
+                entry_date TEXT NOT NULL,
+                context TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (entity_id) REFERENCES entities(id) ON DELETE CASCADE,
+                FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_entity_mentions_entity ON entity_mentions(entity_id);
+            CREATE INDEX IF NOT EXISTS idx_entity_mentions_entry ON entity_mentions(entry_id);",
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 9,
+            description: "add_citations_to_chat_messages",
+            sql: "ALTER TABLE chat_messages ADD COLUMN citations TEXT;",
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 10,
+            description: "add_rag_context_to_chat_messages",
+            sql: "ALTER TABLE chat_messages ADD COLUMN rag_context TEXT;",
+            kind: MigrationKind::Up,
         }
     ];
 

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ChatMessage, ChatState, MessageRole, OpenAIModel } from '../types/chat';
-import { sendChatMessage, formatMessagesForAPI } from '../services/ai';
+import { sendRAGChatMessage, formatMessagesForAPI } from '../services/ai';
 import * as chatMessagesService from '../services/chatMessages';
 import * as chatsService from '../services/chats';
 import { appStore, STORE_KEYS } from '../lib/store';
@@ -183,12 +183,26 @@ export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOpt
 
       const apiMessages = formatMessagesForAPI(conversationHistory);
       let accumulatedContent = '';
+      let capturedRagContext: typeof assistantMessage.ragContext = undefined;
 
-      await sendChatMessage(
-        apiMessages,
+      const existingEntryIds = state.messages
+        .filter(m => m.role === 'assistant' && m.citations?.length)
+        .flatMap(m => m.citations!.map(c => c.entryId))
+        .filter((id, i, arr) => arr.indexOf(id) === i);
+
+      await sendRAGChatMessage(
+        content.trim(),
+        apiMessages.slice(0, -1),
         aiSettings.apiKey,
         aiSettings.model,
         {
+          onContext: (context) => {
+            capturedRagContext = context;
+            updateMessage(assistantMessage.id, {
+              citations: context.citations,
+              ragContext: context,
+            });
+          },
           onToken: (token) => {
             accumulatedContent += token;
             setState(prev => ({
@@ -216,6 +230,8 @@ export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOpt
               role: 'assistant',
               content: accumulatedContent,
               status: 'sent',
+              citations: capturedRagContext?.citations,
+              ragContext: capturedRagContext,
             });
 
             const updatedMessages = [...state.messages, userMessage, { ...assistantMessage, content: accumulatedContent, isStreaming: false }];
@@ -242,7 +258,8 @@ export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOpt
             });
           },
         },
-        abortControllerRef.current.signal
+        abortControllerRef.current.signal,
+        { existingEntryIds }
       );
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {

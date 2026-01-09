@@ -4,6 +4,7 @@ import Modal from './Modal';
 import SettingsSidebar from './settings/SettingsSidebar';
 import PersonalizationSection from './settings/PersonalizationSection';
 import AISection from './settings/AISection';
+import MemorySection from './settings/MemorySection';
 import DataManagementSection from './settings/DataManagementSection';
 import { useTheme } from '../contexts/ThemeContext';
 import IconButton from './themed/IconButton';
@@ -18,6 +19,7 @@ interface SettingsModalProps {
 const SECTIONS = [
   { id: 'personalization', label: 'Personalization' },
   { id: 'ai', label: 'AI' },
+  { id: 'memory', label: 'Memory' },
   { id: 'data-management', label: 'Data Management' },
 ];
 
@@ -83,6 +85,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </div>
           {activeSection === 'personalization' && <PersonalizationSection />}
           {activeSection === 'ai' && <AISection />}
+          {activeSection === 'memory' && <MemorySection />}
           {activeSection === 'data-management' && <DataManagementSection />}
         </div>
       ) : (
@@ -95,6 +98,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           <div style={mainStyle}>
             {activeSection === 'personalization' && <PersonalizationSection />}
             {activeSection === 'ai' && <AISection />}
+            {activeSection === 'memory' && <MemorySection />}
             {activeSection === 'data-management' && <DataManagementSection />}
           </div>
         </div>

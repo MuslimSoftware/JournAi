@@ -1,3 +1,5 @@
+import type { Citation, RAGContext } from './memory';
+
 export type MessageRole = 'user' | 'assistant' | 'system';
 
 export type MessageStatus = 'sending' | 'sent' | 'error';
@@ -25,6 +27,8 @@ export interface ChatMessage {
   isStreaming?: boolean;
   thinking?: ThinkingBlock;
   toolCalls?: ToolCall[];
+  citations?: Citation[];
+  ragContext?: RAGContext;
 }
 
 export interface ChatState {

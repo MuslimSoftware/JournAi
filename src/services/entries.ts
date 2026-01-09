@@ -2,6 +2,7 @@ import type { JournalEntry } from '../types/entry';
 import { getTodayString, getTimestamp } from '../utils/date';
 import { generateId, generatePreview } from '../utils/generators';
 import { select, execute, selectPaginated } from '../lib/db';
+import { embedEntry, deleteEntryEmbeddings } from './embeddings';
 
 interface EntryRow {
     id: string;
@@ -92,10 +93,17 @@ export async function updateEntry(
 
     if (rows.length === 0) return null;
 
-    return rowToEntry(rows[0]);
+    const entry = rowToEntry(rows[0]);
+
+    if (updates.content && updates.content.length > 50) {
+        embedEntry(entry.id, entry.date, entry.content).catch(console.error);
+    }
+
+    return entry;
 }
 
 export async function deleteEntry(id: string): Promise<boolean> {
+    await deleteEntryEmbeddings(id).catch(console.error);
     const result = await execute('DELETE FROM entries WHERE id = $1', [id]);
     return result.rowsAffected > 0;
 }
@@ -103,4 +111,28 @@ export async function deleteEntry(id: string): Promise<boolean> {
 export async function getEntriesCount(): Promise<number> {
     const rows = await select<{ count: number }>('SELECT COUNT(*) as count FROM entries');
     return rows[0]?.count ?? 0;
+}
+
+export async function getEntriesByIds(ids: string[]): Promise<JournalEntry[]> {
+    if (ids.length === 0) return [];
+
+    const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ');
+    const rows = await select<EntryRow>(
+        `SELECT id, date, content, created_at FROM entries WHERE id IN (${placeholders})`,
+        ids
+    );
+    return rows.map(rowToEntry);
+}
+
+export async function getEntriesByDateRange(
+    start: string,
+    end: string
+): Promise<JournalEntry[]> {
+    const rows = await select<EntryRow>(
+        `SELECT id, date, content, created_at FROM entries
+         WHERE date >= $1 AND date <= $2
+         ORDER BY date DESC`,
+        [start, end]
+    );
+    return rows.map(rowToEntry);
 }
