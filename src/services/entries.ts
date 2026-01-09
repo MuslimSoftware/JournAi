@@ -1,5 +1,6 @@
 import type { JournalEntry } from '../types/entry';
 import { getTodayString, getTimestamp } from '../utils/date';
+import { generateId, generatePreview } from '../utils/generators';
 import { select, execute, selectPaginated } from '../lib/db';
 
 interface EntryRow {
@@ -7,15 +8,6 @@ interface EntryRow {
     date: string;
     content: string;
     created_at: string;
-}
-
-function generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
-
-function generatePreview(content: string): string {
-    const normalized = content.replace(/\n+/g, ' ').trim();
-    return normalized.length > 100 ? normalized.substring(0, 100) + '...' : normalized;
 }
 
 function rowToEntry(row: EntryRow): JournalEntry {

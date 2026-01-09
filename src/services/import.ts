@@ -1,6 +1,7 @@
 import { open } from '@tauri-apps/plugin-dialog';
 import { readDir, readTextFile } from '@tauri-apps/plugin-fs';
 import { getTimestamp } from '../utils/date';
+import { generateId } from '../utils/generators';
 import { select, execute } from '../lib/db';
 
 interface ParsedTodo {
@@ -18,10 +19,6 @@ interface ParsedEntry {
     content: string;
     todos: ParsedTodo[];
     stickyNotes: ParsedStickyNote[];
-}
-
-function generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
 function parseTodosSection(section: string): ParsedTodo[] {

@@ -1,10 +1,7 @@
 import type { Todo, TodoRow } from '../types/todo';
 import { getTimestamp } from '../utils/date';
+import { generateId } from '../utils/generators';
 import { select, execute } from '../lib/db';
-
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
 
 function rowToTodo(row: TodoRow): Todo {
   return {

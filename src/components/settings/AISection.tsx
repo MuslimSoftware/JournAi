@@ -18,7 +18,7 @@ export default function AISection() {
   const [apiKeyValue, setApiKeyValue] = useState('');
   const [model, setModel] = useState<OpenAIModel>('gpt-5.2');
   const [showKey, setShowKey] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'invalid'>('idle');
 
   const isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const inputBg = isDark ? '#2a2a2a' : '#e8e8e8';
@@ -34,6 +34,11 @@ export default function AISection() {
   }, []);
 
   const handleSave = async () => {
+    const isValid = /^sk-[a-zA-Z0-9_-]{20,}$/.test(apiKeyValue);
+    if (!isValid) {
+      setStatus('invalid');
+      return;
+    }
     setStatus('saving');
     try {
       setApiKey(apiKeyValue);
@@ -181,6 +186,11 @@ export default function AISection() {
         {status === 'error' && (
           <span style={{ ...statusStyle, color: theme.colors.status.error }}>
             <IoAlertCircle size={14} /> Error saving
+          </span>
+        )}
+        {status === 'invalid' && (
+          <span style={{ ...statusStyle, color: theme.colors.status.error }}>
+            <IoAlertCircle size={14} /> Invalid API key format
           </span>
         )}
       </div>

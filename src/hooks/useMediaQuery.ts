@@ -8,6 +8,12 @@ const BREAKPOINTS = {
 
 type Breakpoint = keyof typeof BREAKPOINTS;
 
+function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent.toLowerCase();
+  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+}
+
 export function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia(query).matches : false
@@ -25,7 +31,8 @@ export function useMediaQuery(query: string): boolean {
 }
 
 export function useIsMobile(): boolean {
-  return useMediaQuery(BREAKPOINTS.mobile);
+  const [isMobile] = useState(() => isMobileDevice());
+  return isMobile;
 }
 
 export function useBreakpoint(): Breakpoint {

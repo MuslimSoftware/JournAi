@@ -25,6 +25,28 @@ async function getInitialTheme(): Promise<ThemeMode> {
   return 'system';
 }
 
+function applyThemeCSSVariables(theme: ThemeTokens): void {
+  const root = document.documentElement;
+  root.style.setProperty('--bg-primary', theme.colors.background.primary);
+  root.style.setProperty('--bg-secondary', theme.colors.background.secondary);
+  root.style.setProperty('--bg-tertiary', theme.colors.background.tertiary);
+  root.style.setProperty('--bg-subtle', theme.colors.background.subtle);
+  root.style.setProperty('--text-primary', theme.colors.text.primary);
+  root.style.setProperty('--text-secondary', theme.colors.text.secondary);
+  root.style.setProperty('--text-muted', theme.colors.text.muted);
+  root.style.setProperty('--text-emphasis', theme.colors.text.emphasis);
+  root.style.setProperty('--text-accent', theme.colors.text.accent);
+  root.style.setProperty('--border-primary', theme.colors.border.primary);
+  root.style.setProperty('--border-secondary', theme.colors.border.secondary);
+  root.style.setProperty('--interactive-default', theme.colors.interactive.default);
+  root.style.setProperty('--interactive-hover', theme.colors.interactive.hover);
+  root.style.setProperty('--interactive-active', theme.colors.interactive.active);
+  root.style.setProperty('--indicator-entry', theme.colors.indicator.entry);
+  root.style.setProperty('--indicator-sticky-note', theme.colors.indicator.stickyNote);
+  root.style.setProperty('--indicator-todo-complete', theme.colors.indicator.todoComplete);
+  root.style.setProperty('--indicator-todo-pending', theme.colors.indicator.todoPending);
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<ThemeMode>('system');
   const [isLoaded, setIsLoaded] = useState(false);
@@ -44,26 +66,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => {
-      const root = document.documentElement;
       const newTheme = getSystemTheme() === 'light' ? lightTheme : darkTheme;
-      root.style.setProperty('--bg-primary', newTheme.colors.background.primary);
-      root.style.setProperty('--bg-secondary', newTheme.colors.background.secondary);
-      root.style.setProperty('--bg-tertiary', newTheme.colors.background.tertiary);
-      root.style.setProperty('--bg-subtle', newTheme.colors.background.subtle);
-      root.style.setProperty('--text-primary', newTheme.colors.text.primary);
-      root.style.setProperty('--text-secondary', newTheme.colors.text.secondary);
-      root.style.setProperty('--text-muted', newTheme.colors.text.muted);
-      root.style.setProperty('--text-emphasis', newTheme.colors.text.emphasis);
-      root.style.setProperty('--text-accent', newTheme.colors.text.accent);
-      root.style.setProperty('--border-primary', newTheme.colors.border.primary);
-      root.style.setProperty('--border-secondary', newTheme.colors.border.secondary);
-      root.style.setProperty('--interactive-default', newTheme.colors.interactive.default);
-      root.style.setProperty('--interactive-hover', newTheme.colors.interactive.hover);
-      root.style.setProperty('--interactive-active', newTheme.colors.interactive.active);
-      root.style.setProperty('--indicator-entry', newTheme.colors.indicator.entry);
-      root.style.setProperty('--indicator-sticky-note', newTheme.colors.indicator.stickyNote);
-      root.style.setProperty('--indicator-todo-complete', newTheme.colors.indicator.todoComplete);
-      root.style.setProperty('--indicator-todo-pending', newTheme.colors.indicator.todoPending);
+      applyThemeCSSVariables(newTheme);
     };
 
     mediaQuery.addEventListener('change', handler);
@@ -74,26 +78,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!isLoaded) return;
 
     appStore.set(THEME_STORAGE_KEY, mode);
-
-    const root = document.documentElement;
-    root.style.setProperty('--bg-primary', theme.colors.background.primary);
-    root.style.setProperty('--bg-secondary', theme.colors.background.secondary);
-    root.style.setProperty('--bg-tertiary', theme.colors.background.tertiary);
-    root.style.setProperty('--bg-subtle', theme.colors.background.subtle);
-    root.style.setProperty('--text-primary', theme.colors.text.primary);
-    root.style.setProperty('--text-secondary', theme.colors.text.secondary);
-    root.style.setProperty('--text-muted', theme.colors.text.muted);
-    root.style.setProperty('--text-emphasis', theme.colors.text.emphasis);
-    root.style.setProperty('--text-accent', theme.colors.text.accent);
-    root.style.setProperty('--border-primary', theme.colors.border.primary);
-    root.style.setProperty('--border-secondary', theme.colors.border.secondary);
-    root.style.setProperty('--interactive-default', theme.colors.interactive.default);
-    root.style.setProperty('--interactive-hover', theme.colors.interactive.hover);
-    root.style.setProperty('--interactive-active', theme.colors.interactive.active);
-    root.style.setProperty('--indicator-entry', theme.colors.indicator.entry);
-    root.style.setProperty('--indicator-sticky-note', theme.colors.indicator.stickyNote);
-    root.style.setProperty('--indicator-todo-complete', theme.colors.indicator.todoComplete);
-    root.style.setProperty('--indicator-todo-pending', theme.colors.indicator.todoPending);
+    applyThemeCSSVariables(theme);
   }, [mode, theme, isLoaded]);
 
   const setTheme = (newMode: ThemeMode) => {

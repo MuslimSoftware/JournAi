@@ -1,11 +1,20 @@
-import { CSSProperties } from 'react';
+import { CSSProperties, useState } from 'react';
+import { Streamdown } from 'streamdown';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ChatMessage } from '../../types/chat';
 import { Spinner } from '../themed';
 import ThinkingIndicator from './ThinkingIndicator';
 import ToolCallDisplay from './ToolCallDisplay';
-import StreamingText from './StreamingText';
 import { CHAT } from './constants';
+
+const streamdownComponents = {
+  strong: ({ children }: { children?: React.ReactNode }) => (
+    <strong style={{ fontWeight: 700 }}>{children}</strong>
+  ),
+  b: ({ children }: { children?: React.ReactNode }) => (
+    <b style={{ fontWeight: 700 }}>{children}</b>
+  ),
+};
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -14,6 +23,7 @@ interface MessageBubbleProps {
 
 export default function MessageBubble({ message, onToggleThinking }: MessageBubbleProps) {
   const { theme } = useTheme();
+  const [showRaw, setShowRaw] = useState(false);
   const isUser = message.role === 'user';
   const hasContent = message.content.length > 0;
   const hasToolCalls = message.toolCalls && message.toolCalls.length > 0;
@@ -67,8 +77,32 @@ export default function MessageBubble({ message, onToggleThinking }: MessageBubb
       {hasToolCalls && <ToolCallDisplay toolCalls={message.toolCalls!} />}
       {hasContent && (
         <div style={bubbleStyle}>
-          {message.isStreaming ? <StreamingText text={message.content} /> : message.content}
+          {isUser ? (
+            message.content
+          ) : showRaw ? (
+            <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'monospace', fontSize: '0.85em' }}>
+              {message.content}
+            </pre>
+          ) : (
+            <Streamdown className="streamdown" components={streamdownComponents}>{message.content}</Streamdown>
+          )}
         </div>
+      )}
+      {hasContent && !isUser && (
+        <button
+          onClick={() => setShowRaw(!showRaw)}
+          style={{
+            background: 'none',
+            border: `1px solid ${theme.colors.border.primary}`,
+            borderRadius: '4px',
+            padding: '2px 8px',
+            fontSize: '0.7em',
+            color: theme.colors.text.muted,
+            cursor: 'pointer',
+          }}
+        >
+          {showRaw ? 'Show Rendered' : 'Show Raw'}
+        </button>
       )}
       {message.thinking && (
         <ThinkingIndicator thinking={message.thinking} onToggle={onToggleThinking} />

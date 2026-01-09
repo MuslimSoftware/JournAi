@@ -1,7 +1,10 @@
 import type { Chat, ChatUpdate } from '../types/chatHistory';
 import type { OpenAIModel } from '../types/chat';
 import { getTimestamp } from '../utils/date';
+import { generateId, generatePreview } from '../utils/generators';
 import { select, execute, selectPaginated } from '../lib/db';
+
+const CHAT_PREVIEW_LENGTH = 80;
 
 interface ChatRow {
     id: string;
@@ -12,15 +15,6 @@ interface ChatRow {
 
 interface MessagePreviewRow {
     content: string;
-}
-
-function generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
-
-function generatePreview(content: string): string {
-    const normalized = content.replace(/\n+/g, ' ').trim();
-    return normalized.length > 80 ? normalized.substring(0, 80) + '...' : normalized;
 }
 
 async function getLatestMessage(chatId: string): Promise<string | null> {
@@ -36,7 +30,7 @@ async function rowToChat(row: ChatRow): Promise<Chat> {
     return {
         id: row.id,
         title: row.title,
-        preview: latestMessage ? generatePreview(latestMessage) : '',
+        preview: latestMessage ? generatePreview(latestMessage, CHAT_PREVIEW_LENGTH) : '',
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };

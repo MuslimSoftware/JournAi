@@ -4,6 +4,7 @@ import { TbPin, TbPinFilled } from 'react-icons/tb';
 import { FiPlus } from 'react-icons/fi';
 import { IoSearch, IoClose } from 'react-icons/io5';
 import { Text, IconButton, Button, Spinner, Input } from '../themed';
+import { groupEntriesByDate } from '../../utils/dateGrouping';
 
 const HEADER_HEIGHT_PX = 40;
 const ITEM_HEIGHT_PX = 64;
@@ -46,93 +47,12 @@ interface NestedSidebarProps<T> {
   actionBar?: ReactNode;
 }
 
-function getDateGroup(timestamp: string): string {
-  const date = new Date(timestamp);
-  if (isNaN(date.getTime())) {
-    const [year, month, day] = timestamp.split('-').map(Number);
-    date.setFullYear(year, month - 1, day);
-    date.setHours(0, 0, 0, 0);
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  const itemDay = new Date(date);
-  itemDay.setHours(0, 0, 0, 0);
-
-  if (itemDay.getTime() === today.getTime()) return 'Today';
-  if (itemDay.getTime() === yesterday.getTime()) return 'Yesterday';
-
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay());
-
-  if (itemDay >= startOfWeek && itemDay < today) return 'This Week';
-
-  const startOfLastWeek = new Date(startOfWeek);
-  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-
-  if (itemDay >= startOfLastWeek && itemDay < startOfWeek) return 'Last Week';
-
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  if (itemDay >= startOfMonth && itemDay < startOfLastWeek) return 'This Month';
-
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-  const month = monthNames[date.getMonth()];
-  const year = date.getFullYear();
-  const currentYear = new Date().getFullYear();
-
-  return year < currentYear ? `${month} ${year}` : month;
-}
-
 function groupItemsByDate<T>(
   items: T[],
   getDateValue: (item: T) => string
 ): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-
-  items.forEach(item => {
-    const group = getDateGroup(getDateValue(item));
-    if (!groups.has(group)) {
-      groups.set(group, []);
-    }
-    groups.get(group)?.push(item);
-  });
-
-  const sortedGroups = new Map<string, T[]>();
-  const recentGroups = ['Today', 'Yesterday', 'This Week', 'Last Week', 'This Month'];
-
-  recentGroups.forEach(group => {
-    if (groups.has(group)) {
-      sortedGroups.set(group, groups.get(group)!);
-      groups.delete(group);
-    }
-  });
-
-  const monthGroups = Array.from(groups.entries()).sort((a, b) => {
-    const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    const parseMonthYear = (str: string) => {
-      const parts = str.split(' ');
-      const monthIndex = monthNames.indexOf(parts[0]);
-      const year = parts[1] ? parseInt(parts[1]) : new Date().getFullYear();
-      return new Date(year, monthIndex, 1);
-    };
-    return parseMonthYear(b[0]).getTime() - parseMonthYear(a[0]).getTime();
-  });
-
-  monthGroups.forEach(([key, value]) => {
-    sortedGroups.set(key, value);
-  });
-
-  return sortedGroups;
+  const itemsWithDate = items.map(item => ({ ...item, date: getDateValue(item) }));
+  return groupEntriesByDate(itemsWithDate) as Map<string, T[]>;
 }
 
 export default function NestedSidebar<T>({
