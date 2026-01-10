@@ -3,6 +3,7 @@ import { getTodayString, getTimestamp } from '../utils/date';
 import { generateId, generatePreview } from '../utils/generators';
 import { select, execute, selectPaginated } from '../lib/db';
 import { embedEntry, deleteEntryEmbeddings } from './embeddings';
+import { queueEntryForAnalysis, deleteEntryInsights } from './analytics';
 
 interface EntryRow {
     id: string;
@@ -97,6 +98,7 @@ export async function updateEntry(
 
     if (updates.content && updates.content.length > 50) {
         embedEntry(entry.id, entry.date, entry.content).catch(console.error);
+        queueEntryForAnalysis(entry.id).catch(console.error);
     }
 
     return entry;
@@ -104,6 +106,7 @@ export async function updateEntry(
 
 export async function deleteEntry(id: string): Promise<boolean> {
     await deleteEntryEmbeddings(id).catch(console.error);
+    await deleteEntryInsights(id).catch(console.error);
     const result = await execute('DELETE FROM entries WHERE id = $1', [id]);
     return result.rowsAffected > 0;
 }

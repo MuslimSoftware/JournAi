@@ -45,9 +45,58 @@ export interface OpenAIMessage {
   content: string;
 }
 
+export interface OpenAITool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: 'object';
+      properties: Record<string, {
+        type: string;
+        description: string;
+        enum?: string[];
+      }>;
+      required?: string[];
+    };
+  };
+}
+
+export interface OpenAIToolCall {
+  index: number;
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface OpenAIToolCallDelta {
+  index: number;
+  id?: string;
+  type?: 'function';
+  function?: {
+    name?: string;
+    arguments?: string;
+  };
+}
+
 export interface OpenAIStreamDelta {
   role?: string;
   content?: string;
+  tool_calls?: OpenAIToolCallDelta[];
+}
+
+export interface OpenAIMessageWithToolCalls extends OpenAIMessage {
+  role: 'assistant';
+  tool_calls?: OpenAIToolCall[];
+}
+
+export interface OpenAIToolResultMessage {
+  role: 'tool';
+  tool_call_id: string;
+  content: string;
 }
 
 export interface OpenAIStreamChoice {

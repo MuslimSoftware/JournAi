@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { ChatMessage, ChatState, MessageRole, OpenAIModel } from '../types/chat';
-import { sendRAGChatMessage, formatMessagesForAPI } from '../services/ai';
+import type { ChatMessage, ChatState, MessageRole, OpenAIModel, ToolCall } from '../types/chat';
+import { sendAgentChatMessage, formatMessagesForAPI } from '../services/ai';
 import * as chatMessagesService from '../services/chatMessages';
 import * as chatsService from '../services/chats';
 import { appStore, STORE_KEYS } from '../lib/store';
@@ -184,18 +184,28 @@ export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOpt
       const apiMessages = formatMessagesForAPI(conversationHistory);
       let accumulatedContent = '';
       let capturedRagContext: typeof assistantMessage.ragContext = undefined;
+      let toolCallsState: ToolCall[] = [];
 
-      const existingEntryIds = state.messages
-        .filter(m => m.role === 'assistant' && m.citations?.length)
-        .flatMap(m => m.citations!.map(c => c.entryId))
-        .filter((id, i, arr) => arr.indexOf(id) === i);
-
-      await sendRAGChatMessage(
+      await sendAgentChatMessage(
         content.trim(),
         apiMessages.slice(0, -1),
         aiSettings.apiKey,
         aiSettings.model,
         {
+          onToolCallStart: (toolCall) => {
+            toolCallsState = [...toolCallsState, toolCall];
+            updateMessage(assistantMessage.id, {
+              toolCalls: [...toolCallsState],
+            });
+          },
+          onToolCallComplete: (toolCall) => {
+            toolCallsState = toolCallsState.map(tc =>
+              tc.id === toolCall.id ? toolCall : tc
+            );
+            updateMessage(assistantMessage.id, {
+              toolCalls: [...toolCallsState],
+            });
+          },
           onContext: (context) => {
             capturedRagContext = context;
             updateMessage(assistantMessage.id, {
@@ -258,8 +268,7 @@ export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOpt
             });
           },
         },
-        abortControllerRef.current.signal,
-        { existingEntryIds }
+        abortControllerRef.current.signal
       );
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {

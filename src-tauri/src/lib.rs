@@ -171,6 +171,36 @@ pub fn run() {
             description: "add_rag_context_to_chat_messages",
             sql: "ALTER TABLE chat_messages ADD COLUMN rag_context TEXT;",
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 11,
+            description: "create_analytics_tables",
+            sql: "CREATE TABLE IF NOT EXISTS journal_insights (
+                id TEXT PRIMARY KEY,
+                entry_id TEXT NOT NULL,
+                entry_date TEXT NOT NULL,
+                insight_type TEXT NOT NULL,
+                content TEXT NOT NULL,
+                metadata TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_insights_entry ON journal_insights(entry_id);
+            CREATE INDEX IF NOT EXISTS idx_insights_type ON journal_insights(insight_type);
+            CREATE INDEX IF NOT EXISTS idx_insights_date ON journal_insights(entry_date);
+
+            CREATE TABLE IF NOT EXISTS analytics_queue (
+                id TEXT PRIMARY KEY,
+                entry_id TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                retry_count INTEGER NOT NULL DEFAULT 0,
+                error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_queue_status ON analytics_queue(status);",
+            kind: MigrationKind::Up,
         }
     ];
 

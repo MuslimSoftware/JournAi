@@ -140,10 +140,13 @@ interface ChunkRow {
   chunk_index: number;
 }
 
+const MIN_SIMILARITY_THRESHOLD = 0.35;
+
 export async function searchByVector(
   queryEmbedding: number[],
   limit: number = 10,
-  dateRange?: { start: string; end: string }
+  dateRange?: { start: string; end: string },
+  minSimilarity: number = MIN_SIMILARITY_THRESHOLD
 ): Promise<Array<EmbeddingMetadata & { score: number }>> {
   let query = 'SELECT id, entry_id, entry_date, content, embedding, chunk_index FROM embedding_chunks';
   const values: unknown[] = [];
@@ -165,7 +168,9 @@ export async function searchByVector(
   }));
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit);
+
+  const filtered = scored.filter(r => r.score >= minSimilarity);
+  return filtered.slice(0, limit);
 }
 
 export async function getEmbeddingStats(): Promise<EmbeddingStats> {

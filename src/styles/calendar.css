@@ -455,7 +455,7 @@
 
 .todo-item-wrapper {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   border-radius: 8px;
   will-change: transform, box-shadow;
   transition: box-shadow 100ms ease-out, background-color 100ms ease-out;
@@ -508,7 +508,7 @@
 
 .todo-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
   padding: 0.5rem;
   border-radius: 8px;
@@ -536,6 +536,8 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  margin-top: 0.125rem;
+  flex-shrink: 0;
 }
 
 .todo-checkbox-input {
@@ -606,6 +608,10 @@
   padding: 0.25rem 0;
   outline: none;
   line-height: 1.4;
+  resize: none;
+  overflow: hidden;
+  word-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 .todo-input::placeholder {

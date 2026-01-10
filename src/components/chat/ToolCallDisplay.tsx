@@ -1,9 +1,10 @@
 import { CSSProperties, useState } from 'react';
-import { IoConstruct, IoCheckmarkCircle, IoAlertCircle } from 'react-icons/io5';
+import { IoConstruct, IoCheckmarkCircle, IoAlertCircle, IoSync } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ToolCall } from '../../types/chat';
 import ExpandableSection from './ExpandableSection';
 import { CHAT } from './constants';
+import { getToolDescription } from '../../services/agentTools';
 
 interface ToolCallDisplayProps {
   toolCalls: ToolCall[];
@@ -35,6 +36,10 @@ export default function ToolCallDisplay({ toolCalls }: ToolCallDisplayProps) {
     wordBreak: 'break-all',
   };
 
+  const spinnerStyle: CSSProperties = {
+    animation: 'spin 1s linear infinite',
+  };
+
   const getStatusIcon = (status: ToolCall['status']) => {
     const size = CHAT.iconSize.sm;
     switch (status) {
@@ -42,28 +47,33 @@ export default function ToolCallDisplay({ toolCalls }: ToolCallDisplayProps) {
         return <IoCheckmarkCircle color={theme.colors.status.success} size={size} />;
       case 'error':
         return <IoAlertCircle color={theme.colors.status.error} size={size} />;
+      case 'running':
+        return <IoSync color={theme.colors.text.secondary} size={size} style={spinnerStyle} />;
       default:
         return <IoConstruct color={theme.colors.text.secondary} size={size} />;
     }
   };
 
   return (
-    <div style={containerStyle}>
-      {toolCalls.map(tool => (
-        <ExpandableSection
-          key={tool.id}
-          icon={getStatusIcon(tool.status)}
-          title={tool.name}
-          isExpanded={expandedIds.has(tool.id)}
-          onToggle={() => toggleExpand(tool.id)}
-          borderRadius={CHAT.toolCall.borderRadius}
-        >
-          <div style={detailsStyle}>
-            <div>Args: {tool.arguments}</div>
-            {tool.result && <div>Result: {tool.result}</div>}
-          </div>
-        </ExpandableSection>
-      ))}
-    </div>
+    <>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <div style={containerStyle}>
+        {toolCalls.map(tool => (
+          <ExpandableSection
+            key={tool.id}
+            icon={getStatusIcon(tool.status)}
+            title={getToolDescription(tool.name, tool.arguments)}
+            isExpanded={expandedIds.has(tool.id)}
+            onToggle={() => toggleExpand(tool.id)}
+            borderRadius={CHAT.toolCall.borderRadius}
+          >
+            <div style={detailsStyle}>
+              <div>Args: {tool.arguments}</div>
+              {tool.result && <div>Result: {tool.result}</div>}
+            </div>
+          </ExpandableSection>
+        ))}
+      </div>
+    </>
   );
 }

@@ -150,6 +150,7 @@ export async function hybridSearch(
   const bm25Ranking = new Map<string, number>();
   const vectorRanking = new Map<string, number>();
   const resultMap = new Map<string, SearchResult>();
+  const vectorScoreMap = new Map<string, number>();
 
   bm25Results.forEach((r, i) => {
     bm25Ranking.set(r.entryId, bm25Results.length - i);
@@ -158,6 +159,7 @@ export async function hybridSearch(
 
   vectorResults.forEach((r, i) => {
     vectorRanking.set(r.entryId, vectorResults.length - i);
+    vectorScoreMap.set(r.entryId, r.score);
     if (!resultMap.has(r.entryId)) {
       resultMap.set(r.entryId, r);
     }
@@ -170,7 +172,7 @@ export async function hybridSearch(
 
   const fusedScores = reciprocalRankFusion(rankings);
 
-  const results = [...fusedScores.entries()]
+  let results = [...fusedScores.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, opts.limit)
     .map(([entryId, score]) => {
@@ -181,6 +183,13 @@ export async function hybridSearch(
         source: 'hybrid' as const,
       };
     });
+
+  if (bm25Results.length === 0 && vectorResults.length > 0) {
+    results = results.filter(r => {
+      const vectorScore = vectorScoreMap.get(r.entryId);
+      return vectorScore !== undefined && vectorScore >= 0.4;
+    });
+  }
 
   return results;
 }

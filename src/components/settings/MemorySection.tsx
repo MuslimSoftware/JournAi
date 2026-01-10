@@ -1,9 +1,11 @@
 import { CSSProperties, useState, useEffect, useCallback } from 'react';
-import { IoCheckmarkCircle, IoAlertCircle, IoSync, IoSparkles } from 'react-icons/io5';
+import { IoCheckmarkCircle, IoAlertCircle, IoSync, IoSparkles, IoAnalytics } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text, Button } from '../themed';
 import { getEmbeddingStats, embedAllEntries, type EmbeddingStats } from '../../services/embeddings';
 import { getApiKey } from '../../lib/secureStorage';
+import { getAnalyticsStats, queueAllEntriesForAnalysis, processAnalyticsQueue } from '../../services/analytics';
+import type { AnalyticsStats } from '../../types/analytics';
 
 export default function MemorySection() {
   const { theme } = useTheme();
@@ -13,14 +15,20 @@ export default function MemorySection() {
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [result, setResult] = useState<{ success: number; failed: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [analyticsStats, setAnalyticsStats] = useState<AnalyticsStats | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyticsProgress, setAnalyticsProgress] = useState({ current: 0, total: 0 });
+  const [analyticsResult, setAnalyticsResult] = useState<{ success: number; failed: number } | null>(null);
 
   const loadStats = useCallback(async () => {
     try {
       setLoading(true);
       const embeddingStats = await getEmbeddingStats();
       setStats(embeddingStats);
+      const analytics = await getAnalyticsStats();
+      setAnalyticsStats(analytics);
     } catch {
-      setError('Failed to load embedding stats');
+      setError('Failed to load stats');
     } finally {
       setLoading(false);
     }
@@ -56,6 +64,35 @@ export default function MemorySection() {
     } finally {
       setProcessing(false);
       setProgress(null);
+    }
+  };
+
+  const handleAnalyzeAll = async () => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      setError('Please configure your OpenAI API key first');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAnalyticsResult(null);
+    setError(null);
+
+    try {
+      const queued = await queueAllEntriesForAnalysis();
+      if (queued > 0) {
+        await processAnalyticsQueue((current, total) => {
+          setAnalyticsProgress({ current, total });
+        });
+      }
+      const newStats = await getAnalyticsStats();
+      setAnalyticsStats(newStats);
+      setAnalyticsResult({ success: queued, failed: 0 });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to analyze entries');
+    } finally {
+      setIsAnalyzing(false);
+      setAnalyticsProgress({ current: 0, total: 0 });
     }
   };
 
@@ -232,6 +269,76 @@ export default function MemorySection() {
             ? `${unembeddedCount} entries are not yet embedded. Click the button to process them.`
             : 'All entries are embedded. New entries will be embedded automatically when saved.'}
         </p>
+      </div>
+
+      <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${theme.colors.border.secondary}` }}>
+        <Text as="h4" variant="primary" style={{ marginBottom: '12px', fontSize: '0.9375rem' }}>
+          Journal Analytics
+        </Text>
+        <Text variant="secondary" style={{ fontSize: '0.8125rem', marginBottom: '12px' }}>
+          Extract themes, emotions, and patterns from your entries for better insights.
+        </Text>
+
+        {analyticsStats && (
+          <div style={statBoxStyle}>
+            <div style={statRowStyle}>
+              <span style={statLabelStyle}>Entries Analyzed</span>
+              <span style={statValueStyle}>{analyticsStats.entriesAnalyzed}</span>
+            </div>
+            <div style={statRowStyle}>
+              <span style={statLabelStyle}>Total Insights</span>
+              <span style={statValueStyle}>{analyticsStats.totalInsights}</span>
+            </div>
+            {analyticsStats.entriesPending > 0 && (
+              <div style={statRowStyle}>
+                <span style={{ ...statLabelStyle, color: theme.colors.status.warning }}>
+                  Pending Analysis
+                </span>
+                <span style={{ ...statValueStyle, color: theme.colors.status.warning }}>
+                  {analyticsStats.entriesPending}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleAnalyzeAll}
+          disabled={isAnalyzing}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          {isAnalyzing ? (
+            <>
+              <IoSync size={14} className="spin" /> Analyzing...
+            </>
+          ) : (
+            <>
+              <IoAnalytics size={14} /> Analyze All Entries
+            </>
+          )}
+        </Button>
+
+        {isAnalyzing && analyticsProgress.total > 0 && (
+          <div>
+            <div style={progressBarContainerStyle}>
+              <div style={{ ...progressBarStyle, width: `${(analyticsProgress.current / analyticsProgress.total) * 100}%` }} />
+            </div>
+            <Text variant="muted" style={{ fontSize: '0.75rem', marginTop: '4px' }}>
+              Analyzing {analyticsProgress.current} of {analyticsProgress.total} entries...
+            </Text>
+          </div>
+        )}
+
+        {analyticsResult && (
+          <div style={statusStyle}>
+            <span style={{ color: theme.colors.status.success, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <IoCheckmarkCircle size={14} />
+              Successfully analyzed {analyticsResult.success} entries
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

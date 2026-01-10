@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { TrashButton, Input } from '../themed';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { TrashButton } from '../themed';
 import type { Todo } from '../../types/todo';
 
 interface TodoItemPropsBase {
@@ -32,13 +32,26 @@ export default function TodoItem(props: TodoItemProps) {
   const { isNew } = props;
 
   const [content, setContent] = useState(isNew ? '' : props.todo.content);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const autoResize = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, []);
 
   useEffect(() => {
-    if (isNew && inputRef.current) {
-      inputRef.current.focus();
+    if (isNew && textareaRef.current) {
+      textareaRef.current.focus();
     }
-  }, [isNew]);
+    autoResize();
+  }, [isNew, autoResize]);
+
+  useEffect(() => {
+    autoResize();
+  }, [content, autoResize]);
 
   const handleSave = () => {
     if (isNew) {
@@ -49,7 +62,7 @@ export default function TodoItem(props: TodoItemProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSave();
     } else if (e.key === 'Escape') {
@@ -57,7 +70,7 @@ export default function TodoItem(props: TodoItemProps) {
         props.onCancelNew();
       } else {
         setContent(props.todo.content);
-        inputRef.current?.blur();
+        textareaRef.current?.blur();
       }
     }
   };
@@ -81,15 +94,15 @@ export default function TodoItem(props: TodoItemProps) {
         </span>
       </label>
 
-      <Input
-        ref={inputRef}
-        type="text"
+      <textarea
+        ref={textareaRef}
         value={content}
         onChange={(e) => setContent(e.target.value)}
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
         placeholder={isNew ? 'What needs to be done?' : ''}
         className="todo-input"
+        rows={1}
       />
 
       {!isNew && (
