@@ -8,22 +8,28 @@ import { useKeyboard } from '../../hooks/useKeyboard';
 import { useSwipeNavigation } from '../../hooks/useSwipeNavigation';
 import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
 import { TextArea, Text } from '../themed';
+import { HighlightOverlay } from '../entries/HighlightOverlay';
 import BottomSheet from './BottomSheet';
 import { ENTRIES_CONSTANTS, MOBILE_ENTRIES_CONSTANTS } from '../../constants/entries';
+import type { HighlightRange } from '../../hooks/useEntries';
 import 'react-day-picker/style.css';
 
 interface MobileEntryEditorProps {
   entry: JournalEntry;
+  highlightRange?: HighlightRange | null;
   onBack: () => void;
   onUpdate: (id: string, updates: EntryUpdate) => void;
   onDelete?: (id: string) => void;
+  onClearHighlight?: () => void;
 }
 
 export default function MobileEntryEditor({
   entry,
+  highlightRange,
   onBack,
   onUpdate,
   onDelete,
+  onClearHighlight,
 }: MobileEntryEditorProps) {
   const { theme } = useTheme();
   const { isOpen: isKeyboardOpen } = useKeyboard();
@@ -204,21 +210,38 @@ export default function MobileEntryEditor({
         {isKeyboardOpen && <div style={{ width: '48px' }} />}
       </header>
 
-      <TextArea
-        ref={textareaRef}
-        className="mobile-editor-textarea"
-        style={{
-          color: theme.colors.text.primary,
-          padding: '0 16px',
-          paddingBottom: isKeyboardOpen
-            ? '20px'
-            : 'calc(20px + var(--mobile-nav-height) + var(--mobile-safe-area-bottom))',
-        }}
-        value={content}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        placeholder="Start writing..."
-      />
+      <div style={{ position: 'relative', flex: 1 }}>
+        <HighlightOverlay
+          content={content}
+          highlightRange={highlightRange ?? null}
+          textareaRef={textareaRef}
+          onDismiss={onClearHighlight ?? (() => {})}
+          className="mobile-editor-textarea"
+          style={{
+            color: 'transparent',
+            padding: '0 16px',
+            paddingBottom: isKeyboardOpen
+              ? '20px'
+              : 'calc(20px + var(--mobile-nav-height) + var(--mobile-safe-area-bottom))',
+          }}
+        />
+        <TextArea
+          ref={textareaRef}
+          className="mobile-editor-textarea"
+          style={{
+            color: theme.colors.text.primary,
+            padding: '0 16px',
+            paddingBottom: isKeyboardOpen
+              ? '20px'
+              : 'calc(20px + var(--mobile-nav-height) + var(--mobile-safe-area-bottom))',
+            background: highlightRange ? 'transparent' : undefined,
+          }}
+          value={content}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          placeholder="Start writing..."
+        />
+      </div>
 
       <BottomSheet
         isOpen={showMenu}

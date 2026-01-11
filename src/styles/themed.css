@@ -37,3 +37,27 @@
   min-width: 56px;
   min-height: 56px;
 }
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    width: 30%;
+  }
+  50% {
+    opacity: 0.6;
+    width: 60%;
+  }
+}

@@ -1,21 +1,26 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { FiPlus } from 'react-icons/fi';
 import { Text, Button, TextArea } from '../themed';
+import { HighlightOverlay } from './HighlightOverlay';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { ENTRIES_CONSTANTS } from '../../constants/entries';
+import type { HighlightRange } from '../../hooks/useEntries';
 
 const { AUTOSAVE_DELAY_MS } = ENTRIES_CONSTANTS;
 
 interface EntryDetailProps {
   entry: JournalEntry | null;
   hasEntries: boolean;
+  highlightRange: HighlightRange | null;
   onUpdate: (id: string, updates: EntryUpdate) => void;
   onCreateEntry: () => void;
+  onClearHighlight: () => void;
 }
 
-export default function EntryDetail({ entry, hasEntries, onUpdate, onCreateEntry }: EntryDetailProps) {
+export default function EntryDetail({ entry, hasEntries, highlightRange, onUpdate, onCreateEntry, onClearHighlight }: EntryDetailProps) {
   const [content, setContent] = useState('');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (entry) {
@@ -80,13 +85,24 @@ export default function EntryDetail({ entry, hasEntries, onUpdate, onCreateEntry
 
   return (
     <div className="entries-content">
-      <TextArea
-        className="entry-content-editor scrollbar-hidden"
-        value={content}
-        onChange={handleContentChange}
-        onBlur={handleBlur}
-        placeholder="Start writing..."
-      />
+      <div style={{ position: 'relative', flex: 1, width: '100%', maxWidth: 'var(--entries-content-max-width)', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
+        <HighlightOverlay
+          content={content}
+          highlightRange={highlightRange}
+          textareaRef={textareaRef}
+          onDismiss={onClearHighlight}
+          className="entry-content-editor scrollbar-hidden"
+        />
+        <TextArea
+          ref={textareaRef}
+          className="entry-content-editor scrollbar-hidden"
+          style={{ background: highlightRange ? 'transparent' : undefined }}
+          value={content}
+          onChange={handleContentChange}
+          onBlur={handleBlur}
+          placeholder="Start writing..."
+        />
+      </div>
     </div>
   );
 }

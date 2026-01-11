@@ -1,16 +1,20 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import type { JournalEntry, EntryUpdate } from '../types/entry';
 import { usePaginatedQuery } from './usePaginatedQuery';
 import * as entriesService from '../services/entries';
+import { useEntryNavigation, HighlightRange } from '../contexts/EntryNavigationContext';
 
 const PAGE_SIZE = 30;
+
+export type { HighlightRange };
 
 interface UseEntriesReturn {
     entries: JournalEntry[];
     totalCount: number;
     selectedEntry: JournalEntry | null;
     selectedEntryId: string | null;
+    highlightRange: HighlightRange | null;
+    clearHighlight: () => void;
     isLoading: boolean;
     isLoadingMore: boolean;
     hasMore: boolean;
@@ -47,11 +51,16 @@ export function useEntries(): UseEntriesReturn {
         pageSize: PAGE_SIZE,
     });
 
-    const [searchParams, setSearchParams] = useSearchParams();
+    const { target, clearTarget } = useEntryNavigation();
     const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
     const [localEntries, setLocalEntries] = useState<JournalEntry[]>([]);
     const [totalCount, setTotalCount] = useState(0);
-    const urlEntryHandled = useRef(false);
+    const [highlightRange, setHighlightRange] = useState<HighlightRange | null>(null);
+    const handledTargetId = useRef<string | null>(null);
+
+    const clearHighlight = useCallback(() => {
+        setHighlightRange(null);
+    }, []);
 
     useEffect(() => {
         entriesService.getEntriesCount().then(setTotalCount);
@@ -62,30 +71,40 @@ export function useEntries(): UseEntriesReturn {
     }, [entries]);
 
     useEffect(() => {
-        const urlEntryId = searchParams.get('id');
-        if (urlEntryId && !urlEntryHandled.current && localEntries.length > 0) {
-            urlEntryHandled.current = true;
-            setSearchParams({}, { replace: true });
-
-            const existsInList = localEntries.some(e => e.id === urlEntryId);
-            if (existsInList) {
-                setSelectedEntryId(urlEntryId);
-            } else {
-                entriesService.getEntriesByIds([urlEntryId]).then(fetched => {
-                    if (fetched.length > 0) {
-                        setLocalEntries(prev => {
-                            const newList = [fetched[0], ...prev];
-                            newList.sort((a, b) => b.date.localeCompare(a.date));
-                            return newList;
-                        });
-                        setSelectedEntryId(urlEntryId);
-                    }
-                });
+        if (!target || localEntries.length === 0) {
+            if (localEntries.length > 0 && !selectedEntryId) {
+                setSelectedEntryId(localEntries[0].id);
             }
-        } else if (localEntries.length > 0 && !selectedEntryId && !urlEntryId) {
-            setSelectedEntryId(localEntries[0].id);
+            return;
         }
-    }, [localEntries, selectedEntryId, searchParams, setSearchParams]);
+
+        if (handledTargetId.current === target.entryId) {
+            return;
+        }
+        handledTargetId.current = target.entryId;
+
+        if (target.highlight) {
+            setHighlightRange(target.highlight);
+        }
+
+        const existsInList = localEntries.some(e => e.id === target.entryId);
+        if (existsInList) {
+            setSelectedEntryId(target.entryId);
+            clearTarget();
+        } else {
+            entriesService.getEntriesByIds([target.entryId]).then(fetched => {
+                if (fetched.length > 0) {
+                    setLocalEntries(prev => {
+                        const newList = [fetched[0], ...prev];
+                        newList.sort((a, b) => b.date.localeCompare(a.date));
+                        return newList;
+                    });
+                    setSelectedEntryId(target.entryId);
+                }
+                clearTarget();
+            });
+        }
+    }, [localEntries, selectedEntryId, target, clearTarget]);
 
     const selectedEntry = useMemo(
         () => localEntries.find(e => e.id === selectedEntryId) || null,
@@ -136,15 +155,24 @@ export function useEntries(): UseEntriesReturn {
         }
     }, [selectedEntryId]);
 
+    const selectEntry = useCallback((id: string | null) => {
+        if (id !== selectedEntryId) {
+            setHighlightRange(null);
+        }
+        setSelectedEntryId(id);
+    }, [selectedEntryId]);
+
     return {
         entries: localEntries,
         totalCount,
         selectedEntry,
         selectedEntryId,
+        highlightRange,
+        clearHighlight,
         isLoading,
         isLoadingMore,
         hasMore,
-        selectEntry: setSelectedEntryId,
+        selectEntry,
         createEntry,
         updateEntry,
         deleteEntry,

@@ -5,17 +5,14 @@ import { Container, Text, Spinner } from '../components/themed';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { useSettings } from '../contexts/SettingsContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useInsights } from '../contexts/InsightsContext';
+import { useEntryNavigation } from '../contexts/EntryNavigationContext';
 import {
   getAggregatedInsights,
   getRawEmotionInsights,
   getRawPersonInsights,
 } from '../services/analytics';
 import { parseLocalDate } from '../utils/date';
-import type {
-  AggregatedInsights,
-  TimeGroupedInsight,
-  TimeGroupedPerson,
-} from '../types/analytics';
 import '../styles/insights.css';
 
 const INTENSITY_COLORS = {
@@ -161,18 +158,32 @@ export default function Insights() {
   const isMobile = useIsMobile();
   const { openSettings } = useSettings();
   const { theme } = useTheme();
+  const { navigateToEntry } = useEntryNavigation();
+  const {
+    aggregated,
+    rawEmotions,
+    rawPeople,
+    selectedEmotion,
+    selectedPerson,
+    timeFilter,
+    sentimentFilter,
+    dataLoaded,
+    setAggregated,
+    setRawEmotions,
+    setRawPeople,
+    setSelectedEmotion,
+    setSelectedPerson,
+    setTimeFilter,
+    setSentimentFilter,
+    setDataLoaded,
+    resetSelections,
+  } = useInsights();
 
-  const [aggregated, setAggregated] = useState<AggregatedInsights | null>(null);
-  const [rawEmotions, setRawEmotions] = useState<TimeGroupedInsight[]>([]);
-  const [rawPeople, setRawPeople] = useState<TimeGroupedPerson[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!dataLoaded);
   const [error, setError] = useState<string | null>(null);
-  const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null);
-  const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('last30');
-  const [sentimentFilter, setSentimentFilter] = useState<'all' | 'positive' | 'negative' | 'mixed'>('all');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
+  const lastLoadedFilter = useRef<string | null>(dataLoaded ? timeFilter : null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -199,6 +210,8 @@ export default function Insights() {
       setAggregated(agg);
       setRawEmotions(emotions);
       setRawPeople(people);
+      setDataLoaded(true);
+      lastLoadedFilter.current = filter;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load insights');
     } finally {
@@ -207,7 +220,9 @@ export default function Insights() {
   };
 
   useEffect(() => {
-    loadData(timeFilter);
+    if (lastLoadedFilter.current !== timeFilter) {
+      loadData(timeFilter);
+    }
   }, [timeFilter]);
 
   const headerStyle: CSSProperties = {
@@ -516,7 +531,7 @@ export default function Insights() {
             {filteredEmotionEntries.map((e, i) => (
               <div
                 key={`${e.entryId}-${i}`}
-                onClick={() => navigate(`/entries?id=${e.entryId}`)}
+                onClick={() => { console.log('Emotion entry:', e); navigateToEntry(e.entryId, e.source ? { start: e.source.start, end: e.source.end } : undefined); navigate('/entries'); }}
                 style={{
                   padding: '12px',
                   backgroundColor: theme.colors.background.secondary,
@@ -610,7 +625,7 @@ export default function Insights() {
             {filteredPeopleEntries.map((p, i) => (
               <div
                 key={`${p.entryId}-${i}`}
-                onClick={() => navigate(`/entries?id=${p.entryId}`)}
+                onClick={() => { navigateToEntry(p.entryId, p.source ? { start: p.source.start, end: p.source.end } : undefined); navigate('/entries'); }}
                 style={{
                   padding: '14px',
                   backgroundColor: theme.colors.background.secondary,
@@ -736,8 +751,7 @@ export default function Insights() {
                     onClick={() => {
                       setTimeFilter(option.value);
                       setShowFilterDropdown(false);
-                      setSelectedEmotion(null);
-                      setSelectedPerson(null);
+                      resetSelections();
                     }}
                     style={{
                       display: 'block',
@@ -766,8 +780,7 @@ export default function Insights() {
               key={opt.value}
               onClick={() => {
                 setSentimentFilter(opt.value);
-                setSelectedEmotion(null);
-                setSelectedPerson(null);
+                resetSelections();
               }}
               style={{
                 padding: '6px 10px',

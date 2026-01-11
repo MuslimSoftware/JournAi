@@ -160,6 +160,12 @@
   opacity: 0.9;
 }
 
+.occurrence-card:hover .occurrence-text {
+  -webkit-line-clamp: unset !important;
+  overflow: visible !important;
+  display: block !important;
+}
+
 @media (max-width: 768px) {
   .carousel-card {
     width: 180px;

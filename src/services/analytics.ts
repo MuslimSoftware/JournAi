@@ -11,6 +11,7 @@ import type {
   RelationshipSentiment,
   TimeGroupedInsight,
   TimeGroupedPerson,
+  SourceRange,
 } from '../types/analytics';
 
 const ANALYSIS_PROMPT = `Analyze this journal entry. Return JSON only.
@@ -26,25 +27,39 @@ Extract the following:
    - intensity: Rate 1-10 (1=barely noticeable, 5=moderate, 10=overwhelming)
    - trigger: A detailed summary (2-3 sentences) explaining WHY this emotion was felt. Include enough context that someone reading this a year later would fully understand the situation without needing to read the original entry. Mention specific events, people involved, and circumstances.
    - sentiment: "positive", "negative", or "neutral"
-   Example: {"emotion": "frustrated", "intensity": 7, "trigger": "Tried to wake up at 6am for the third day in a row but failed again because I stayed up until 2am watching YouTube videos. This is part of an ongoing struggle to fix my sleep schedule before starting the new job next month.", "sentiment": "negative"}
+   - source_quote: The EXACT verbatim text from the entry (1-2 sentences) that most clearly demonstrates this emotion. Copy it exactly as written, including any typos or punctuation.
+   Example: {"emotion": "frustrated", "intensity": 7, "trigger": "Tried to wake up at 6am for the third day in a row but failed again because I stayed up until 2am watching YouTube videos.", "sentiment": "negative", "source_quote": "I'm so frustrated with myself for staying up until 2am again watching YouTube."}
 
 2. people: Who is mentioned?
    - name: Person's name
    - relationship: How they relate to the writer (if clear)
    - sentiment: "positive", "negative", "neutral", "tense", or "mixed"
    - context: A detailed summary (2-3 sentences) explaining what happened with this person and the nature of the interaction. Include enough context that someone reading this a year later would fully understand the situation without needing to read the original entry.
-   Example: {"name": "Fatima", "relationship": "wife", "sentiment": "tense", "context": "Had a heated discussion about whether to buy new furniture for the living room. She wants to spend $3000 on a new couch but I think we should wait until after we pay off the car loan next year."}
+   - source_quote: The EXACT verbatim text from the entry (1-2 sentences) where this person is mentioned or discussed. Copy it exactly as written.
+   Example: {"name": "Fatima", "relationship": "wife", "sentiment": "tense", "context": "Had a heated discussion about whether to buy new furniture for the living room.", "source_quote": "Fatima and I got into it again about the couch she wants to buy."}
 
 Return format:
 {
-  "emotions": [{"emotion": "frustrated", "intensity": 7, "trigger": "detailed 2-3 sentence summary with full context", "sentiment": "negative"}],
-  "people": [{"name": "Name", "relationship": "friend", "sentiment": "tense", "context": "detailed 2-3 sentence summary with full context"}]
+  "emotions": [{"emotion": "frustrated", "intensity": 7, "trigger": "summary", "sentiment": "negative", "source_quote": "exact text from entry"}],
+  "people": [{"name": "Name", "relationship": "friend", "sentiment": "tense", "context": "summary", "source_quote": "exact text from entry"}]
 }
 
-Only include categories clearly present. Empty arrays for missing categories.`;
+Only include categories clearly present. Empty arrays for missing categories.
+If the entry is too short, vague, or lacks meaningful content to extract insights from, return empty arrays for both.`;
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
+function findSourceRange(content: string, quote: string | undefined): SourceRange | undefined {
+  if (!quote) return undefined;
+  const start = content.indexOf(quote);
+  if (start === -1) return undefined;
+  return {
+    start,
+    end: start + quote.length,
+    quote,
+  };
 }
 
 export async function analyzeEntry(
@@ -54,7 +69,6 @@ export async function analyzeEntry(
 ): Promise<JournalInsight[]> {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('No API key configured');
-  if (content.length < 100) return [];
 
   const prompt = ANALYSIS_PROMPT
     .replace('{date}', entryDate)
@@ -95,6 +109,7 @@ export async function analyzeEntry(
         intensity: e.intensity || 5,
         trigger: e.trigger,
         sentiment: e.sentiment || 'neutral',
+        source: findSourceRange(content, e.source_quote),
       },
       createdAt: timestamp,
     });
@@ -111,6 +126,7 @@ export async function analyzeEntry(
         relationship: person.relationship,
         sentiment: person.sentiment || 'neutral',
         context: person.context,
+        source: findSourceRange(content, person.source_quote),
       },
       createdAt: timestamp,
     });
@@ -144,17 +160,23 @@ export async function deleteEntryInsights(entryId: string): Promise<void> {
 export async function clearAllInsights(): Promise<void> {
   await execute('DELETE FROM journal_insights');
   await execute('DELETE FROM analytics_queue');
+  window.dispatchEvent(new CustomEvent('insights-changed'));
 }
 
 export async function queueEntryForAnalysis(entryId: string): Promise<void> {
-  const timestamp = new Date().toISOString();
+  const hasInsights = await select<{ count: number }>(
+    'SELECT COUNT(*) as count FROM journal_insights WHERE entry_id = $1',
+    [entryId]
+  );
+  if (hasInsights[0]?.count > 0) return;
+
   const existing = await select<{ id: string }>(
     'SELECT id FROM analytics_queue WHERE entry_id = $1 AND status IN ($2, $3)',
     [entryId, 'pending', 'processing']
   );
-
   if (existing.length > 0) return;
 
+  const timestamp = new Date().toISOString();
   await execute(
     `INSERT INTO analytics_queue (id, entry_id, status, retry_count, created_at, updated_at)
      VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -163,8 +185,9 @@ export async function queueEntryForAnalysis(entryId: string): Promise<void> {
 }
 
 export async function processAnalyticsQueue(
-  onProgress?: (current: number, total: number, insightCount?: number) => void
-): Promise<{ success: number; failed: number }> {
+  onProgress?: (current: number, total: number, insightCount?: number) => void,
+  signal?: AbortSignal
+): Promise<{ success: number; failed: number; cancelled: boolean }> {
   const pending = await select<AnalyticsQueueItem & { content: string; date: string }>(
     `SELECT q.id, q.entry_id as entryId, q.status, q.retry_count as retryCount, q.error, q.created_at as createdAt, q.updated_at as updatedAt, e.content, e.date
      FROM analytics_queue q
@@ -177,7 +200,13 @@ export async function processAnalyticsQueue(
   let failed = 0;
   const total = pending.length;
 
+  onProgress?.(0, total, 0);
+
   for (let i = 0; i < pending.length; i++) {
+    if (signal?.aborted) {
+      return { success, failed, cancelled: true };
+    }
+
     const item = pending[i];
 
     try {
@@ -206,7 +235,13 @@ export async function processAnalyticsQueue(
     }
   }
 
-  return { success, failed };
+  await execute("DELETE FROM analytics_queue WHERE status = 'completed'");
+
+  if (success > 0) {
+    window.dispatchEvent(new CustomEvent('insights-changed'));
+  }
+
+  return { success, failed, cancelled: false };
 }
 
 export async function getInsightsByType(
@@ -314,11 +349,11 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
   const byType = await select<{ insight_type: string; count: number }>(
     'SELECT insight_type, COUNT(*) as count FROM journal_insights GROUP BY insight_type'
   );
-  const analyzed = await select<{ count: number }>(
-    'SELECT COUNT(DISTINCT entry_id) as count FROM journal_insights'
+  const entriesProcessed = await select<{ count: number }>(
+    'SELECT COUNT(*) as count FROM entries WHERE id NOT IN (SELECT entry_id FROM analytics_queue)'
   );
   const pending = await select<{ count: number }>(
-    "SELECT COUNT(*) as count FROM analytics_queue WHERE status = 'pending'"
+    "SELECT COUNT(*) as count FROM analytics_queue WHERE status = 'pending' AND retry_count < 3"
   );
   const lastAnalyzed = await select<{ created_at: string }>(
     'SELECT created_at FROM journal_insights ORDER BY created_at DESC LIMIT 1'
@@ -334,17 +369,59 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
   return {
     totalInsights: total[0]?.count ?? 0,
     insightsByType,
-    entriesAnalyzed: analyzed[0]?.count ?? 0,
+    entriesAnalyzed: entriesProcessed[0]?.count ?? 0,
     entriesPending: pending[0]?.count ?? 0,
     lastAnalyzedAt: lastAnalyzed[0]?.created_at,
   };
 }
 
+export interface FailedAnalysisEntry {
+  id: string;
+  entryId: string;
+  entryDate: string;
+  error: string | null;
+  retryCount: number;
+}
+
+export async function getFailedAnalysisEntries(): Promise<FailedAnalysisEntry[]> {
+  const rows = await select<{
+    id: string;
+    entry_id: string;
+    error: string | null;
+    retry_count: number;
+    date: string;
+  }>(
+    `SELECT q.id, q.entry_id, q.error, q.retry_count, e.date
+     FROM analytics_queue q
+     JOIN entries e ON e.id = q.entry_id
+     WHERE q.status = 'pending' AND q.retry_count >= 3
+     ORDER BY e.date DESC`
+  );
+
+  return rows.map(r => ({
+    id: r.id,
+    entryId: r.entry_id,
+    entryDate: r.date,
+    error: r.error,
+    retryCount: r.retry_count,
+  }));
+}
+
+export async function retryFailedEntry(queueId: string): Promise<void> {
+  await execute(
+    'UPDATE analytics_queue SET retry_count = 0, status = $1, updated_at = $2 WHERE id = $3',
+    ['pending', new Date().toISOString(), queueId]
+  );
+}
+
+export async function dismissFailedEntry(queueId: string): Promise<void> {
+  await execute('DELETE FROM analytics_queue WHERE id = $1', [queueId]);
+}
+
 export async function queueAllEntriesForAnalysis(): Promise<number> {
   const unanalyzed = await select<{ id: string }>(
     `SELECT e.id FROM entries e
-     WHERE e.id NOT IN (SELECT DISTINCT entry_id FROM journal_insights)
-     AND LENGTH(e.content) > 100`
+     WHERE e.id NOT IN (SELECT DISTINCT entry_id FROM journal_insights)`
   );
 
   for (const entry of unanalyzed) {
@@ -360,6 +437,7 @@ export interface EmotionOccurrence {
   intensity: number;
   trigger?: string;
   sentiment: 'positive' | 'negative' | 'neutral';
+  source?: SourceRange;
 }
 
 export async function getEmotionOccurrences(emotion: string): Promise<EmotionOccurrence[]> {
@@ -383,6 +461,7 @@ export async function getEmotionOccurrences(emotion: string): Promise<EmotionOcc
       intensity: meta?.intensity || 5,
       trigger: meta?.trigger,
       sentiment: meta?.sentiment || 'neutral',
+      source: meta?.source,
     };
   });
 }
@@ -393,6 +472,7 @@ export interface PersonOccurrence {
   relationship?: string;
   sentiment: RelationshipSentiment;
   context?: string;
+  source?: SourceRange;
 }
 
 export async function getPersonOccurrences(name: string): Promise<PersonOccurrence[]> {
@@ -416,6 +496,7 @@ export async function getPersonOccurrences(name: string): Promise<PersonOccurren
       relationship: meta?.relationship,
       sentiment: meta?.sentiment || 'neutral',
       context: meta?.context,
+      source: meta?.source,
     };
   });
 }
@@ -447,6 +528,7 @@ export async function getRawEmotionInsights(limit: number = 100, startDate?: str
       sentiment: meta?.sentiment || 'neutral',
       entryId: r.entry_id,
       entryDate: r.entry_date,
+      source: meta?.source,
     };
   });
 }
@@ -478,6 +560,7 @@ export async function getRawPersonInsights(limit: number = 100, startDate?: stri
       context: meta?.context,
       entryId: r.entry_id,
       entryDate: r.entry_date,
+      source: meta?.source,
     };
   });
 }

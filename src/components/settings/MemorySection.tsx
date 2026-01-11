@@ -1,10 +1,12 @@
-import { CSSProperties, useState, useEffect, useCallback } from 'react';
-import { IoCheckmarkCircle, IoAlertCircle, IoSync, IoSparkles, IoAnalytics, IoTrash } from 'react-icons/io5';
+import { CSSProperties, useState, useEffect, useCallback, useRef } from 'react';
+import { IoCheckmarkCircle, IoAlertCircle, IoSync, IoSparkles, IoAnalytics, IoTrash, IoClose } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text, Button } from '../themed';
+import Modal from '../Modal';
+import '../../styles/themed.css';
 import { getEmbeddingStats, embedAllEntries, clearAllEmbeddings, type EmbeddingStats } from '../../services/embeddings';
 import { getApiKey } from '../../lib/secureStorage';
-import { getAnalyticsStats, queueAllEntriesForAnalysis, processAnalyticsQueue, clearAllInsights } from '../../services/analytics';
+import { getAnalyticsStats, queueAllEntriesForAnalysis, processAnalyticsQueue, clearAllInsights, getFailedAnalysisEntries, retryFailedEntry, dismissFailedEntry, type FailedAnalysisEntry } from '../../services/analytics';
 import type { AnalyticsStats } from '../../types/analytics';
 
 export default function MemorySection() {
@@ -21,6 +23,11 @@ export default function MemorySection() {
   const [analyticsResult, setAnalyticsResult] = useState<{ success: number; failed: number } | null>(null);
   const [clearingEmbeddings, setClearingEmbeddings] = useState(false);
   const [clearingInsights, setClearingInsights] = useState(false);
+  const [confirmingClearEmbeddings, setConfirmingClearEmbeddings] = useState(false);
+  const [confirmingClearInsights, setConfirmingClearInsights] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [failedEntries, setFailedEntries] = useState<FailedAnalysisEntry[]>([]);
+  const analyzeAbortController = useRef<AbortController | null>(null);
 
   const loadStats = useCallback(async () => {
     try {
@@ -29,6 +36,8 @@ export default function MemorySection() {
       setStats(embeddingStats);
       const analytics = await getAnalyticsStats();
       setAnalyticsStats(analytics);
+      const failed = await getFailedAnalysisEntries();
+      setFailedEntries(failed);
     } catch {
       setError('Failed to load stats');
     } finally {
@@ -83,41 +92,55 @@ export default function MemorySection() {
       return;
     }
 
+    analyzeAbortController.current = new AbortController();
     setIsAnalyzing(true);
     setAnalyticsResult(null);
     setError(null);
+    setAnalyticsProgress({ current: 0, total: 0 });
 
     try {
       const queued = await queueAllEntriesForAnalysis();
       if (queued > 0) {
-        await processAnalyticsQueue((current, total, insightCount) => {
+        setAnalyticsProgress({ current: 0, total: queued });
+        const result = await processAnalyticsQueue((current, total) => {
           setAnalyticsProgress({ current, total });
-          if (insightCount !== undefined && insightCount > 0) {
-            setAnalyticsStats(prev => prev ? {
-              ...prev,
-              entriesAnalyzed: prev.entriesAnalyzed + 1,
-              totalInsights: prev.totalInsights + insightCount,
-              entriesPending: Math.max(0, prev.entriesPending - 1),
-            } : prev);
-          }
-        });
+        }, analyzeAbortController.current.signal);
+        if (!result.cancelled) {
+          setAnalyticsResult({ success: result.success, failed: result.failed });
+        }
       }
       const newStats = await getAnalyticsStats();
       setAnalyticsStats(newStats);
-      setAnalyticsResult({ success: queued, failed: 0 });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to analyze entries');
+      if (!analyzeAbortController.current?.signal.aborted) {
+        setError(err instanceof Error ? err.message : 'Failed to analyze entries');
+      }
     } finally {
       setIsAnalyzing(false);
+      setIsCancelling(false);
       setAnalyticsProgress({ current: 0, total: 0 });
+      analyzeAbortController.current = null;
     }
   };
 
+  const handleCancelAnalysis = () => {
+    setIsCancelling(true);
+    analyzeAbortController.current?.abort();
+  };
+
+  const handleRetryFailed = async (queueId: string) => {
+    await retryFailedEntry(queueId);
+    await loadStats();
+  };
+
+  const handleDismissFailed = async (queueId: string) => {
+    await dismissFailedEntry(queueId);
+    await loadStats();
+  };
+
   const handleClearEmbeddings = async () => {
-    if (!confirm('Are you sure you want to clear all embeddings? You will need to re-embed all entries for chat context to work.')) {
-      return;
-    }
     setClearingEmbeddings(true);
+    setConfirmingClearEmbeddings(false);
     setError(null);
     try {
       await clearAllEmbeddings();
@@ -130,10 +153,8 @@ export default function MemorySection() {
   };
 
   const handleClearInsights = async () => {
-    if (!confirm('Are you sure you want to clear all insights? You will need to re-analyze all entries.')) {
-      return;
-    }
     setClearingInsights(true);
+    setConfirmingClearInsights(false);
     setError(null);
     setAnalyticsResult(null);
     try {
@@ -283,7 +304,7 @@ export default function MemorySection() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={handleClearEmbeddings}
+              onClick={() => setConfirmingClearEmbeddings(true)}
               disabled={clearingEmbeddings || processing}
               style={{
                 display: 'flex',
@@ -360,7 +381,7 @@ export default function MemorySection() {
         {analyticsStats && (
           <div style={statBoxStyle}>
             <div style={statRowStyle}>
-              <span style={statLabelStyle}>Entries Analyzed</span>
+              <span style={statLabelStyle}>Entries Processed</span>
               <span style={statValueStyle}>{analyticsStats.entriesAnalyzed}</span>
             </div>
             <div style={statRowStyle}>
@@ -403,7 +424,7 @@ export default function MemorySection() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={handleClearInsights}
+              onClick={() => setConfirmingClearInsights(true)}
               disabled={clearingInsights || isAnalyzing}
               style={{
                 display: 'flex',
@@ -426,14 +447,45 @@ export default function MemorySection() {
           )}
         </div>
 
-        {isAnalyzing && analyticsProgress.total > 0 && (
+        {isAnalyzing && (
           <div>
             <div style={progressBarContainerStyle}>
-              <div style={{ ...progressBarStyle, width: `${(analyticsProgress.current / analyticsProgress.total) * 100}%` }} />
+              <div style={{
+                ...progressBarStyle,
+                width: analyticsProgress.total > 0
+                  ? `${(analyticsProgress.current / analyticsProgress.total) * 100}%`
+                  : '30%',
+                ...(analyticsProgress.total === 0 && {
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                })
+              }} />
             </div>
-            <Text variant="muted" style={{ fontSize: '0.75rem', marginTop: '4px' }}>
-              Analyzing {analyticsProgress.current} of {analyticsProgress.total} entries...
-            </Text>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+              <Text variant="muted" style={{ fontSize: '0.75rem' }}>
+                {analyticsProgress.total > 0
+                  ? `Analyzing ${analyticsProgress.current} of ${analyticsProgress.total} entries...`
+                  : 'Queuing entries...'}
+              </Text>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleCancelAnalysis}
+                disabled={isCancelling}
+                style={{
+                  padding: '2px 8px',
+                  fontSize: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                {isCancelling ? (
+                  <><IoSync size={12} className="spin" /> Cancelling...</>
+                ) : (
+                  <><IoClose size={12} /> Cancel</>
+                )}
+              </Button>
+            </div>
           </div>
         )}
 
@@ -445,7 +497,104 @@ export default function MemorySection() {
             </span>
           </div>
         )}
+
+        {failedEntries.length > 0 && (
+          <div style={{ marginTop: '16px' }}>
+            <Text variant="secondary" style={{ fontSize: '0.8125rem', marginBottom: '8px', color: theme.colors.status.error }}>
+              {failedEntries.length} {failedEntries.length === 1 ? 'entry' : 'entries'} failed to analyze
+            </Text>
+            <div style={{
+              backgroundColor: theme.colors.background.subtle,
+              borderRadius: '8px',
+              padding: '8px',
+              maxHeight: '150px',
+              overflowY: 'auto',
+            }}>
+              {failedEntries.map(entry => (
+                <div key={entry.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 8px',
+                  borderBottom: `1px solid ${theme.colors.border.secondary}`,
+                  gap: '8px',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text variant="primary" style={{ fontSize: '0.75rem' }}>
+                      {new Date(entry.entryDate).toLocaleDateString()}
+                    </Text>
+                    <Text variant="muted" style={{ fontSize: '0.6875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {entry.error || 'Unknown error'}
+                    </Text>
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleRetryFailed(entry.id)}
+                      style={{ padding: '2px 6px', fontSize: '0.6875rem' }}
+                    >
+                      Retry
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleDismissFailed(entry.id)}
+                      style={{ padding: '2px 6px', fontSize: '0.6875rem', color: theme.colors.text.muted }}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      <Modal isOpen={confirmingClearEmbeddings} onClose={() => setConfirmingClearEmbeddings(false)} size="sm">
+        <div style={{ padding: '20px' }}>
+          <Text as="h3" variant="primary" style={{ marginBottom: '12px' }}>Clear All Embeddings?</Text>
+          <Text variant="secondary" style={{ fontSize: '0.875rem', marginBottom: '20px' }}>
+            You will need to re-embed all entries for chat context to work.
+          </Text>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <Button variant="secondary" size="sm" onClick={() => setConfirmingClearEmbeddings(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleClearEmbeddings}
+              style={{ borderColor: theme.colors.status.error, color: theme.colors.status.error }}
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={confirmingClearInsights} onClose={() => setConfirmingClearInsights(false)} size="sm">
+        <div style={{ padding: '20px' }}>
+          <Text as="h3" variant="primary" style={{ marginBottom: '12px' }}>Clear All Insights?</Text>
+          <Text variant="secondary" style={{ fontSize: '0.875rem', marginBottom: '20px' }}>
+            You will need to re-analyze all entries.
+          </Text>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <Button variant="secondary" size="sm" onClick={() => setConfirmingClearInsights(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleClearInsights}
+              style={{ borderColor: theme.colors.status.error, color: theme.colors.status.error }}
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

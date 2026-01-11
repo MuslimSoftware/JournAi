@@ -32,6 +32,8 @@ export default function MobileEntries() {
     entries,
     selectedEntry,
     selectedEntryId,
+    highlightRange,
+    clearHighlight,
     isLoading,
     selectEntry,
     createEntry,
@@ -132,9 +134,11 @@ export default function MobileEntries() {
     return (
       <MobileEntryEditor
         entry={selectedEntry}
+        highlightRange={highlightRange}
         onBack={handleBack}
         onUpdate={updateEntry}
         onDelete={handleDelete}
+        onClearHighlight={clearHighlight}
       />
     );
   }
