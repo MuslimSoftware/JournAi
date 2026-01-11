@@ -16,3 +16,181 @@
     gap: 12px;
   }
 }
+
+.category-tabs {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.category-tab {
+  padding: 12px 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-tab:hover {
+  opacity: 0.8;
+}
+
+.category-tab.active {
+  border-bottom-color: var(--text-accent);
+  color: var(--text-accent);
+}
+
+.category-tab-count {
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.sentiment-filter-pills {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.sentiment-pill {
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sentiment-pill:hover {
+  opacity: 0.9;
+}
+
+.sentiment-pill:active {
+  transform: scale(0.98);
+}
+
+.sentiment-pill-count {
+  font-size: 0.75rem;
+}
+
+.time-section {
+  margin-bottom: 24px;
+}
+
+.time-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  margin-bottom: 12px;
+}
+
+.time-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.time-section-count {
+  font-size: 0.75rem;
+}
+
+.horizontal-carousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 16px 16px;
+  margin: 0 -16px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.horizontal-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.carousel-card {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+  width: 220px;
+  min-height: 140px;
+}
+
+.insight-card {
+  height: 100%;
+}
+
+.insight-card:active {
+  transform: scale(0.98) !important;
+}
+
+.horizontal-carousel-empty {
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.insight-aggregate-card:hover {
+  background-color: var(--background-hover) !important;
+}
+
+.insight-aggregate-card:hover .person-name-row {
+  flex-wrap: wrap !important;
+  row-gap: 0 !important;
+}
+
+.insight-aggregate-card:hover .person-name,
+.insight-aggregate-card:hover .person-relationship {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+.insight-aggregate-card:active {
+  opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+  .carousel-card {
+    width: 180px;
+    min-height: 130px;
+  }
+
+  .sentiment-filter-pills {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    margin: 0 -16px 20px;
+    padding-left: 16px;
+    padding-right: 16px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .sentiment-filter-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sentiment-pill {
+    flex-shrink: 0;
+  }
+
+  .category-tabs {
+    gap: 20px;
+  }
+
+  .category-tab {
+    font-size: 0.8rem;
+    padding: 10px 0;
+  }
+}

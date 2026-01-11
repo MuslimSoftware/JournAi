@@ -9,6 +9,8 @@ import type {
   EmotionMetadata,
   PersonMetadata,
   RelationshipSentiment,
+  TimeGroupedInsight,
+  TimeGroupedPerson,
 } from '../types/analytics';
 
 const ANALYSIS_PROMPT = `Analyze this journal entry. Return JSON only.
@@ -235,11 +237,15 @@ export async function getInsightsByType(
   }));
 }
 
-export async function getAggregatedInsights(): Promise<AggregatedInsights> {
+export async function getAggregatedInsights(startDate?: string, endDate?: string): Promise<AggregatedInsights> {
+  const dateFilter = startDate && endDate ? ' AND entry_date >= $1 AND entry_date <= $2' : '';
+  const dateParams = startDate && endDate ? [startDate, endDate] : [];
+
   const emotionsRaw = await select<{ content: string; metadata: string; entry_date: string }>(
     `SELECT content, metadata, entry_date
-     FROM journal_insights WHERE insight_type = 'emotion'
-     ORDER BY entry_date DESC`
+     FROM journal_insights WHERE insight_type = 'emotion'${dateFilter}
+     ORDER BY entry_date DESC`,
+    dateParams
   );
 
   const emotionMap = new Map<string, { count: number; totalIntensity: number; triggers: Set<string>; sentiment: string }>();
@@ -263,12 +269,13 @@ export async function getAggregatedInsights(): Promise<AggregatedInsights> {
       sentiment: data.sentiment as 'positive' | 'negative' | 'neutral',
     }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+    .slice(0, 20);
 
   const peopleRaw = await select<{ content: string; metadata: string; entry_date: string }>(
     `SELECT content, metadata, entry_date
-     FROM journal_insights WHERE insight_type = 'person'
-     ORDER BY entry_date DESC`
+     FROM journal_insights WHERE insight_type = 'person'${dateFilter}
+     ORDER BY entry_date DESC`,
+    dateParams
   );
 
   const personMap = new Map<string, { count: number; relationship?: string; sentiment: RelationshipSentiment; recentContext?: string }>();
@@ -297,9 +304,9 @@ export async function getAggregatedInsights(): Promise<AggregatedInsights> {
       recentContext: data.recentContext,
     }))
     .sort((a, b) => b.mentions - a.mentions)
-    .slice(0, 10);
+    .slice(0, 20);
 
-  return { emotions, people };
+  return { emotions, people, themes: [], goals: [], patterns: [] };
 }
 
 export async function getAnalyticsStats(): Promise<AnalyticsStats> {
@@ -409,6 +416,68 @@ export async function getPersonOccurrences(name: string): Promise<PersonOccurren
       relationship: meta?.relationship,
       sentiment: meta?.sentiment || 'neutral',
       context: meta?.context,
+    };
+  });
+}
+
+export async function getRawEmotionInsights(limit: number = 100, startDate?: string, endDate?: string): Promise<TimeGroupedInsight[]> {
+  const dateFilter = startDate && endDate ? ' AND entry_date >= $2 AND entry_date <= $3' : '';
+  const params = startDate && endDate ? [limit, startDate, endDate] : [limit];
+
+  const rows = await select<{
+    content: string;
+    metadata: string;
+    entry_id: string;
+    entry_date: string;
+  }>(
+    `SELECT content, metadata, entry_id, entry_date
+     FROM journal_insights
+     WHERE insight_type = 'emotion'${dateFilter}
+     ORDER BY entry_date DESC
+     LIMIT $1`,
+    params
+  );
+
+  return rows.map(r => {
+    const meta: EmotionMetadata | null = r.metadata ? JSON.parse(r.metadata) : null;
+    return {
+      emotion: r.content,
+      intensity: meta?.intensity || 5,
+      trigger: meta?.trigger,
+      sentiment: meta?.sentiment || 'neutral',
+      entryId: r.entry_id,
+      entryDate: r.entry_date,
+    };
+  });
+}
+
+export async function getRawPersonInsights(limit: number = 100, startDate?: string, endDate?: string): Promise<TimeGroupedPerson[]> {
+  const dateFilter = startDate && endDate ? ' AND entry_date >= $2 AND entry_date <= $3' : '';
+  const params = startDate && endDate ? [limit, startDate, endDate] : [limit];
+
+  const rows = await select<{
+    content: string;
+    metadata: string;
+    entry_id: string;
+    entry_date: string;
+  }>(
+    `SELECT content, metadata, entry_id, entry_date
+     FROM journal_insights
+     WHERE insight_type = 'person'${dateFilter}
+     ORDER BY entry_date DESC
+     LIMIT $1`,
+    params
+  );
+
+  return rows.map(r => {
+    const meta: PersonMetadata | null = r.metadata ? JSON.parse(r.metadata) : null;
+    return {
+      name: r.content,
+      relationship: meta?.relationship,
+      sentiment: meta?.sentiment || 'neutral',
+      context: meta?.context,
+      entryId: r.entry_id,
+      entryDate: r.entry_date,
     };
   });
 }

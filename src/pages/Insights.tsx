@@ -1,490 +1,159 @@
-import { CSSProperties, useEffect, useState } from 'react';
+import { CSSProperties, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IoSettingsOutline, IoSparkles, IoHeart, IoPeople, IoTrophy, IoRefresh, IoClose, IoChevronForward } from 'react-icons/io5';
-import { Container, Text, Card, Spinner } from '../components/themed';
-import Modal from '../components/Modal';
+import { IoSettingsOutline } from 'react-icons/io5';
+import { Container, Text, Spinner } from '../components/themed';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { useSettings } from '../contexts/SettingsContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { getAggregatedInsights, getAnalyticsStats, getEmotionOccurrences, getPersonOccurrences, type EmotionOccurrence, type PersonOccurrence } from '../services/analytics';
+import {
+  getAggregatedInsights,
+  getRawEmotionInsights,
+  getRawPersonInsights,
+} from '../services/analytics';
 import { parseLocalDate } from '../utils/date';
-import type { AggregatedInsights, AnalyticsStats, RelationshipSentiment } from '../types/analytics';
+import type {
+  AggregatedInsights,
+  TimeGroupedInsight,
+  TimeGroupedPerson,
+} from '../types/analytics';
 import '../styles/insights.css';
 
-type InsightCategory = 'emotions' | 'people';
-
-const categoryConfig: Record<InsightCategory, { icon: typeof IoSparkles; label: string; color: string }> = {
-  emotions: { icon: IoHeart, label: 'Emotions', color: '#ec4899' },
-  people: { icon: IoPeople, label: 'People', color: '#3b82f6' },
+const INTENSITY_COLORS = {
+  positive: '#22C55E',
+  negative: '#EF4444',
+  neutral: '#6B7280',
 };
+
+type TimeFilter =
+  | 'last7' | 'last30' | 'last90'
+  | 'thisWeek' | 'lastWeek'
+  | 'thisMonth' | 'lastMonth'
+  | 'thisYear' | 'lastYear'
+  | 'all';
+
+interface TimeFilterGroup {
+  label: string;
+  options: { value: TimeFilter; label: string }[];
+}
+
+const TIME_FILTER_GROUPS: TimeFilterGroup[] = [
+  {
+    label: 'Rolling',
+    options: [
+      { value: 'last7', label: 'Last 7 Days' },
+      { value: 'last30', label: 'Last 30 Days' },
+      { value: 'last90', label: 'Last 90 Days' },
+    ],
+  },
+  {
+    label: 'Weekly',
+    options: [
+      { value: 'thisWeek', label: 'This Week' },
+      { value: 'lastWeek', label: 'Last Week' },
+    ],
+  },
+  {
+    label: 'Monthly',
+    options: [
+      { value: 'thisMonth', label: 'This Month' },
+      { value: 'lastMonth', label: 'Last Month' },
+    ],
+  },
+  {
+    label: 'Yearly',
+    options: [
+      { value: 'thisYear', label: 'This Year' },
+      { value: 'lastYear', label: 'Last Year' },
+    ],
+  },
+  {
+    label: '',
+    options: [
+      { value: 'all', label: 'All Time' },
+    ],
+  },
+];
+
+function getFilterLabel(filter: TimeFilter): string {
+  for (const group of TIME_FILTER_GROUPS) {
+    const option = group.options.find(o => o.value === filter);
+    if (option) return option.label;
+  }
+  return 'Select';
+}
+
+function getDateRange(filter: TimeFilter): { start: string; end: string } | null {
+  if (filter === 'all') return null;
+
+  const now = new Date();
+  const end = now.toISOString().split('T')[0];
+  let start: Date;
+
+  switch (filter) {
+    case 'last7': {
+      start = new Date(now);
+      start.setDate(now.getDate() - 7);
+      break;
+    }
+    case 'last30': {
+      start = new Date(now);
+      start.setDate(now.getDate() - 30);
+      break;
+    }
+    case 'last90': {
+      start = new Date(now);
+      start.setDate(now.getDate() - 90);
+      break;
+    }
+    case 'thisWeek': {
+      start = new Date(now);
+      start.setDate(now.getDate() - now.getDay());
+      break;
+    }
+    case 'lastWeek': {
+      start = new Date(now);
+      start.setDate(now.getDate() - now.getDay() - 7);
+      const endDate = new Date(start);
+      endDate.setDate(start.getDate() + 6);
+      return { start: start.toISOString().split('T')[0], end: endDate.toISOString().split('T')[0] };
+    }
+    case 'thisMonth': {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    }
+    case 'lastMonth': {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { start: start.toISOString().split('T')[0], end: endDate.toISOString().split('T')[0] };
+    }
+    case 'thisYear': {
+      start = new Date(now.getFullYear(), 0, 1);
+      break;
+    }
+    case 'lastYear': {
+      start = new Date(now.getFullYear() - 1, 0, 1);
+      const endDate = new Date(now.getFullYear() - 1, 11, 31);
+      return { start: start.toISOString().split('T')[0], end: endDate.toISOString().split('T')[0] };
+    }
+  }
+
+  return { start: start.toISOString().split('T')[0], end };
+}
+
+function getSolidColor(sentiment: string): string {
+  const colors: Record<string, string> = {
+    positive: '#10b981',
+    negative: '#ef4444',
+    neutral: '#6b7280',
+    mixed: '#f59e0b',
+    tense: '#ef4444',
+  };
+  return colors[sentiment] || colors.neutral;
+}
 
 function formatDate(dateStr: string): string {
   const date = parseLocalDate(dateStr);
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function getSentimentColor(sentiment: string, theme: ReturnType<typeof useTheme>['theme']): string {
-  if (sentiment === 'positive') return theme.colors.status.success;
-  if (sentiment === 'negative' || sentiment === 'tense') return theme.colors.status.error;
-  if (sentiment === 'mixed') return theme.colors.status.warning;
-  return theme.colors.text.muted;
-}
-
-function getIntensityColor(intensity: number, theme: ReturnType<typeof useTheme>['theme']): string {
-  if (intensity <= 3) return theme.colors.status.success;
-  if (intensity <= 6) return theme.colors.status.warning;
-  return theme.colors.status.error;
-}
-
-function IntensityBar({ intensity, theme }: { intensity: number; theme: ReturnType<typeof useTheme>['theme'] }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-      <div style={{
-        width: '40px',
-        height: '4px',
-        backgroundColor: theme.colors.background.secondary,
-        borderRadius: '2px',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          width: `${intensity * 10}%`,
-          height: '100%',
-          backgroundColor: getIntensityColor(intensity, theme),
-          borderRadius: '2px',
-        }} />
-      </div>
-      <span style={{ fontSize: '0.7rem', color: theme.colors.text.muted }}>{intensity}</span>
-    </div>
-  );
-}
-
-function EmotionDetailModal({
-  emotion,
-  occurrences,
-  onClose,
-  onEntryClick,
-  theme,
-}: {
-  emotion: string;
-  occurrences: EmotionOccurrence[];
-  onClose: () => void;
-  onEntryClick: (entryId: string) => void;
-  theme: ReturnType<typeof useTheme>['theme'];
-}) {
-  return (
-    <Modal isOpen onClose={onClose} size="md">
-      <div style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <IoHeart size={24} color="#ec4899" />
-            <Text as="h2" style={{ margin: 0, textTransform: 'capitalize' }}>{emotion}</Text>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '8px',
-              color: theme.colors.text.muted,
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <IoClose size={24} />
-          </button>
-        </div>
-        <Text variant="muted" style={{ marginBottom: '16px', display: 'block' }}>
-          {occurrences.length} occurrence{occurrences.length !== 1 ? 's' : ''} recorded
-        </Text>
-        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          {occurrences.map((occ, i) => (
-            <div
-              key={`${occ.entryId}-${i}`}
-              onClick={() => onEntryClick(occ.entryId)}
-              style={{
-                padding: '14px',
-                borderRadius: '10px',
-                backgroundColor: theme.colors.background.subtle,
-                border: `1px solid ${theme.colors.border.secondary}`,
-                marginBottom: '10px',
-                cursor: 'pointer',
-                transition: 'background-color 0.15s ease',
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme.colors.background.secondary}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme.colors.background.subtle}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <Text style={{ fontSize: '0.85rem', fontWeight: 600 }}>{formatDate(occ.entryDate)}</Text>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 10px',
-                    borderRadius: '12px',
-                    backgroundColor: `${getIntensityColor(occ.intensity, theme)}20`,
-                  }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: getIntensityColor(occ.intensity, theme) }}>
-                      {occ.intensity}/10
-                    </span>
-                  </div>
-                  <IoChevronForward size={16} color={theme.colors.text.muted} />
-                </div>
-              </div>
-              {occ.trigger && (
-                <Text variant="muted" style={{ fontSize: '0.85rem', lineHeight: 1.5, display: 'block' }}>
-                  {occ.trigger}
-                </Text>
-              )}
-              {!occ.trigger && (
-                <Text variant="muted" style={{ fontSize: '0.8rem', fontStyle: 'italic' }}>
-                  No trigger recorded
-                </Text>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function PersonDetailModal({
-  name,
-  relationship,
-  occurrences,
-  onClose,
-  onEntryClick,
-  theme,
-}: {
-  name: string;
-  relationship?: string;
-  occurrences: PersonOccurrence[];
-  onClose: () => void;
-  onEntryClick: (entryId: string) => void;
-  theme: ReturnType<typeof useTheme>['theme'];
-}) {
-  return (
-    <Modal isOpen onClose={onClose} size="md">
-      <div style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <IoPeople size={24} color="#3b82f6" />
-            <div>
-              <Text as="h2" style={{ margin: 0, textTransform: 'capitalize' }}>{name}</Text>
-              {relationship && (
-                <Text variant="muted" style={{ fontSize: '0.85rem' }}>{relationship}</Text>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '8px',
-              color: theme.colors.text.muted,
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <IoClose size={24} />
-          </button>
-        </div>
-        <Text variant="muted" style={{ marginBottom: '16px', display: 'block' }}>
-          {occurrences.length} mention{occurrences.length !== 1 ? 's' : ''} recorded
-        </Text>
-        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          {occurrences.map((occ, i) => (
-            <div
-              key={`${occ.entryId}-${i}`}
-              onClick={() => onEntryClick(occ.entryId)}
-              style={{
-                padding: '14px',
-                borderRadius: '10px',
-                backgroundColor: theme.colors.background.subtle,
-                border: `1px solid ${theme.colors.border.secondary}`,
-                marginBottom: '10px',
-                cursor: 'pointer',
-                transition: 'background-color 0.15s ease',
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme.colors.background.secondary}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme.colors.background.subtle}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <Text style={{ fontSize: '0.85rem', fontWeight: 600 }}>{formatDate(occ.entryDate)}</Text>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{
-                    fontSize: '0.7rem',
-                    padding: '4px 10px',
-                    borderRadius: '12px',
-                    backgroundColor: `${getSentimentColor(occ.sentiment, theme)}20`,
-                    color: getSentimentColor(occ.sentiment, theme),
-                    textTransform: 'capitalize',
-                    fontWeight: 600,
-                  }}>
-                    {occ.sentiment}
-                  </div>
-                  <IoChevronForward size={16} color={theme.colors.text.muted} />
-                </div>
-              </div>
-              {occ.context && (
-                <Text variant="muted" style={{ fontSize: '0.85rem', lineHeight: 1.5, display: 'block' }}>
-                  {occ.context}
-                </Text>
-              )}
-              {!occ.context && (
-                <Text variant="muted" style={{ fontSize: '0.8rem', fontStyle: 'italic' }}>
-                  No context recorded
-                </Text>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function EmotionCard({ emotion, avgIntensity, count, triggers, sentiment, theme, onClick }: {
-  emotion: string;
-  avgIntensity: number;
-  count: number;
-  triggers: string[];
-  sentiment: 'positive' | 'negative' | 'neutral';
-  theme: ReturnType<typeof useTheme>['theme'];
-  onClick: () => void;
-}) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        padding: '12px',
-        borderRadius: '8px',
-        backgroundColor: theme.colors.background.subtle,
-        border: `1px solid ${theme.colors.border.secondary}`,
-        minWidth: '200px',
-        cursor: 'pointer',
-        transition: 'background-color 0.15s ease, transform 0.15s ease',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = theme.colors.background.secondary;
-        e.currentTarget.style.transform = 'translateY(-2px)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = theme.colors.background.subtle;
-        e.currentTarget.style.transform = 'translateY(0)';
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-        <span style={{ fontWeight: 600, color: getSentimentColor(sentiment, theme), textTransform: 'capitalize' }}>
-          {emotion}
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '0.75rem', color: theme.colors.text.muted }}>{count}x</span>
-          <IoChevronForward size={14} color={theme.colors.text.muted} />
-        </div>
-      </div>
-      <div style={{ marginBottom: '8px' }}>
-        <span style={{ fontSize: '0.75rem', color: theme.colors.text.muted }}>Avg intensity: </span>
-        <IntensityBar intensity={avgIntensity} theme={theme} />
-      </div>
-      {triggers.length > 0 && (
-        <div style={{ fontSize: '0.75rem', color: theme.colors.text.muted }}>
-          <span>Triggers: </span>
-          <span style={{ color: theme.colors.text.secondary }}>{triggers.join(', ')}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PersonCard({ name, relationship, sentiment, mentions, recentContext, theme, onClick }: {
-  name: string;
-  relationship?: string;
-  sentiment: RelationshipSentiment;
-  mentions: number;
-  recentContext?: string;
-  theme: ReturnType<typeof useTheme>['theme'];
-  onClick: () => void;
-}) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        padding: '12px',
-        borderRadius: '8px',
-        backgroundColor: theme.colors.background.subtle,
-        border: `1px solid ${theme.colors.border.secondary}`,
-        cursor: 'pointer',
-        transition: 'background-color 0.15s ease, transform 0.15s ease',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = theme.colors.background.secondary;
-        e.currentTarget.style.transform = 'translateY(-2px)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = theme.colors.background.subtle;
-        e.currentTarget.style.transform = 'translateY(0)';
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-        <div>
-          <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{name}</span>
-          {relationship && (
-            <span style={{ fontSize: '0.75rem', color: theme.colors.text.muted, marginLeft: '6px' }}>
-              ({relationship})
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '0.7rem', color: theme.colors.text.muted }}>{mentions}x</span>
-          <IoChevronForward size={14} color={theme.colors.text.muted} />
-        </div>
-      </div>
-      <div style={{
-        fontSize: '0.7rem',
-        padding: '2px 6px',
-        borderRadius: '4px',
-        backgroundColor: `${getSentimentColor(sentiment, theme)}20`,
-        color: getSentimentColor(sentiment, theme),
-        display: 'inline-block',
-        textTransform: 'capitalize',
-        marginBottom: recentContext ? '6px' : 0,
-      }}>
-        {sentiment}
-      </div>
-      {recentContext && (
-        <div style={{ fontSize: '0.75rem', color: theme.colors.text.muted, marginTop: '4px' }}>
-          {recentContext}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function InsightSection({
-  category,
-  data,
-  theme,
-  onEmotionClick,
-  onPersonClick,
-}: {
-  category: InsightCategory;
-  data: AggregatedInsights;
-  theme: ReturnType<typeof useTheme>['theme'];
-  onEmotionClick?: (emotion: string) => void;
-  onPersonClick?: (name: string, relationship?: string) => void;
-}) {
-  const config = categoryConfig[category];
-  const Icon = config.icon;
-  const items = data[category];
-
-  if (!items || items.length === 0) return null;
-
-  const headerStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    marginBottom: '12px',
-  };
-
-  const gridContainerStyle: CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: '12px',
-  };
-
-  const renderItems = () => {
-    switch (category) {
-      case 'emotions':
-        return (
-          <div style={gridContainerStyle}>
-            {data.emotions.map((e, i) => (
-              <EmotionCard
-                key={i}
-                emotion={e.emotion}
-                avgIntensity={e.avgIntensity}
-                count={e.count}
-                triggers={e.triggers}
-                sentiment={e.sentiment}
-                theme={theme}
-                onClick={() => onEmotionClick?.(e.emotion)}
-              />
-            ))}
-          </div>
-        );
-      case 'people':
-        return (
-          <div style={gridContainerStyle}>
-            {data.people.map((p, i) => (
-              <PersonCard
-                key={i}
-                name={p.name}
-                relationship={p.relationship}
-                sentiment={p.sentiment}
-                mentions={p.mentions}
-                recentContext={p.recentContext}
-                theme={theme}
-                onClick={() => onPersonClick?.(p.name, p.relationship)}
-              />
-            ))}
-          </div>
-        );
-    }
-  };
-
-  return (
-    <Card padding="md" style={{ marginBottom: '16px' }}>
-      <div style={headerStyle}>
-        <Icon size={20} color={config.color} />
-        <Text as="h3" style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>{config.label}</Text>
-        <Text variant="muted" style={{ fontSize: '0.8rem', marginLeft: 'auto' }}>
-          {items.length} {items.length === 1 ? 'insight' : 'insights'}
-        </Text>
-      </div>
-      {renderItems()}
-    </Card>
-  );
-}
-
-function StatsCard({ stats, theme }: { stats: AnalyticsStats; theme: ReturnType<typeof useTheme>['theme'] }) {
-  const statItems = [
-    { label: 'Total Insights', value: stats.totalInsights, icon: IoSparkles },
-    { label: 'Entries Analyzed', value: stats.entriesAnalyzed, icon: IoTrophy },
-  ];
-
-  return (
-    <Card padding="md" style={{ marginBottom: '20px' }}>
-      <div className="insights-stats-grid">
-        {statItems.map((item, i) => (
-          <div key={i} className="insights-stat-item">
-            <item.icon size={24} color={theme.colors.text.accent} />
-            <div>
-              <Text as="h4" style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>
-                {item.value}
-              </Text>
-              <Text variant="muted" style={{ fontSize: '0.8rem' }}>{item.label}</Text>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-function EmptyState({ theme }: { theme: ReturnType<typeof useTheme>['theme'] }) {
-  return (
-    <Card padding="lg" style={{ textAlign: 'center', marginTop: '40px' }}>
-      <IoSparkles size={48} color={theme.colors.text.muted} style={{ marginBottom: '16px' }} />
-      <Text as="h3" style={{ margin: '0 0 8px' }}>No Insights Yet</Text>
-      <Text variant="muted" style={{ maxWidth: '300px', margin: '0 auto' }}>
-        Write more journal entries to discover insights about your emotions and relationships.
-      </Text>
-    </Card>
-  );
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function Insights() {
@@ -493,27 +162,43 @@ export default function Insights() {
   const { openSettings } = useSettings();
   const { theme } = useTheme();
 
-  const [insights, setInsights] = useState<AggregatedInsights | null>(null);
-  const [stats, setStats] = useState<AnalyticsStats | null>(null);
+  const [aggregated, setAggregated] = useState<AggregatedInsights | null>(null);
+  const [rawEmotions, setRawEmotions] = useState<TimeGroupedInsight[]>([]);
+  const [rawPeople, setRawPeople] = useState<TimeGroupedPerson[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null);
-  const [emotionOccurrences, setEmotionOccurrences] = useState<EmotionOccurrence[]>([]);
-  const [selectedPerson, setSelectedPerson] = useState<{ name: string; relationship?: string } | null>(null);
-  const [personOccurrences, setPersonOccurrences] = useState<PersonOccurrence[]>([]);
-  const [loadingOccurrences, setLoadingOccurrences] = useState(false);
+  const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('last30');
+  const [sentimentFilter, setSentimentFilter] = useState<'all' | 'positive' | 'negative' | 'mixed'>('all');
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
 
-  const loadData = async () => {
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
+        setShowFilterDropdown(false);
+      }
+    };
+    if (showFilterDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showFilterDropdown]);
+
+  const loadData = async (filter: TimeFilter) => {
     setLoading(true);
     setError(null);
     try {
-      const [insightsData, statsData] = await Promise.all([
-        getAggregatedInsights(),
-        getAnalyticsStats(),
+      const range = getDateRange(filter);
+      const [agg, emotions, people] = await Promise.all([
+        getAggregatedInsights(range?.start, range?.end),
+        getRawEmotionInsights(500, range?.start, range?.end),
+        getRawPersonInsights(500, range?.start, range?.end),
       ]);
-      setInsights(insightsData);
-      setStats(statsData);
+      setAggregated(agg);
+      setRawEmotions(emotions);
+      setRawPeople(people);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load insights');
     } finally {
@@ -521,56 +206,15 @@ export default function Insights() {
     }
   };
 
-  const handleEmotionClick = async (emotion: string) => {
-    setSelectedEmotion(emotion);
-    setLoadingOccurrences(true);
-    try {
-      const occurrences = await getEmotionOccurrences(emotion);
-      setEmotionOccurrences(occurrences);
-    } catch (err) {
-      console.error('Failed to load emotion occurrences:', err);
-    } finally {
-      setLoadingOccurrences(false);
-    }
-  };
-
-  const handlePersonClick = async (name: string, relationship?: string) => {
-    setSelectedPerson({ name, relationship });
-    setLoadingOccurrences(true);
-    try {
-      const occurrences = await getPersonOccurrences(name);
-      setPersonOccurrences(occurrences);
-    } catch (err) {
-      console.error('Failed to load person occurrences:', err);
-    } finally {
-      setLoadingOccurrences(false);
-    }
-  };
-
-  const handleEntryClick = (entryId: string) => {
-    setSelectedEmotion(null);
-    setSelectedPerson(null);
-    navigate(`/entries?id=${entryId}`);
-  };
-
-  const closeModal = () => {
-    setSelectedEmotion(null);
-    setEmotionOccurrences([]);
-    setSelectedPerson(null);
-    setPersonOccurrences([]);
-  };
-
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const hasInsights = stats && stats.totalInsights > 0;
+    loadData(timeFilter);
+  }, [timeFilter]);
 
   const headerStyle: CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: isMobile ? '12px 16px' : '0 0 24px',
+    padding: isMobile ? '12px 16px' : '0 0 16px',
     minHeight: isMobile ? '56px' : undefined,
   };
 
@@ -585,26 +229,13 @@ export default function Insights() {
     justifyContent: 'center',
   };
 
-  const refreshButtonStyle: CSSProperties = {
-    ...iconButtonStyle,
-    marginRight: isMobile ? '8px' : '0',
-  };
-
-  const contentContainerStyle: CSSProperties = {
-    maxWidth: '600px',
-    margin: '0 auto',
+  const contentStyle: CSSProperties = {
     padding: isMobile ? '0 16px 100px' : '0',
   };
 
   if (loading) {
     return (
-      <div style={{
-        height: '100%',
-        backgroundColor: theme.colors.background.primary,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
+      <div style={{ height: '100%', backgroundColor: theme.colors.background.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Spinner size="lg" />
       </div>
     );
@@ -613,26 +244,564 @@ export default function Insights() {
   if (error) {
     return (
       <Container variant="primary" padding="lg">
-        <Card padding="lg" style={{ textAlign: 'center' }}>
+        <div style={{ textAlign: 'center', padding: '40px' }}>
           <Text variant="muted">{error}</Text>
-          <button onClick={loadData} style={{ ...iconButtonStyle, marginTop: '16px' }}>
-            <IoRefresh size={20} /> Retry
-          </button>
-        </Card>
+        </div>
       </Container>
     );
   }
 
-  const renderContent = () => (
-    <>
-      {stats && <StatsCard stats={stats} theme={theme} />}
-      {insights && (
-        <>
-          <InsightSection category="emotions" data={insights} theme={theme} onEmotionClick={handleEmotionClick} />
-          <InsightSection category="people" data={insights} theme={theme} onPersonClick={handlePersonClick} />
-        </>
-      )}
-    </>
+  const filteredEmotions = sentimentFilter === 'all'
+    ? aggregated?.emotions
+    : aggregated?.emotions.filter(e => {
+        if (sentimentFilter === 'mixed') return e.sentiment === 'neutral';
+        return e.sentiment === sentimentFilter;
+      });
+
+  const filteredPeople = sentimentFilter === 'all'
+    ? aggregated?.people
+    : aggregated?.people.filter(p => {
+        if (sentimentFilter === 'mixed') return p.sentiment === 'mixed' || p.sentiment === 'tense';
+        if (sentimentFilter === 'negative') return p.sentiment === 'negative' || p.sentiment === 'tense';
+        return p.sentiment === sentimentFilter;
+      });
+
+  const filteredEmotionEntries = selectedEmotion
+    ? rawEmotions.filter(e => e.emotion.toLowerCase() === selectedEmotion.toLowerCase())
+    : [];
+
+  const filteredPeopleEntries = selectedPerson
+    ? rawPeople.filter(p => p.name.toLowerCase() === selectedPerson.toLowerCase())
+    : [];
+
+  const renderEmotionsColumn = () => (
+    <div>
+      <Text style={{
+        fontSize: '0.75rem',
+        fontWeight: 600,
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
+        color: theme.colors.text.muted,
+        marginBottom: '12px',
+        display: 'block',
+      }}>
+        Emotions
+      </Text>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gap: '6px',
+      }}>
+        {filteredEmotions?.map((e, i) => {
+          const isSelected = selectedEmotion?.toLowerCase() === e.emotion.toLowerCase();
+          const barColor = INTENSITY_COLORS[e.sentiment] || INTENSITY_COLORS.neutral;
+          return (
+            <div
+              key={i}
+              className="insight-aggregate-card"
+              onClick={() => {
+                setSelectedEmotion(isSelected ? null : e.emotion);
+                setSelectedPerson(null);
+              }}
+              style={{
+                padding: '10px 12px',
+                borderRadius: '8px',
+                backgroundColor: theme.colors.background.secondary,
+                border: `1px solid ${isSelected ? theme.colors.text.primary : theme.colors.border.primary}`,
+                cursor: 'pointer',
+                transition: 'border-color 0.2s ease, background-color 0.2s ease',
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '6px',
+              }}>
+                <span style={{
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  color: theme.colors.text.primary,
+                  textTransform: 'capitalize',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {e.emotion}
+                </span>
+                <span style={{
+                  fontSize: '0.8rem',
+                  color: theme.colors.text.muted,
+                  marginLeft: '4px',
+                  flexShrink: 0,
+                }}>
+                  {e.count}x
+                </span>
+              </div>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+                <div style={{
+                  flex: 1,
+                  display: 'flex',
+                  gap: '2px',
+                }}>
+                  {Array.from({ length: 10 }, (_, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        flex: 1,
+                        height: '8px',
+                        borderRadius: '2px',
+                        backgroundColor: i < e.avgIntensity
+                          ? barColor
+                          : theme.colors.background.primary,
+                      }}
+                    />
+                  ))}
+                </div>
+                <span style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: theme.colors.text.muted,
+                }}>
+                  {e.avgIntensity}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+        {(!filteredEmotions || filteredEmotions.length === 0) && (
+          <Text variant="muted" style={{ fontSize: '0.85rem', padding: '20px 0' }}>No emotions found</Text>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderPeopleColumn = () => (
+    <div>
+      <Text style={{
+        fontSize: '0.75rem',
+        fontWeight: 600,
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
+        color: theme.colors.text.muted,
+        marginBottom: '12px',
+        display: 'block',
+      }}>
+        People
+      </Text>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gap: '6px',
+      }}>
+        {filteredPeople?.map((p, i) => {
+          const isSelected = selectedPerson?.toLowerCase() === p.name.toLowerCase();
+          return (
+            <div
+              key={i}
+              className="insight-aggregate-card"
+              onClick={() => {
+                setSelectedPerson(isSelected ? null : p.name);
+                setSelectedEmotion(null);
+              }}
+              style={{
+                padding: '10px',
+                borderRadius: '8px',
+                backgroundColor: theme.colors.background.secondary,
+                border: `1px solid ${isSelected ? theme.colors.text.primary : theme.colors.border.primary}`,
+                cursor: 'pointer',
+                transition: 'border-color 0.2s ease, background-color 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                minHeight: '52px',
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                <div
+                  className="person-name-row"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginBottom: '2px',
+                    minWidth: 0,
+                  }}
+                >
+                  <span
+                    className="person-name"
+                    style={{
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                      color: theme.colors.text.primary,
+                      textTransform: 'capitalize',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      minWidth: 0,
+                      flex: '0 1 auto',
+                    }}
+                  >
+                    {p.name}
+                  </span>
+                  {p.relationship && (
+                    <span
+                      className="person-relationship"
+                      style={{
+                        fontSize: '0.7rem',
+                        color: theme.colors.text.muted,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        minWidth: 0,
+                      }}
+                    >
+                      · {p.relationship}
+                    </span>
+                  )}
+                </div>
+                <div style={{
+                  fontSize: '0.75rem',
+                  color: theme.colors.text.muted,
+                }}>
+                  {p.mentions} mentions
+                </div>
+              </div>
+              <span style={{
+                fontSize: '0.75rem',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                backgroundColor: `${getSolidColor(p.sentiment)}18`,
+                color: getSolidColor(p.sentiment),
+                fontWeight: 600,
+                textTransform: 'capitalize',
+                flexShrink: 0,
+              }}>
+                {p.sentiment}
+              </span>
+            </div>
+          );
+        })}
+        {(!filteredPeople || filteredPeople.length === 0) && (
+          <Text variant="muted" style={{ fontSize: '0.85rem', padding: '20px 0' }}>No people found</Text>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderDetailSection = () => {
+    if (selectedEmotion && filteredEmotionEntries.length > 0) {
+      return (
+        <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${theme.colors.border.primary}` }}>
+          <Text style={{
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: theme.colors.text.muted,
+            marginBottom: '12px',
+            display: 'block',
+          }}>
+            {selectedEmotion} occurrences ({filteredEmotionEntries.length})
+          </Text>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
+            gap: '8px',
+          }}>
+            {filteredEmotionEntries.map((e, i) => (
+              <div
+                key={`${e.entryId}-${i}`}
+                onClick={() => navigate(`/entries?id=${e.entryId}`)}
+                style={{
+                  padding: '12px',
+                  backgroundColor: theme.colors.background.secondary,
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  border: `1px solid ${theme.colors.border.primary}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  minHeight: '100px',
+                }}
+              >
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}>
+                  <span style={{
+                    fontSize: '0.85rem',
+                    fontWeight: 500,
+                    color: theme.colors.text.muted,
+                  }}>
+                    {formatDate(e.entryDate)}
+                  </span>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      gap: '2px',
+                    }}>
+                      {Array.from({ length: 10 }, (_, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '1.5px',
+                            backgroundColor: idx < e.intensity
+                              ? getSolidColor(e.sentiment)
+                              : theme.colors.background.primary,
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 500, color: theme.colors.text.muted }}>
+                      {e.intensity}
+                    </span>
+                  </div>
+                </div>
+                <div style={{
+                  fontSize: '0.9rem',
+                  color: theme.colors.text.secondary,
+                  lineHeight: '1.45',
+                  overflow: 'hidden',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical',
+                  flex: 1,
+                }}>
+                  {e.trigger || 'No trigger'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (selectedPerson && filteredPeopleEntries.length > 0) {
+      return (
+        <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${theme.colors.border.primary}` }}>
+          <Text style={{
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: theme.colors.text.muted,
+            marginBottom: '12px',
+            display: 'block',
+          }}>
+            {selectedPerson} occurrences ({filteredPeopleEntries.length})
+          </Text>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
+            gap: '8px',
+          }}>
+            {filteredPeopleEntries.map((p, i) => (
+              <div
+                key={`${p.entryId}-${i}`}
+                onClick={() => navigate(`/entries?id=${p.entryId}`)}
+                style={{
+                  padding: '14px',
+                  backgroundColor: theme.colors.background.secondary,
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  border: `1px solid ${theme.colors.border.primary}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: '120px',
+                }}
+              >
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '12px',
+                }}>
+                  <span style={{
+                    fontSize: '0.85rem',
+                    fontWeight: 500,
+                    color: theme.colors.text.muted,
+                  }}>
+                    {formatDate(p.entryDate)}
+                  </span>
+                  <span style={{
+                    fontSize: '0.8rem',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    backgroundColor: `${getSolidColor(p.sentiment)}18`,
+                    color: getSolidColor(p.sentiment),
+                    fontWeight: 600,
+                    textTransform: 'capitalize',
+                  }}>
+                    {p.sentiment}
+                  </span>
+                </div>
+                <div style={{
+                  fontSize: '0.9rem',
+                  color: theme.colors.text.secondary,
+                  lineHeight: '1.45',
+                  overflow: 'hidden',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical',
+                  flex: 1,
+                }}>
+                  {p.context || 'No context'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const sentimentOptions: { value: 'all' | 'positive' | 'negative' | 'mixed'; label: string; color?: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'positive', label: 'Positive', color: '#10b981' },
+    { value: 'negative', label: 'Negative', color: '#ef4444' },
+    { value: 'mixed', label: 'Mixed', color: '#f59e0b' },
+  ];
+
+  const content = (
+    <div style={contentStyle}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <div ref={filterDropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
+          <button
+            onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 12px',
+              fontSize: '0.85rem',
+              fontWeight: 500,
+              color: theme.colors.text.primary,
+              backgroundColor: theme.colors.background.secondary,
+              border: `1px solid ${theme.colors.border.primary}`,
+              borderRadius: '8px',
+              cursor: 'pointer',
+            }}
+          >
+            {getFilterLabel(timeFilter)}
+            <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>▼</span>
+          </button>
+        {showFilterDropdown && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              marginTop: '4px',
+              backgroundColor: theme.colors.background.secondary,
+              border: `1px solid ${theme.colors.border.primary}`,
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 100,
+              minWidth: '160px',
+              overflow: 'hidden',
+            }}
+          >
+            {TIME_FILTER_GROUPS.map((group, gi) => (
+              <div key={gi}>
+                {group.label && (
+                  <div style={{
+                    padding: '6px 12px 4px',
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    color: theme.colors.text.muted,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    borderTop: gi > 0 ? `1px solid ${theme.colors.border.primary}` : 'none',
+                  }}>
+                    {group.label}
+                  </div>
+                )}
+                {group.options.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      setTimeFilter(option.value);
+                      setShowFilterDropdown(false);
+                      setSelectedEmotion(null);
+                      setSelectedPerson(null);
+                    }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '0.8rem',
+                      fontWeight: timeFilter === option.value ? 600 : 400,
+                      color: timeFilter === option.value ? theme.colors.text.primary : theme.colors.text.secondary,
+                      backgroundColor: timeFilter === option.value ? theme.colors.background.primary : 'transparent',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+        </div>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {sentimentOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => {
+                setSentimentFilter(opt.value);
+                setSelectedEmotion(null);
+                setSelectedPerson(null);
+              }}
+              style={{
+                padding: '6px 10px',
+                fontSize: '0.75rem',
+                fontWeight: sentimentFilter === opt.value ? 600 : 400,
+                color: sentimentFilter === opt.value
+                  ? (opt.color || theme.colors.text.primary)
+                  : theme.colors.text.muted,
+                backgroundColor: sentimentFilter === opt.value
+                  ? (opt.color ? `${opt.color}15` : theme.colors.background.secondary)
+                  : 'transparent',
+                border: `1px solid ${sentimentFilter === opt.value
+                  ? (opt.color || theme.colors.border.primary)
+                  : 'transparent'}`,
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+        gap: '24px',
+      }}>
+        {renderEmotionsColumn()}
+        {renderPeopleColumn()}
+      </div>
+      {renderDetailSection()}
+    </div>
   );
 
   if (isMobile) {
@@ -640,71 +809,21 @@ export default function Insights() {
       <div style={{ height: '100%', backgroundColor: theme.colors.background.primary, overflowY: 'auto' }}>
         <header style={headerStyle}>
           <Text style={{ fontSize: '1.5rem', fontWeight: 700 }}>Insights</Text>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <button onClick={loadData} style={refreshButtonStyle} aria-label="Refresh">
-              <IoRefresh size={22} />
-            </button>
-            <button onClick={openSettings} style={iconButtonStyle} aria-label="Settings">
-              <IoSettingsOutline size={22} />
-            </button>
-          </div>
+          <button onClick={openSettings} style={iconButtonStyle} aria-label="Settings">
+            <IoSettingsOutline size={22} />
+          </button>
         </header>
-        <div style={contentContainerStyle}>
-          {!hasInsights ? <EmptyState theme={theme} /> : renderContent()}
-        </div>
-        {selectedEmotion && !loadingOccurrences && (
-          <EmotionDetailModal
-            emotion={selectedEmotion}
-            occurrences={emotionOccurrences}
-            onClose={closeModal}
-            onEntryClick={handleEntryClick}
-            theme={theme}
-          />
-        )}
-        {selectedPerson && !loadingOccurrences && (
-          <PersonDetailModal
-            name={selectedPerson.name}
-            relationship={selectedPerson.relationship}
-            occurrences={personOccurrences}
-            onClose={closeModal}
-            onEntryClick={handleEntryClick}
-            theme={theme}
-          />
-        )}
+        {content}
       </div>
     );
   }
 
   return (
     <Container variant="primary" padding="lg" style={{ height: '100%', overflowY: 'auto' }}>
-      <div style={contentContainerStyle}>
-        <header style={headerStyle}>
-          <Text as="h1" style={{ margin: 0 }}>Insights</Text>
-          <button onClick={loadData} style={iconButtonStyle} aria-label="Refresh">
-            <IoRefresh size={20} />
-          </button>
-        </header>
-        {!hasInsights ? <EmptyState theme={theme} /> : renderContent()}
-      </div>
-      {selectedEmotion && !loadingOccurrences && (
-        <EmotionDetailModal
-          emotion={selectedEmotion}
-          occurrences={emotionOccurrences}
-          onClose={closeModal}
-          onEntryClick={handleEntryClick}
-          theme={theme}
-        />
-      )}
-      {selectedPerson && !loadingOccurrences && (
-        <PersonDetailModal
-          name={selectedPerson.name}
-          relationship={selectedPerson.relationship}
-          occurrences={personOccurrences}
-          onClose={closeModal}
-          onEntryClick={handleEntryClick}
-          theme={theme}
-        />
-      )}
+      <header style={headerStyle}>
+        <Text as="h1" style={{ margin: 0 }}>Insights</Text>
+      </header>
+      {content}
     </Container>
   );
 }
