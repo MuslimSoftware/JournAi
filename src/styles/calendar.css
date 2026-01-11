@@ -455,7 +455,7 @@
 
 .todo-item-wrapper {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   border-radius: 8px;
   will-change: transform, box-shadow;
   transition: box-shadow 100ms ease-out, background-color 100ms ease-out;
@@ -508,9 +508,9 @@
 
 .todo-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 0;
   border-radius: 8px;
   transition: background-color 0.15s ease;
   flex: 1;
@@ -536,7 +536,6 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  margin-top: 0.125rem;
   flex-shrink: 0;
 }
 

@@ -1,10 +1,18 @@
-export type InsightType =
-  | 'theme'
-  | 'emotion'
-  | 'goal'
-  | 'person'
-  | 'pattern'
-  | 'milestone';
+export type InsightType = 'emotion' | 'person';
+
+export type RelationshipSentiment = 'positive' | 'negative' | 'neutral' | 'tense' | 'mixed';
+
+export interface EmotionMetadata {
+  intensity: number;
+  trigger?: string;
+  sentiment: 'positive' | 'negative' | 'neutral';
+}
+
+export interface PersonMetadata {
+  relationship?: string;
+  sentiment: RelationshipSentiment;
+  context?: string;
+}
 
 export interface JournalInsight {
   id: string;
@@ -12,11 +20,7 @@ export interface JournalInsight {
   entryDate: string;
   insightType: InsightType;
   content: string;
-  metadata?: {
-    confidence?: number;
-    relatedEntryIds?: string[];
-    sentiment?: 'positive' | 'negative' | 'neutral';
-  };
+  metadata?: EmotionMetadata | PersonMetadata;
   createdAt: string;
 }
 
@@ -39,9 +43,18 @@ export interface AnalyticsStats {
 }
 
 export interface AggregatedInsights {
-  themes: Array<{ theme: string; count: number; recentDate: string }>;
-  emotions: Array<{ emotion: string; trend: 'increasing' | 'decreasing' | 'stable'; count: number }>;
-  goals: Array<{ goal: string; status: 'active' | 'achieved' | 'abandoned'; mentions: number }>;
-  people: Array<{ name: string; relationship?: string; sentiment: string; mentions: number }>;
-  patterns: Array<{ pattern: string; frequency: string; firstSeen: string; lastSeen: string }>;
+  emotions: Array<{
+    emotion: string;
+    avgIntensity: number;
+    count: number;
+    triggers: string[];
+    sentiment: 'positive' | 'negative' | 'neutral';
+  }>;
+  people: Array<{
+    name: string;
+    relationship?: string;
+    sentiment: RelationshipSentiment;
+    mentions: number;
+    recentContext?: string;
+  }>;
 }

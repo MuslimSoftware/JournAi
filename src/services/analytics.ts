@@ -5,34 +5,41 @@ import type {
   InsightType,
   AnalyticsQueueItem,
   AnalyticsStats,
-  AggregatedInsights
+  AggregatedInsights,
+  EmotionMetadata,
+  PersonMetadata,
+  RelationshipSentiment,
 } from '../types/analytics';
 
-const ANALYSIS_PROMPT = `Analyze this journal entry and extract structured insights. Return JSON only.
+const ANALYSIS_PROMPT = `Analyze this journal entry. Return JSON only.
 
 Entry Date: {date}
 Entry Content:
 {content}
 
-Extract:
-1. themes: Main topics discussed (1-3 words each, max 3)
-2. emotions: Emotional states expressed (1 word each, max 2)
-3. goals: Any goals, intentions, or plans mentioned (short phrase, max 2)
-4. people: People mentioned with brief context (name + relationship if clear, max 3)
-5. patterns: Recurring behaviors or habits mentioned (short phrase, max 2)
-6. milestones: Achievements or significant events (short phrase, max 1)
+Extract the following:
+
+1. emotions: What emotions are present? Be precise.
+   - emotion: The feeling (1 word)
+   - intensity: Rate 1-10 (1=barely noticeable, 5=moderate, 10=overwhelming)
+   - trigger: A detailed summary (2-3 sentences) explaining WHY this emotion was felt. Include enough context that someone reading this a year later would fully understand the situation without needing to read the original entry. Mention specific events, people involved, and circumstances.
+   - sentiment: "positive", "negative", or "neutral"
+   Example: {"emotion": "frustrated", "intensity": 7, "trigger": "Tried to wake up at 6am for the third day in a row but failed again because I stayed up until 2am watching YouTube videos. This is part of an ongoing struggle to fix my sleep schedule before starting the new job next month.", "sentiment": "negative"}
+
+2. people: Who is mentioned?
+   - name: Person's name
+   - relationship: How they relate to the writer (if clear)
+   - sentiment: "positive", "negative", "neutral", "tense", or "mixed"
+   - context: A detailed summary (2-3 sentences) explaining what happened with this person and the nature of the interaction. Include enough context that someone reading this a year later would fully understand the situation without needing to read the original entry.
+   Example: {"name": "Fatima", "relationship": "wife", "sentiment": "tense", "context": "Had a heated discussion about whether to buy new furniture for the living room. She wants to spend $3000 on a new couch but I think we should wait until after we pay off the car loan next year."}
 
 Return format:
 {
-  "themes": ["theme1", "theme2"],
-  "emotions": [{"emotion": "frustrated", "sentiment": "negative"}],
-  "goals": ["get new job by May"],
-  "people": [{"name": "Fatima", "context": "wife, had conflict"}],
-  "patterns": ["struggling with morning routine"],
-  "milestones": ["completed Umrah trip"]
+  "emotions": [{"emotion": "frustrated", "intensity": 7, "trigger": "detailed 2-3 sentence summary with full context", "sentiment": "negative"}],
+  "people": [{"name": "Name", "relationship": "friend", "sentiment": "tense", "context": "detailed 2-3 sentence summary with full context"}]
 }
 
-Only include categories that are clearly present. Empty arrays for missing categories.`;
+Only include categories clearly present. Empty arrays for missing categories.`;
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -75,17 +82,6 @@ export async function analyzeEntry(
   const insights: JournalInsight[] = [];
   const timestamp = new Date().toISOString();
 
-  for (const theme of analysis.themes || []) {
-    insights.push({
-      id: generateId(),
-      entryId,
-      entryDate,
-      insightType: 'theme',
-      content: theme,
-      createdAt: timestamp,
-    });
-  }
-
   for (const e of analysis.emotions || []) {
     insights.push({
       id: generateId(),
@@ -93,18 +89,11 @@ export async function analyzeEntry(
       entryDate,
       insightType: 'emotion',
       content: e.emotion,
-      metadata: { sentiment: e.sentiment },
-      createdAt: timestamp,
-    });
-  }
-
-  for (const goal of analysis.goals || []) {
-    insights.push({
-      id: generateId(),
-      entryId,
-      entryDate,
-      insightType: 'goal',
-      content: goal,
+      metadata: {
+        intensity: e.intensity || 5,
+        trigger: e.trigger,
+        sentiment: e.sentiment || 'neutral',
+      },
       createdAt: timestamp,
     });
   }
@@ -116,29 +105,11 @@ export async function analyzeEntry(
       entryDate,
       insightType: 'person',
       content: person.name,
-      metadata: { sentiment: person.context },
-      createdAt: timestamp,
-    });
-  }
-
-  for (const pattern of analysis.patterns || []) {
-    insights.push({
-      id: generateId(),
-      entryId,
-      entryDate,
-      insightType: 'pattern',
-      content: pattern,
-      createdAt: timestamp,
-    });
-  }
-
-  for (const milestone of analysis.milestones || []) {
-    insights.push({
-      id: generateId(),
-      entryId,
-      entryDate,
-      insightType: 'milestone',
-      content: milestone,
+      metadata: {
+        relationship: person.relationship,
+        sentiment: person.sentiment || 'neutral',
+        context: person.context,
+      },
       createdAt: timestamp,
     });
   }
@@ -168,6 +139,11 @@ export async function deleteEntryInsights(entryId: string): Promise<void> {
   await execute('DELETE FROM journal_insights WHERE entry_id = $1', [entryId]);
 }
 
+export async function clearAllInsights(): Promise<void> {
+  await execute('DELETE FROM journal_insights');
+  await execute('DELETE FROM analytics_queue');
+}
+
 export async function queueEntryForAnalysis(entryId: string): Promise<void> {
   const timestamp = new Date().toISOString();
   const existing = await select<{ id: string }>(
@@ -185,15 +161,14 @@ export async function queueEntryForAnalysis(entryId: string): Promise<void> {
 }
 
 export async function processAnalyticsQueue(
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number, insightCount?: number) => void
 ): Promise<{ success: number; failed: number }> {
   const pending = await select<AnalyticsQueueItem & { content: string; date: string }>(
     `SELECT q.id, q.entry_id as entryId, q.status, q.retry_count as retryCount, q.error, q.created_at as createdAt, q.updated_at as updatedAt, e.content, e.date
      FROM analytics_queue q
      JOIN entries e ON e.id = q.entry_id
      WHERE q.status = 'pending' AND q.retry_count < 3
-     ORDER BY q.created_at ASC
-     LIMIT 50`
+     ORDER BY q.created_at ASC`
   );
 
   let success = 0;
@@ -202,7 +177,6 @@ export async function processAnalyticsQueue(
 
   for (let i = 0; i < pending.length; i++) {
     const item = pending[i];
-    onProgress?.(i + 1, total);
 
     try {
       await execute(
@@ -219,12 +193,14 @@ export async function processAnalyticsQueue(
         ['completed', new Date().toISOString(), item.id]
       );
       success++;
+      onProgress?.(i + 1, total, insights.length);
     } catch (error) {
       failed++;
       await execute(
         'UPDATE analytics_queue SET status = $1, retry_count = retry_count + 1, error = $2, updated_at = $3 WHERE id = $4',
         ['pending', error instanceof Error ? error.message : String(error), new Date().toISOString(), item.id]
       );
+      onProgress?.(i + 1, total, 0);
     }
   }
 
@@ -260,60 +236,70 @@ export async function getInsightsByType(
 }
 
 export async function getAggregatedInsights(): Promise<AggregatedInsights> {
-  const themes = await select<{ content: string; count: number; recent_date: string }>(
-    `SELECT content, COUNT(*) as count, MAX(entry_date) as recent_date
-     FROM journal_insights WHERE insight_type = 'theme'
-     GROUP BY LOWER(content) ORDER BY count DESC LIMIT 10`
-  );
-
-  const emotions = await select<{ content: string; count: number; metadata: string }>(
-    `SELECT content, COUNT(*) as count, metadata
+  const emotionsRaw = await select<{ content: string; metadata: string; entry_date: string }>(
+    `SELECT content, metadata, entry_date
      FROM journal_insights WHERE insight_type = 'emotion'
-     GROUP BY LOWER(content) ORDER BY count DESC LIMIT 10`
+     ORDER BY entry_date DESC`
   );
 
-  const goals = await select<{ content: string; count: number; recent_date: string }>(
-    `SELECT content, COUNT(*) as count, MAX(entry_date) as recent_date
-     FROM journal_insights WHERE insight_type = 'goal'
-     GROUP BY content ORDER BY recent_date DESC LIMIT 10`
-  );
+  const emotionMap = new Map<string, { count: number; totalIntensity: number; triggers: Set<string>; sentiment: string }>();
+  for (const e of emotionsRaw) {
+    const key = e.content.toLowerCase();
+    const meta: EmotionMetadata | null = e.metadata ? JSON.parse(e.metadata) : null;
+    const existing = emotionMap.get(key) || { count: 0, totalIntensity: 0, triggers: new Set<string>(), sentiment: 'neutral' };
+    existing.count++;
+    existing.totalIntensity += meta?.intensity || 5;
+    if (meta?.trigger) existing.triggers.add(meta.trigger);
+    if (meta?.sentiment) existing.sentiment = meta.sentiment;
+    emotionMap.set(key, existing);
+  }
 
-  const people = await select<{ content: string; count: number; metadata: string }>(
-    `SELECT content, COUNT(*) as count, metadata
+  const emotions = Array.from(emotionMap.entries())
+    .map(([emotion, data]) => ({
+      emotion,
+      avgIntensity: Math.round((data.totalIntensity / data.count) * 10) / 10,
+      count: data.count,
+      triggers: Array.from(data.triggers).slice(0, 3),
+      sentiment: data.sentiment as 'positive' | 'negative' | 'neutral',
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  const peopleRaw = await select<{ content: string; metadata: string; entry_date: string }>(
+    `SELECT content, metadata, entry_date
      FROM journal_insights WHERE insight_type = 'person'
-     GROUP BY LOWER(content) ORDER BY count DESC LIMIT 10`
+     ORDER BY entry_date DESC`
   );
 
-  const patterns = await select<{ content: string; count: number; first_date: string; last_date: string }>(
-    `SELECT content, COUNT(*) as count, MIN(entry_date) as first_date, MAX(entry_date) as last_date
-     FROM journal_insights WHERE insight_type = 'pattern'
-     GROUP BY content ORDER BY count DESC LIMIT 10`
-  );
+  const personMap = new Map<string, { count: number; relationship?: string; sentiment: RelationshipSentiment; recentContext?: string }>();
+  for (const p of peopleRaw) {
+    const key = p.content.toLowerCase();
+    const meta: PersonMetadata | null = p.metadata ? JSON.parse(p.metadata) : null;
+    if (!personMap.has(key)) {
+      personMap.set(key, {
+        count: 1,
+        relationship: meta?.relationship,
+        sentiment: meta?.sentiment || 'neutral',
+        recentContext: meta?.context,
+      });
+    } else {
+      const existing = personMap.get(key)!;
+      existing.count++;
+    }
+  }
 
-  return {
-    themes: themes.map(t => ({ theme: t.content, count: t.count, recentDate: t.recent_date })),
-    emotions: emotions.map(e => ({
-      emotion: e.content,
-      trend: 'stable' as const,
-      count: e.count
-    })),
-    goals: goals.map(g => ({
-      goal: g.content,
-      status: 'active' as const,
-      mentions: g.count
-    })),
-    people: people.map(p => ({
-      name: p.content,
-      sentiment: p.metadata ? JSON.parse(p.metadata).sentiment || 'neutral' : 'neutral',
-      mentions: p.count
-    })),
-    patterns: patterns.map(p => ({
-      pattern: p.content,
-      frequency: `${p.count} times`,
-      firstSeen: p.first_date,
-      lastSeen: p.last_date
-    })),
-  };
+  const people = Array.from(personMap.entries())
+    .map(([name, data]) => ({
+      name,
+      relationship: data.relationship,
+      sentiment: data.sentiment,
+      mentions: data.count,
+      recentContext: data.recentContext,
+    }))
+    .sort((a, b) => b.mentions - a.mentions)
+    .slice(0, 10);
+
+  return { emotions, people };
 }
 
 export async function getAnalyticsStats(): Promise<AnalyticsStats> {
@@ -331,11 +317,11 @@ export async function getAnalyticsStats(): Promise<AnalyticsStats> {
     'SELECT created_at FROM journal_insights ORDER BY created_at DESC LIMIT 1'
   );
 
-  const insightsByType: Record<InsightType, number> = {
-    theme: 0, emotion: 0, goal: 0, person: 0, pattern: 0, milestone: 0
-  };
+  const insightsByType: Record<InsightType, number> = { emotion: 0, person: 0 };
   for (const row of byType) {
-    insightsByType[row.insight_type as InsightType] = row.count;
+    if (row.insight_type === 'emotion' || row.insight_type === 'person') {
+      insightsByType[row.insight_type] = row.count;
+    }
   }
 
   return {
@@ -359,4 +345,70 @@ export async function queueAllEntriesForAnalysis(): Promise<number> {
   }
 
   return unanalyzed.length;
+}
+
+export interface EmotionOccurrence {
+  entryId: string;
+  entryDate: string;
+  intensity: number;
+  trigger?: string;
+  sentiment: 'positive' | 'negative' | 'neutral';
+}
+
+export async function getEmotionOccurrences(emotion: string): Promise<EmotionOccurrence[]> {
+  const rows = await select<{
+    entry_id: string;
+    entry_date: string;
+    metadata: string;
+  }>(
+    `SELECT entry_id, entry_date, metadata
+     FROM journal_insights
+     WHERE insight_type = 'emotion' AND LOWER(content) = LOWER($1)
+     ORDER BY entry_date DESC`,
+    [emotion]
+  );
+
+  return rows.map(r => {
+    const meta: EmotionMetadata | null = r.metadata ? JSON.parse(r.metadata) : null;
+    return {
+      entryId: r.entry_id,
+      entryDate: r.entry_date,
+      intensity: meta?.intensity || 5,
+      trigger: meta?.trigger,
+      sentiment: meta?.sentiment || 'neutral',
+    };
+  });
+}
+
+export interface PersonOccurrence {
+  entryId: string;
+  entryDate: string;
+  relationship?: string;
+  sentiment: RelationshipSentiment;
+  context?: string;
+}
+
+export async function getPersonOccurrences(name: string): Promise<PersonOccurrence[]> {
+  const rows = await select<{
+    entry_id: string;
+    entry_date: string;
+    metadata: string;
+  }>(
+    `SELECT entry_id, entry_date, metadata
+     FROM journal_insights
+     WHERE insight_type = 'person' AND LOWER(content) = LOWER($1)
+     ORDER BY entry_date DESC`,
+    [name]
+  );
+
+  return rows.map(r => {
+    const meta: PersonMetadata | null = r.metadata ? JSON.parse(r.metadata) : null;
+    return {
+      entryId: r.entry_id,
+      entryDate: r.entry_date,
+      relationship: meta?.relationship,
+      sentiment: meta?.sentiment || 'neutral',
+      context: meta?.context,
+    };
+  });
 }

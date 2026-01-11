@@ -256,7 +256,8 @@ async function buildInsightsContext(): Promise<{ context: string; hasData: boole
   if (insights.emotions.length > 0) {
     context += '### Emotional Patterns\n';
     for (const e of insights.emotions.slice(0, 5)) {
-      context += `- ${e.emotion} (${e.count} occurrences)\n`;
+      const triggers = e.triggers.length > 0 ? ` - Triggers: ${e.triggers.join(', ')}` : '';
+      context += `- ${e.emotion} [${e.sentiment}] (${e.count}x, avg intensity: ${e.avgIntensity}/10)${triggers}\n`;
     }
     context += '\n';
   }
@@ -264,7 +265,8 @@ async function buildInsightsContext(): Promise<{ context: string; hasData: boole
   if (insights.goals.length > 0) {
     context += '### Goals & Intentions\n';
     for (const g of insights.goals.slice(0, 5)) {
-      context += `- ${g.goal} (mentioned ${g.mentions} times)\n`;
+      const blockers = g.blockers ? ` - Blocker: ${g.blockers}` : '';
+      context += `- ${g.goal} [${g.progress}] (${g.mentions}x mentioned)${blockers}\n`;
     }
     context += '\n';
   }
@@ -272,7 +274,9 @@ async function buildInsightsContext(): Promise<{ context: string; hasData: boole
   if (insights.people.length > 0) {
     context += '### Key People\n';
     for (const p of insights.people.slice(0, 5)) {
-      context += `- **${p.name}** - ${p.mentions} mentions\n`;
+      const rel = p.relationship ? ` (${p.relationship})` : '';
+      const ctx = p.recentContext ? ` - ${p.recentContext}` : '';
+      context += `- **${p.name}**${rel} [${p.sentiment}] - ${p.mentions} mentions${ctx}\n`;
     }
     context += '\n';
   }
@@ -280,7 +284,7 @@ async function buildInsightsContext(): Promise<{ context: string; hasData: boole
   if (insights.patterns.length > 0) {
     context += '### Behavioral Patterns\n';
     for (const p of insights.patterns.slice(0, 5)) {
-      context += `- ${p.pattern} (${p.frequency}, ${p.firstSeen} to ${p.lastSeen})\n`;
+      context += `- ${p.pattern} [${p.type}] (${p.count}x, ${p.firstSeen} to ${p.lastSeen})${p.impact ? ` - ${p.impact}` : ''}\n`;
     }
     context += '\n';
   }

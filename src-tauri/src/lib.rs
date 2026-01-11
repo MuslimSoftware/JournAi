@@ -201,6 +201,16 @@ pub fn run() {
             );
             CREATE INDEX IF NOT EXISTS idx_queue_status ON analytics_queue(status);",
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 12,
+            description: "create_deep_insights_table",
+            sql: "CREATE TABLE IF NOT EXISTS deep_insights (
+                id TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );",
+            kind: MigrationKind::Up,
         }
     ];
 

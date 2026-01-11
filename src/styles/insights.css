@@ -1,0 +1,18 @@
+.insights-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.insights-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (max-width: 400px) {
+  .insights-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}

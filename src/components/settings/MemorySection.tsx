@@ -1,10 +1,10 @@
 import { CSSProperties, useState, useEffect, useCallback } from 'react';
-import { IoCheckmarkCircle, IoAlertCircle, IoSync, IoSparkles, IoAnalytics } from 'react-icons/io5';
+import { IoCheckmarkCircle, IoAlertCircle, IoSync, IoSparkles, IoAnalytics, IoTrash } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text, Button } from '../themed';
-import { getEmbeddingStats, embedAllEntries, type EmbeddingStats } from '../../services/embeddings';
+import { getEmbeddingStats, embedAllEntries, clearAllEmbeddings, type EmbeddingStats } from '../../services/embeddings';
 import { getApiKey } from '../../lib/secureStorage';
-import { getAnalyticsStats, queueAllEntriesForAnalysis, processAnalyticsQueue } from '../../services/analytics';
+import { getAnalyticsStats, queueAllEntriesForAnalysis, processAnalyticsQueue, clearAllInsights } from '../../services/analytics';
 import type { AnalyticsStats } from '../../types/analytics';
 
 export default function MemorySection() {
@@ -19,6 +19,8 @@ export default function MemorySection() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyticsProgress, setAnalyticsProgress] = useState({ current: 0, total: 0 });
   const [analyticsResult, setAnalyticsResult] = useState<{ success: number; failed: number } | null>(null);
+  const [clearingEmbeddings, setClearingEmbeddings] = useState(false);
+  const [clearingInsights, setClearingInsights] = useState(false);
 
   const loadStats = useCallback(async () => {
     try {
@@ -51,8 +53,15 @@ export default function MemorySection() {
     setError(null);
 
     try {
-      const embedResult = await embedAllEntries((current, total) => {
+      const embedResult = await embedAllEntries((current, total, _entryId, chunkCount) => {
         setProgress({ current, total });
+        if (chunkCount !== undefined && chunkCount > 0) {
+          setStats(prev => prev ? {
+            ...prev,
+            entriesWithEmbeddings: prev.entriesWithEmbeddings + 1,
+            totalChunks: prev.totalChunks + chunkCount,
+          } : prev);
+        }
       });
       setResult({ success: embedResult.success, failed: embedResult.failed });
       if (embedResult.errors.length > 0) {
@@ -81,8 +90,16 @@ export default function MemorySection() {
     try {
       const queued = await queueAllEntriesForAnalysis();
       if (queued > 0) {
-        await processAnalyticsQueue((current, total) => {
+        await processAnalyticsQueue((current, total, insightCount) => {
           setAnalyticsProgress({ current, total });
+          if (insightCount !== undefined && insightCount > 0) {
+            setAnalyticsStats(prev => prev ? {
+              ...prev,
+              entriesAnalyzed: prev.entriesAnalyzed + 1,
+              totalInsights: prev.totalInsights + insightCount,
+              entriesPending: Math.max(0, prev.entriesPending - 1),
+            } : prev);
+          }
         });
       }
       const newStats = await getAnalyticsStats();
@@ -93,6 +110,39 @@ export default function MemorySection() {
     } finally {
       setIsAnalyzing(false);
       setAnalyticsProgress({ current: 0, total: 0 });
+    }
+  };
+
+  const handleClearEmbeddings = async () => {
+    if (!confirm('Are you sure you want to clear all embeddings? You will need to re-embed all entries for chat context to work.')) {
+      return;
+    }
+    setClearingEmbeddings(true);
+    setError(null);
+    try {
+      await clearAllEmbeddings();
+      await loadStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clear embeddings');
+    } finally {
+      setClearingEmbeddings(false);
+    }
+  };
+
+  const handleClearInsights = async () => {
+    if (!confirm('Are you sure you want to clear all insights? You will need to re-analyze all entries.')) {
+      return;
+    }
+    setClearingInsights(true);
+    setError(null);
+    setAnalyticsResult(null);
+    try {
+      await clearAllInsights();
+      await loadStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clear insights');
+    } finally {
+      setClearingInsights(false);
     }
   };
 
@@ -210,23 +260,51 @@ export default function MemorySection() {
       ) : null}
 
       <div style={fieldStyle}>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleEmbedAll}
-          disabled={processing || unembeddedCount === 0}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-        >
-          {processing ? (
-            <>
-              <IoSync size={14} className="spin" /> Processing...
-            </>
-          ) : (
-            <>
-              <IoSparkles size={14} /> Embed All Entries
-            </>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleEmbedAll}
+            disabled={processing || unembeddedCount === 0}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            {processing ? (
+              <>
+                <IoSync size={14} className="spin" /> Processing...
+              </>
+            ) : (
+              <>
+                <IoSparkles size={14} /> Embed All Entries
+              </>
+            )}
+          </Button>
+
+          {stats && stats.entriesWithEmbeddings > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleClearEmbeddings}
+              disabled={clearingEmbeddings || processing}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                borderColor: theme.colors.status.error,
+                color: theme.colors.status.error,
+              }}
+            >
+              {clearingEmbeddings ? (
+                <>
+                  <IoSync size={14} className="spin" /> Clearing...
+                </>
+              ) : (
+                <>
+                  <IoTrash size={14} /> Clear
+                </>
+              )}
+            </Button>
           )}
-        </Button>
+        </div>
 
         {processing && progress && (
           <div>
@@ -302,23 +380,51 @@ export default function MemorySection() {
           </div>
         )}
 
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleAnalyzeAll}
-          disabled={isAnalyzing}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-        >
-          {isAnalyzing ? (
-            <>
-              <IoSync size={14} className="spin" /> Analyzing...
-            </>
-          ) : (
-            <>
-              <IoAnalytics size={14} /> Analyze All Entries
-            </>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleAnalyzeAll}
+            disabled={isAnalyzing}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            {isAnalyzing ? (
+              <>
+                <IoSync size={14} className="spin" /> Analyzing...
+              </>
+            ) : (
+              <>
+                <IoAnalytics size={14} /> Analyze All Entries
+              </>
+            )}
+          </Button>
+
+          {analyticsStats && analyticsStats.totalInsights > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleClearInsights}
+              disabled={clearingInsights || isAnalyzing}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                borderColor: theme.colors.status.error,
+                color: theme.colors.status.error,
+              }}
+            >
+              {clearingInsights ? (
+                <>
+                  <IoSync size={14} className="spin" /> Clearing...
+                </>
+              ) : (
+                <>
+                  <IoTrash size={14} /> Clear
+                </>
+              )}
+            </Button>
           )}
-        </Button>
+        </div>
 
         {isAnalyzing && analyticsProgress.total > 0 && (
           <div>

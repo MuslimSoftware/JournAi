@@ -9,12 +9,13 @@
   pointer-events: none;
 }
 
-.entries-layout.focus-mode .entries-sidebar-hover-zone {
+.entries-layout.focus-mode .nested-sidebar-hover-zone {
   opacity: 0;
   pointer-events: none;
 }
 
-.entries-layout.focus-mode .entries-sidebar-action-bar {
+.entries-layout.focus-mode .nested-sidebar-action-bar {
+  display: flex !important;
   pointer-events: auto;
   position: relative;
   z-index: 1001;

@@ -2,7 +2,7 @@ import type { JournalEntry } from '../types/entry';
 import { getTodayString, getTimestamp } from '../utils/date';
 import { generateId, generatePreview } from '../utils/generators';
 import { select, execute, selectPaginated } from '../lib/db';
-import { embedEntry, deleteEntryEmbeddings } from './embeddings';
+import { deleteEntryEmbeddings } from './embeddings';
 import { queueEntryForAnalysis, deleteEntryInsights } from './analytics';
 
 interface EntryRow {
@@ -97,7 +97,6 @@ export async function updateEntry(
     const entry = rowToEntry(rows[0]);
 
     if (updates.content && updates.content.length > 50) {
-        embedEntry(entry.id, entry.date, entry.content).catch(console.error);
         queueEntryForAnalysis(entry.id).catch(console.error);
     }
 

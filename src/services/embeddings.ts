@@ -89,14 +89,14 @@ function blobToEmbedding(blob: Uint8Array): number[] {
   return Array.from(buffer);
 }
 
-export async function embedEntry(entryId: string, entryDate: string, content: string): Promise<void> {
+export async function embedEntry(entryId: string, entryDate: string, content: string): Promise<number> {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('No API key configured');
 
   await execute('DELETE FROM embedding_chunks WHERE entry_id = $1', [entryId]);
 
   const chunks = chunkText(content);
-  if (chunks.length === 0) return;
+  if (chunks.length === 0) return 0;
 
   const embeddings = await generateEmbeddingsBatch(chunks, apiKey);
   const timestamp = new Date().toISOString();
@@ -111,10 +111,16 @@ export async function embedEntry(entryId: string, entryDate: string, content: st
       [id, entryId, entryDate, chunks[i], blob, i, timestamp]
     );
   }
+
+  return chunks.length;
 }
 
 export async function deleteEntryEmbeddings(entryId: string): Promise<void> {
   await execute('DELETE FROM embedding_chunks WHERE entry_id = $1', [entryId]);
+}
+
+export async function clearAllEmbeddings(): Promise<void> {
+  await execute('DELETE FROM embedding_chunks');
 }
 
 export function cosineSimilarity(a: number[], b: number[]): number {
@@ -194,18 +200,21 @@ export async function isEntryEmbedded(entryId: string): Promise<boolean> {
   return (result[0]?.count ?? 0) > 0;
 }
 
-export async function getUnembeddedEntries(): Promise<Array<{ id: string; date: string; content: string }>> {
+export async function getUnembeddedEntries(minAgeMinutes: number = 0): Promise<Array<{ id: string; date: string; content: string }>> {
+  const cutoffTime = new Date(Date.now() - minAgeMinutes * 60 * 1000).toISOString();
   const rows = await select<{ id: string; date: string; content: string }>(
     `SELECT e.id, e.date, e.content FROM entries e
      WHERE e.id NOT IN (SELECT DISTINCT entry_id FROM embedding_chunks)
      AND LENGTH(e.content) > 50
-     ORDER BY e.date DESC`
+     AND e.updated_at <= $1
+     ORDER BY e.date DESC`,
+    [cutoffTime]
   );
   return rows;
 }
 
 export async function embedAllEntries(
-  onProgress?: (current: number, total: number, entryId: string) => void
+  onProgress?: (current: number, total: number, entryId: string, chunkCount?: number) => void
 ): Promise<{ success: number; failed: number; errors: string[] }> {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('No API key configured');
@@ -217,16 +226,68 @@ export async function embedAllEntries(
 
   for (let i = 0; i < unembedded.length; i++) {
     const entry = unembedded[i];
-    onProgress?.(i + 1, unembedded.length, entry.id);
 
     try {
-      await embedEntry(entry.id, entry.date, entry.content);
+      const chunkCount = await embedEntry(entry.id, entry.date, entry.content);
       success++;
+      onProgress?.(i + 1, unembedded.length, entry.id, chunkCount);
     } catch (error) {
       failed++;
       errors.push(`Entry ${entry.id}: ${error instanceof Error ? error.message : String(error)}`);
+      onProgress?.(i + 1, unembedded.length, entry.id, 0);
     }
   }
 
   return { success, failed, errors };
+}
+
+const EMBEDDING_DEBOUNCE_MINUTES = 5;
+const BACKGROUND_CHECK_INTERVAL_MS = 60 * 1000;
+
+let backgroundEmbeddingInterval: ReturnType<typeof setInterval> | null = null;
+let isBackgroundEmbedding = false;
+
+export async function embedStaleEntries(): Promise<{ success: number; failed: number }> {
+  if (isBackgroundEmbedding) return { success: 0, failed: 0 };
+
+  const apiKey = getApiKey();
+  if (!apiKey) return { success: 0, failed: 0 };
+
+  isBackgroundEmbedding = true;
+
+  try {
+    const staleEntries = await getUnembeddedEntries(EMBEDDING_DEBOUNCE_MINUTES);
+    let success = 0;
+    let failed = 0;
+
+    for (const entry of staleEntries) {
+      try {
+        await embedEntry(entry.id, entry.date, entry.content);
+        success++;
+      } catch {
+        failed++;
+      }
+    }
+
+    return { success, failed };
+  } finally {
+    isBackgroundEmbedding = false;
+  }
+}
+
+export function startBackgroundEmbedding(): void {
+  if (backgroundEmbeddingInterval) return;
+
+  embedStaleEntries().catch(console.error);
+
+  backgroundEmbeddingInterval = setInterval(() => {
+    embedStaleEntries().catch(console.error);
+  }, BACKGROUND_CHECK_INTERVAL_MS);
+}
+
+export function stopBackgroundEmbedding(): void {
+  if (backgroundEmbeddingInterval) {
+    clearInterval(backgroundEmbeddingInterval);
+    backgroundEmbeddingInterval = null;
+  }
 }
