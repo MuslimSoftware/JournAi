@@ -93,17 +93,26 @@ export default function MemorySection() {
     }
 
     analyzeAbortController.current = new AbortController();
-    setIsAnalyzing(true);
     setAnalyticsResult(null);
     setError(null);
-    setAnalyticsProgress({ current: 0, total: 0 });
 
     try {
-      const queued = await queueAllEntriesForAnalysis();
-      if (queued > 0) {
-        setAnalyticsProgress({ current: 0, total: queued });
-        const result = await processAnalyticsQueue((current, total) => {
+      await queueAllEntriesForAnalysis();
+      const stats = await getAnalyticsStats();
+      setAnalyticsStats(stats);
+      if (stats.entriesPending > 0) {
+        setIsAnalyzing(true);
+        setAnalyticsProgress({ current: 0, total: stats.entriesPending });
+        const result = await processAnalyticsQueue((current, total, insightCount) => {
           setAnalyticsProgress({ current, total });
+          if (insightCount !== undefined) {
+            setAnalyticsStats(prev => prev ? {
+              ...prev,
+              entriesAnalyzed: prev.entriesAnalyzed + 1,
+              totalInsights: prev.totalInsights + insightCount,
+              entriesPending: Math.max(0, prev.entriesPending - 1),
+            } : prev);
+          }
         }, analyzeAbortController.current.signal);
         if (!result.cancelled) {
           setAnalyticsResult({ success: result.success, failed: result.failed });
@@ -111,6 +120,8 @@ export default function MemorySection() {
       }
       const newStats = await getAnalyticsStats();
       setAnalyticsStats(newStats);
+      const failed = await getFailedAnalysisEntries();
+      setFailedEntries(failed);
     } catch (err) {
       if (!analyzeAbortController.current?.signal.aborted) {
         setError(err instanceof Error ? err.message : 'Failed to analyze entries');
@@ -491,10 +502,17 @@ export default function MemorySection() {
 
         {analyticsResult && (
           <div style={statusStyle}>
-            <span style={{ color: theme.colors.status.success, display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <IoCheckmarkCircle size={14} />
-              Successfully analyzed {analyticsResult.success} entries
-            </span>
+            {analyticsResult.failed === 0 ? (
+              <span style={{ color: theme.colors.status.success, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <IoCheckmarkCircle size={14} />
+                Successfully analyzed {analyticsResult.success} entries
+              </span>
+            ) : (
+              <span style={{ color: theme.colors.status.warning, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <IoAlertCircle size={14} />
+                {analyticsResult.success} succeeded, {analyticsResult.failed} failed
+              </span>
+            )}
           </div>
         )}
 

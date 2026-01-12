@@ -129,7 +129,6 @@
 }
 
 .nested-sidebar-item:hover {
-  background-color: var(--bg-subtle);
 }
 
 .nested-sidebar-item.selected {
@@ -142,14 +141,14 @@
   top: 4px;
   right: 4px;
   display: flex;
+  align-items: center;
   gap: 2px;
   opacity: 0;
   transition: opacity 0.15s ease;
   z-index: 10;
   pointer-events: none;
-  background-color: var(--bg-subtle);
-  border-radius: 4px;
-  padding: 2px;
+  background: linear-gradient(to right, transparent, var(--bg-tertiary) 30%);
+  padding: 2px 2px 2px 20px;
 }
 
 .nested-sidebar-item:hover .nested-sidebar-item-actions {
@@ -158,5 +157,5 @@
 }
 
 .nested-sidebar-item.selected .nested-sidebar-item-actions {
-  background-color: var(--bg-secondary);
+  background: linear-gradient(to right, transparent, var(--bg-secondary) 30%);
 }

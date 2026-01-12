@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState, CSSProperties, RefObject } from 'react';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useEffect, useRef, CSSProperties, RefObject } from 'react';
 import type { HighlightRange } from '../../hooks/useEntries';
 
 interface HighlightOverlayProps {
@@ -19,12 +18,8 @@ export function HighlightOverlay({
   className,
   style,
 }: HighlightOverlayProps) {
-  const { theme } = useTheme();
   const overlayRef = useRef<HTMLDivElement>(null);
   const hasScrolledRef = useRef(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const [buttonPosition, setButtonPosition] = useState<{ top: number; left: number } | null>(null);
-  const markRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -65,21 +60,30 @@ export function HighlightOverlay({
   }, [highlightRange]);
 
   useEffect(() => {
-    if (!isHovered || !markRef.current || !overlayRef.current) {
-      setButtonPosition(null);
-      return;
-    }
+    if (!highlightRange) return;
 
-    const mark = markRef.current;
-    const overlay = overlayRef.current;
-    const markRect = mark.getBoundingClientRect();
-    const overlayRect = overlay.getBoundingClientRect();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onDismiss();
+      }
+    };
 
-    setButtonPosition({
-      top: markRect.top - overlayRect.top - 8,
-      left: markRect.right - overlayRect.left - 8,
-    });
-  }, [isHovered]);
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const mark = overlayRef.current?.querySelector('mark');
+      if (mark && !mark.contains(target)) {
+        onDismiss();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('click', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [highlightRange, onDismiss]);
 
   if (!highlightRange) return null;
 
@@ -111,54 +115,13 @@ export function HighlightOverlay({
     cursor: 'pointer',
   };
 
-  const dismissButtonStyle: CSSProperties = {
-    position: 'absolute',
-    top: buttonPosition?.top ?? 0,
-    left: buttonPosition?.left ?? 0,
-    width: '18px',
-    height: '18px',
-    padding: 0,
-    fontSize: '12px',
-    fontWeight: 600,
-    lineHeight: '16px',
-    textAlign: 'center',
-    backgroundColor: theme.colors.background.primary,
-    color: theme.colors.text.secondary,
-    border: `1px solid ${theme.colors.border.primary}`,
-    borderRadius: '50%',
-    cursor: 'pointer',
-    pointerEvents: 'auto',
-    zIndex: 10,
-    boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  };
-
   return (
     <div ref={overlayRef} className={className} style={overlayStyle}>
       {before}
-      <mark
-        ref={markRef}
-        style={markStyle}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        onClick={onDismiss}
-      >
+      <mark style={markStyle} onClick={onDismiss}>
         {highlighted}
       </mark>
       {after}
-      {isHovered && buttonPosition && (
-        <button
-          style={dismissButtonStyle}
-          onClick={onDismiss}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-          aria-label="Clear highlight"
-        >
-          ×
-        </button>
-      )}
     </div>
   );
 }

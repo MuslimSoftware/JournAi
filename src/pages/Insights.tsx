@@ -5,7 +5,7 @@ import { Container, Text, Spinner } from '../components/themed';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { useSettings } from '../contexts/SettingsContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { useInsights } from '../contexts/InsightsContext';
+import { useInsights, TimeFilter, SentimentFilter } from '../contexts/InsightsContext';
 import { useEntryNavigation } from '../contexts/EntryNavigationContext';
 import {
   getAggregatedInsights,
@@ -13,6 +13,7 @@ import {
   getRawPersonInsights,
 } from '../services/analytics';
 import { parseLocalDate } from '../utils/date';
+import { hapticSelection } from '../hooks/useHaptics';
 import '../styles/insights.css';
 
 const INTENSITY_COLORS = {
@@ -21,12 +22,19 @@ const INTENSITY_COLORS = {
   neutral: '#6B7280',
 };
 
-type TimeFilter =
-  | 'last7' | 'last30' | 'last90'
-  | 'thisWeek' | 'lastWeek'
-  | 'thisMonth' | 'lastMonth'
-  | 'thisYear' | 'lastYear'
-  | 'all';
+const SENTIMENT_COLORS = {
+  positive: '#10b981',
+  negative: '#ef4444',
+  neutral: '#6b7280',
+  mixed: '#f59e0b',
+  tense: '#ef4444',
+};
+
+const INTENSITY_BAR_COUNT = 10;
+const RAW_INSIGHTS_QUERY_LIMIT = 500;
+const DROPDOWN_ZINDEX = 100;
+const DETAIL_GRID_COLUMNS_MOBILE = 2;
+const DETAIL_GRID_COLUMNS_DESKTOP = 4;
 
 interface TimeFilterGroup {
   label: string;
@@ -137,20 +145,45 @@ function getDateRange(filter: TimeFilter): { start: string; end: string } | null
   return { start: start.toISOString().split('T')[0], end };
 }
 
-function getSolidColor(sentiment: string): string {
-  const colors: Record<string, string> = {
-    positive: '#10b981',
-    negative: '#ef4444',
-    neutral: '#6b7280',
-    mixed: '#f59e0b',
-    tense: '#ef4444',
-  };
-  return colors[sentiment] || colors.neutral;
+function getSentimentColor(sentiment: string): string {
+  return SENTIMENT_COLORS[sentiment as keyof typeof SENTIMENT_COLORS] || SENTIMENT_COLORS.neutral;
 }
 
-function formatDate(dateStr: string): string {
+function formatDateWithoutYear(dateStr: string): string {
   const date = parseLocalDate(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function getYear(dateStr: string): number {
+  return parseLocalDate(dateStr).getFullYear();
+}
+
+function groupByYear<T extends { entryDate: string }>(items: T[]): Map<number, T[]> {
+  const groups = new Map<number, T[]>();
+  for (const item of items) {
+    const year = getYear(item.entryDate);
+    if (!groups.has(year)) {
+      groups.set(year, []);
+    }
+    groups.get(year)!.push(item);
+  }
+  return new Map([...groups.entries()].sort((a, b) => b[0] - a[0]));
+}
+
+type AggregatedEmotion = { emotion: string; avgIntensity: number; count: number; triggers: string[]; sentiment: 'positive' | 'negative' | 'neutral' };
+type AggregatedPerson = { name: string; relationship?: string; sentiment: string; mentions: number; recentContext?: string };
+
+function filterEmotionsBySentiment(emotions: AggregatedEmotion[] | undefined, filter: SentimentFilter) {
+  if (!emotions || filter === 'all') return emotions;
+  if (filter === 'mixed') return emotions.filter(e => e.sentiment === 'neutral');
+  return emotions.filter(e => e.sentiment === filter);
+}
+
+function filterPeopleBySentiment(people: AggregatedPerson[] | undefined, filter: SentimentFilter) {
+  if (!people || filter === 'all') return people;
+  if (filter === 'mixed') return people.filter(p => p.sentiment === 'mixed' || p.sentiment === 'tense');
+  if (filter === 'negative') return people.filter(p => p.sentiment === 'negative' || p.sentiment === 'tense');
+  return people.filter(p => p.sentiment === filter);
 }
 
 export default function Insights() {
@@ -165,6 +198,7 @@ export default function Insights() {
     rawPeople,
     selectedEmotion,
     selectedPerson,
+    selectedOccurrenceIndex,
     timeFilter,
     sentimentFilter,
     dataLoaded,
@@ -173,6 +207,7 @@ export default function Insights() {
     setRawPeople,
     setSelectedEmotion,
     setSelectedPerson,
+    setSelectedOccurrenceIndex,
     setTimeFilter,
     setSentimentFilter,
     setDataLoaded,
@@ -182,48 +217,57 @@ export default function Insights() {
   const [loading, setLoading] = useState(!dataLoaded);
   const [error, setError] = useState<string | null>(null);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const lastLoadedFilter = useRef<string | null>(dataLoaded ? timeFilter : null);
 
   useEffect(() => {
+    if (!showFilterDropdown) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
         setShowFilterDropdown(false);
       }
     };
-    if (showFilterDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showFilterDropdown]);
 
-  const loadData = async (filter: TimeFilter) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const range = getDateRange(filter);
-      const [agg, emotions, people] = await Promise.all([
-        getAggregatedInsights(range?.start, range?.end),
-        getRawEmotionInsights(500, range?.start, range?.end),
-        getRawPersonInsights(500, range?.start, range?.end),
-      ]);
-      setAggregated(agg);
-      setRawEmotions(emotions);
-      setRawPeople(people);
-      setDataLoaded(true);
-      lastLoadedFilter.current = filter;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load insights');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const handleInsightsChanged = () => {
+      lastLoadedFilter.current = null;
+      setReloadTrigger(n => n + 1);
+    };
+    window.addEventListener('insights-changed', handleInsightsChanged);
+    return () => window.removeEventListener('insights-changed', handleInsightsChanged);
+  }, []);
 
   useEffect(() => {
-    if (lastLoadedFilter.current !== timeFilter) {
-      loadData(timeFilter);
-    }
-  }, [timeFilter]);
+    if (lastLoadedFilter.current === timeFilter) return;
+
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const range = getDateRange(timeFilter);
+        const [agg, emotions, people] = await Promise.all([
+          getAggregatedInsights(range?.start, range?.end),
+          getRawEmotionInsights(RAW_INSIGHTS_QUERY_LIMIT, range?.start, range?.end),
+          getRawPersonInsights(RAW_INSIGHTS_QUERY_LIMIT, range?.start, range?.end),
+        ]);
+        setAggregated(agg);
+        setRawEmotions(emotions);
+        setRawPeople(people);
+        setDataLoaded(true);
+        lastLoadedFilter.current = timeFilter;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load insights');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [timeFilter, reloadTrigger, setAggregated, setRawEmotions, setRawPeople, setDataLoaded]);
 
   const headerStyle: CSSProperties = {
     display: 'flex',
@@ -266,20 +310,8 @@ export default function Insights() {
     );
   }
 
-  const filteredEmotions = sentimentFilter === 'all'
-    ? aggregated?.emotions
-    : aggregated?.emotions.filter(e => {
-        if (sentimentFilter === 'mixed') return e.sentiment === 'neutral';
-        return e.sentiment === sentimentFilter;
-      });
-
-  const filteredPeople = sentimentFilter === 'all'
-    ? aggregated?.people
-    : aggregated?.people.filter(p => {
-        if (sentimentFilter === 'mixed') return p.sentiment === 'mixed' || p.sentiment === 'tense';
-        if (sentimentFilter === 'negative') return p.sentiment === 'negative' || p.sentiment === 'tense';
-        return p.sentiment === sentimentFilter;
-      });
+  const filteredEmotions = filterEmotionsBySentiment(aggregated?.emotions, sentimentFilter);
+  const filteredPeople = filterPeopleBySentiment(aggregated?.people, sentimentFilter);
 
   const filteredEmotionEntries = selectedEmotion
     ? rawEmotions.filter(e => e.emotion.toLowerCase() === selectedEmotion.toLowerCase())
@@ -315,8 +347,10 @@ export default function Insights() {
               key={i}
               className="insight-aggregate-card"
               onClick={() => {
+                if (isMobile) hapticSelection();
                 setSelectedEmotion(isSelected ? null : e.emotion);
                 setSelectedPerson(null);
+                setSelectedOccurrenceIndex(null);
               }}
               style={{
                 padding: '10px 12px',
@@ -325,6 +359,8 @@ export default function Insights() {
                 border: `1px solid ${isSelected ? theme.colors.text.primary : theme.colors.border.primary}`,
                 cursor: 'pointer',
                 transition: 'border-color 0.2s ease, background-color 0.2s ease',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
               <div style={{
@@ -357,19 +393,20 @@ export default function Insights() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
+                marginTop: 'auto',
               }}>
                 <div style={{
                   flex: 1,
                   display: 'flex',
                   gap: '2px',
                 }}>
-                  {Array.from({ length: 10 }, (_, i) => (
+                  {Array.from({ length: INTENSITY_BAR_COUNT }, (_, i) => (
                     <div
                       key={i}
                       style={{
                         flex: 1,
-                        height: '8px',
-                        borderRadius: '2px',
+                        height: '4px',
+                        borderRadius: '1px',
                         backgroundColor: i < e.avgIntensity
                           ? barColor
                           : theme.colors.background.primary,
@@ -420,8 +457,10 @@ export default function Insights() {
               key={i}
               className="insight-aggregate-card"
               onClick={() => {
+                if (isMobile) hapticSelection();
                 setSelectedPerson(isSelected ? null : p.name);
                 setSelectedEmotion(null);
+                setSelectedOccurrenceIndex(null);
               }}
               style={{
                 padding: '10px',
@@ -490,8 +529,8 @@ export default function Insights() {
                 fontSize: '0.75rem',
                 padding: '2px 6px',
                 borderRadius: '4px',
-                backgroundColor: `${getSolidColor(p.sentiment)}18`,
-                color: getSolidColor(p.sentiment),
+                backgroundColor: `${getSentimentColor(p.sentiment)}18`,
+                color: getSentimentColor(p.sentiment),
                 fontWeight: 600,
                 textTransform: 'capitalize',
                 flexShrink: 0,
@@ -510,6 +549,11 @@ export default function Insights() {
 
   const renderDetailSection = () => {
     if (selectedEmotion && filteredEmotionEntries.length > 0) {
+      const groupedByYear = groupByYear(filteredEmotionEntries);
+      const years = Array.from(groupedByYear.keys());
+      const currentYear = new Date().getFullYear();
+      let globalIndex = 0;
+
       return (
         <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${theme.colors.border.primary}` }}>
           <Text style={{
@@ -518,92 +562,134 @@ export default function Insights() {
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             color: theme.colors.text.muted,
-            marginBottom: '12px',
+            marginBottom: '16px',
             display: 'block',
           }}>
             {selectedEmotion} occurrences ({filteredEmotionEntries.length})
           </Text>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
-            gap: '8px',
-          }}>
-            {filteredEmotionEntries.map((e, i) => (
-              <div
-                key={`${e.entryId}-${i}`}
-                onClick={() => { console.log('Emotion entry:', e); navigateToEntry(e.entryId, e.source ? { start: e.source.start, end: e.source.end } : undefined); navigate('/entries'); }}
-                style={{
-                  padding: '12px',
-                  backgroundColor: theme.colors.background.secondary,
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  border: `1px solid ${theme.colors.border.primary}`,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                  minHeight: '100px',
-                }}
-              >
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}>
-                  <span style={{
-                    fontSize: '0.85rem',
-                    fontWeight: 500,
-                    color: theme.colors.text.muted,
-                  }}>
-                    {formatDate(e.entryDate)}
-                  </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {years.map((year) => {
+              const yearEntries = groupedByYear.get(year)!;
+              const startIndex = globalIndex;
+              globalIndex += yearEntries.length;
+
+              return (
+                <div key={year}>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
+                    gap: '12px',
+                    marginBottom: '12px',
                   }}>
-                    <div style={{
-                      display: 'flex',
-                      gap: '2px',
+                    <span style={{
+                      fontSize: '0.9rem',
+                      fontWeight: 700,
+                      color: theme.colors.text.primary,
                     }}>
-                      {Array.from({ length: 10 }, (_, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '1.5px',
-                            backgroundColor: idx < e.intensity
-                              ? getSolidColor(e.sentiment)
-                              : theme.colors.background.primary,
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 500, color: theme.colors.text.muted }}>
-                      {e.intensity}
+                      {year === currentYear ? 'This Year' : year}
                     </span>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      color: theme.colors.text.muted,
+                    }}>
+                      {yearEntries.length} {yearEntries.length === 1 ? 'occurrence' : 'occurrences'}
+                    </span>
+                    <div style={{
+                      flex: 1,
+                      height: '1px',
+                      backgroundColor: theme.colors.border.primary,
+                    }} />
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${isMobile ? DETAIL_GRID_COLUMNS_MOBILE : DETAIL_GRID_COLUMNS_DESKTOP}, 1fr)`,
+                    gap: '8px',
+                  }}>
+                    {yearEntries.map((e, i) => {
+                      const idx = startIndex + i;
+                      const isSelected = selectedOccurrenceIndex === idx && selectedEmotion;
+                      return (
+                        <div
+                          key={`${e.entryId}-${idx}`}
+                          className={`insight-detail-card${isSelected ? ' selected' : ''}`}
+                          onClick={() => { if (isMobile) hapticSelection(); setSelectedOccurrenceIndex(idx); navigateToEntry(e.entryId, e.source ? { start: e.source.start, end: e.source.end } : undefined); navigate('/entries'); }}
+                          style={{
+                            padding: '12px',
+                            backgroundColor: theme.colors.background.secondary,
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            border: `1px solid ${isSelected ? theme.colors.text.primary : theme.colors.border.primary}`,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
+                          }}
+                        >
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                          }}>
+                            <span style={{
+                              fontSize: '0.85rem',
+                              fontWeight: 500,
+                              color: theme.colors.text.muted,
+                            }}>
+                              {formatDateWithoutYear(e.entryDate)}
+                            </span>
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}>
+                              <div style={{
+                                display: 'flex',
+                                gap: '2px',
+                              }}>
+                                {Array.from({ length: INTENSITY_BAR_COUNT }, (_, idx) => (
+                                  <div
+                                    key={idx}
+                                    style={{
+                                      width: '6px',
+                                      height: '6px',
+                                      borderRadius: '1.5px',
+                                      backgroundColor: idx < e.intensity
+                                        ? getSentimentColor(e.sentiment)
+                                        : theme.colors.background.primary,
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 500, color: theme.colors.text.muted }}>
+                                {e.intensity}
+                              </span>
+                            </div>
+                          </div>
+                          <div style={{
+                            fontSize: '0.9rem',
+                            color: theme.colors.text.secondary,
+                            lineHeight: '1.45',
+                          }}>
+                            {e.trigger || 'No trigger'}
+                          </div>
+                          <span className="insight-detail-card-tip">Go to occurrence →</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                <div style={{
-                  fontSize: '0.9rem',
-                  color: theme.colors.text.secondary,
-                  lineHeight: '1.45',
-                  overflow: 'hidden',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 3,
-                  WebkitBoxOrient: 'vertical',
-                  flex: 1,
-                }}>
-                  {e.trigger || 'No trigger'}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       );
     }
 
     if (selectedPerson && filteredPeopleEntries.length > 0) {
+      const groupedByYear = groupByYear(filteredPeopleEntries);
+      const years = Array.from(groupedByYear.keys());
+      const currentYear = new Date().getFullYear();
+      let globalIndex = 0;
+
       return (
         <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${theme.colors.border.primary}` }}>
           <Text style={{
@@ -612,70 +698,107 @@ export default function Insights() {
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             color: theme.colors.text.muted,
-            marginBottom: '12px',
+            marginBottom: '16px',
             display: 'block',
           }}>
             {selectedPerson} occurrences ({filteredPeopleEntries.length})
           </Text>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
-            gap: '8px',
-          }}>
-            {filteredPeopleEntries.map((p, i) => (
-              <div
-                key={`${p.entryId}-${i}`}
-                onClick={() => { navigateToEntry(p.entryId, p.source ? { start: p.source.start, end: p.source.end } : undefined); navigate('/entries'); }}
-                style={{
-                  padding: '14px',
-                  backgroundColor: theme.colors.background.secondary,
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  border: `1px solid ${theme.colors.border.primary}`,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  minHeight: '120px',
-                }}
-              >
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '12px',
-                }}>
-                  <span style={{
-                    fontSize: '0.85rem',
-                    fontWeight: 500,
-                    color: theme.colors.text.muted,
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {years.map((year) => {
+              const yearEntries = groupedByYear.get(year)!;
+              const startIndex = globalIndex;
+              globalIndex += yearEntries.length;
+
+              return (
+                <div key={year}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '12px',
                   }}>
-                    {formatDate(p.entryDate)}
-                  </span>
-                  <span style={{
-                    fontSize: '0.8rem',
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    backgroundColor: `${getSolidColor(p.sentiment)}18`,
-                    color: getSolidColor(p.sentiment),
-                    fontWeight: 600,
-                    textTransform: 'capitalize',
+                    <span style={{
+                      fontSize: '0.9rem',
+                      fontWeight: 700,
+                      color: theme.colors.text.primary,
+                    }}>
+                      {year === currentYear ? 'This Year' : year}
+                    </span>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      color: theme.colors.text.muted,
+                    }}>
+                      {yearEntries.length} {yearEntries.length === 1 ? 'occurrence' : 'occurrences'}
+                    </span>
+                    <div style={{
+                      flex: 1,
+                      height: '1px',
+                      backgroundColor: theme.colors.border.primary,
+                    }} />
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${isMobile ? DETAIL_GRID_COLUMNS_MOBILE : DETAIL_GRID_COLUMNS_DESKTOP}, 1fr)`,
+                    gap: '8px',
                   }}>
-                    {p.sentiment}
-                  </span>
+                    {yearEntries.map((p, i) => {
+                      const idx = startIndex + i;
+                      const isSelected = selectedOccurrenceIndex === idx && selectedPerson;
+                      return (
+                        <div
+                          key={`${p.entryId}-${idx}`}
+                          className={`insight-detail-card${isSelected ? ' selected' : ''}`}
+                          onClick={() => { if (isMobile) hapticSelection(); setSelectedOccurrenceIndex(idx); navigateToEntry(p.entryId, p.source ? { start: p.source.start, end: p.source.end } : undefined); navigate('/entries'); }}
+                          style={{
+                            padding: '14px',
+                            backgroundColor: theme.colors.background.secondary,
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            border: `1px solid ${isSelected ? theme.colors.text.primary : theme.colors.border.primary}`,
+                            display: 'flex',
+                            flexDirection: 'column',
+                          }}
+                        >
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '12px',
+                          }}>
+                            <span style={{
+                              fontSize: '0.85rem',
+                              fontWeight: 500,
+                              color: theme.colors.text.muted,
+                            }}>
+                              {formatDateWithoutYear(p.entryDate)}
+                            </span>
+                            <span style={{
+                              fontSize: '0.8rem',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: `${getSentimentColor(p.sentiment)}18`,
+                              color: getSentimentColor(p.sentiment),
+                              fontWeight: 600,
+                              textTransform: 'capitalize',
+                            }}>
+                              {p.sentiment}
+                            </span>
+                          </div>
+                          <div style={{
+                            fontSize: '0.9rem',
+                            color: theme.colors.text.secondary,
+                            lineHeight: '1.45',
+                          }}>
+                            {p.context || 'No context'}
+                          </div>
+                          <span className="insight-detail-card-tip">Go to occurrence →</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div style={{
-                  fontSize: '0.9rem',
-                  color: theme.colors.text.secondary,
-                  lineHeight: '1.45',
-                  overflow: 'hidden',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 3,
-                  WebkitBoxOrient: 'vertical',
-                  flex: 1,
-                }}>
-                  {p.context || 'No context'}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       );
@@ -684,11 +807,11 @@ export default function Insights() {
     return null;
   };
 
-  const sentimentOptions: { value: 'all' | 'positive' | 'negative' | 'mixed'; label: string; color?: string }[] = [
+  const sentimentOptions: { value: SentimentFilter; label: string; color?: string }[] = [
     { value: 'all', label: 'All' },
-    { value: 'positive', label: 'Positive', color: '#10b981' },
-    { value: 'negative', label: 'Negative', color: '#ef4444' },
-    { value: 'mixed', label: 'Mixed', color: '#f59e0b' },
+    { value: 'positive', label: 'Positive', color: SENTIMENT_COLORS.positive },
+    { value: 'negative', label: 'Negative', color: SENTIMENT_COLORS.negative },
+    { value: 'mixed', label: 'Mixed', color: SENTIMENT_COLORS.mixed },
   ];
 
   const content = (
@@ -696,19 +819,21 @@ export default function Insights() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <div ref={filterDropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
           <button
-            onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+            onClick={() => { if (isMobile) hapticSelection(); setShowFilterDropdown(!showFilterDropdown); }}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '8px 12px',
-              fontSize: '0.85rem',
+              padding: isMobile ? '10px 14px' : '8px 12px',
+              fontSize: isMobile ? '0.9rem' : '0.85rem',
               fontWeight: 500,
               color: theme.colors.text.primary,
               backgroundColor: theme.colors.background.secondary,
               border: `1px solid ${theme.colors.border.primary}`,
               borderRadius: '8px',
               cursor: 'pointer',
+              minHeight: isMobile ? '44px' : undefined,
+              WebkitTapHighlightColor: 'transparent',
             }}
           >
             {getFilterLabel(timeFilter)}
@@ -725,7 +850,7 @@ export default function Insights() {
               border: `1px solid ${theme.colors.border.primary}`,
               borderRadius: '8px',
               boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              zIndex: 100,
+              zIndex: DROPDOWN_ZINDEX,
               minWidth: '160px',
               overflow: 'hidden',
             }}
@@ -749,6 +874,7 @@ export default function Insights() {
                   <button
                     key={option.value}
                     onClick={() => {
+                      if (isMobile) hapticSelection();
                       setTimeFilter(option.value);
                       setShowFilterDropdown(false);
                       resetSelections();
@@ -779,12 +905,13 @@ export default function Insights() {
             <button
               key={opt.value}
               onClick={() => {
+                if (isMobile) hapticSelection();
                 setSentimentFilter(opt.value);
                 resetSelections();
               }}
               style={{
-                padding: '6px 10px',
-                fontSize: '0.75rem',
+                padding: isMobile ? '10px 14px' : '6px 10px',
+                fontSize: isMobile ? '0.85rem' : '0.75rem',
                 fontWeight: sentimentFilter === opt.value ? 600 : 400,
                 color: sentimentFilter === opt.value
                   ? (opt.color || theme.colors.text.primary)
@@ -798,6 +925,7 @@ export default function Insights() {
                 borderRadius: '6px',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
+                minHeight: isMobile ? '44px' : undefined,
               }}
             >
               {opt.label}

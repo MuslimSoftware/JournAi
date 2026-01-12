@@ -140,7 +140,7 @@
 }
 
 .insight-aggregate-card:hover {
-  background-color: var(--background-hover) !important;
+  background-color: var(--interactive-active) !important;
 }
 
 .insight-aggregate-card:hover .person-name-row {
@@ -158,6 +158,61 @@
 
 .insight-aggregate-card:active {
   opacity: 0.9;
+}
+
+.insight-detail-card {
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  position: relative;
+}
+
+.insight-detail-card:hover {
+  background-color: var(--interactive-active) !important;
+  border-color: var(--border-secondary) !important;
+}
+
+.insight-detail-card.selected:hover {
+  border-color: var(--text-primary) !important;
+}
+
+.insight-detail-card:active {
+  transform: scale(0.98);
+}
+
+.insight-detail-card-tip {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  line-height: 1.45;
+  background-color: var(--bg-secondary);
+}
+
+.insight-detail-card-tip::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 100%;
+  width: 3em;
+  background: linear-gradient(to right, transparent, var(--bg-secondary));
+}
+
+.insight-detail-card:hover .insight-detail-card-tip {
+  opacity: 1;
+  background-color: var(--interactive-active);
+  pointer-events: auto;
+}
+
+.insight-detail-card:hover .insight-detail-card-tip::before {
+  background: linear-gradient(to right, transparent, var(--interactive-active));
+}
+
+.insight-detail-card-tip:hover {
+  color: var(--text-primary);
 }
 
 .occurrence-card:hover .occurrence-text {

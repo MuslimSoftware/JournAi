@@ -180,7 +180,6 @@
 }
 
 .entry-list-item:hover {
-  background-color: var(--bg-subtle);
 }
 
 .entry-list-item.selected {

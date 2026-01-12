@@ -1,14 +1,17 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { AggregatedInsights, TimeGroupedInsight, TimeGroupedPerson } from '../types/analytics';
 
-type TimeFilter =
+export type TimeFilter =
   | 'last7' | 'last30' | 'last90'
   | 'thisWeek' | 'lastWeek'
   | 'thisMonth' | 'lastMonth'
   | 'thisYear' | 'lastYear'
   | 'all';
 
-type SentimentFilter = 'all' | 'positive' | 'negative' | 'mixed';
+export type SentimentFilter = 'all' | 'positive' | 'negative' | 'mixed';
+
+const DEFAULT_TIME_FILTER: TimeFilter = 'last30';
+const DEFAULT_SENTIMENT_FILTER: SentimentFilter = 'all';
 
 interface InsightsState {
   aggregated: AggregatedInsights | null;
@@ -16,6 +19,7 @@ interface InsightsState {
   rawPeople: TimeGroupedPerson[];
   selectedEmotion: string | null;
   selectedPerson: string | null;
+  selectedOccurrenceIndex: number | null;
   timeFilter: TimeFilter;
   sentimentFilter: SentimentFilter;
   dataLoaded: boolean;
@@ -27,6 +31,7 @@ interface InsightsContextType extends InsightsState {
   setRawPeople: (data: TimeGroupedPerson[]) => void;
   setSelectedEmotion: (emotion: string | null) => void;
   setSelectedPerson: (person: string | null) => void;
+  setSelectedOccurrenceIndex: (index: number | null) => void;
   setTimeFilter: (filter: TimeFilter) => void;
   setSentimentFilter: (filter: SentimentFilter) => void;
   setDataLoaded: (loaded: boolean) => void;
@@ -41,14 +46,24 @@ export function InsightsProvider({ children }: { children: ReactNode }) {
   const [rawPeople, setRawPeople] = useState<TimeGroupedPerson[]>([]);
   const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null);
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('last30');
-  const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>('all');
+  const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState<number | null>(null);
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>(DEFAULT_TIME_FILTER);
+  const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>(DEFAULT_SENTIMENT_FILTER);
   const [dataLoaded, setDataLoaded] = useState(false);
 
   const resetSelections = () => {
     setSelectedEmotion(null);
     setSelectedPerson(null);
+    setSelectedOccurrenceIndex(null);
   };
+
+  useEffect(() => {
+    const handleInsightsChanged = () => {
+      setDataLoaded(false);
+    };
+    window.addEventListener('insights-changed', handleInsightsChanged);
+    return () => window.removeEventListener('insights-changed', handleInsightsChanged);
+  }, []);
 
   return (
     <InsightsContext.Provider
@@ -58,6 +73,7 @@ export function InsightsProvider({ children }: { children: ReactNode }) {
         rawPeople,
         selectedEmotion,
         selectedPerson,
+        selectedOccurrenceIndex,
         timeFilter,
         sentimentFilter,
         dataLoaded,
@@ -66,6 +82,7 @@ export function InsightsProvider({ children }: { children: ReactNode }) {
         setRawPeople,
         setSelectedEmotion,
         setSelectedPerson,
+        setSelectedOccurrenceIndex,
         setTimeFilter,
         setSentimentFilter,
         setDataLoaded,
