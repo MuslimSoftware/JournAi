@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import type { JournalEntry, EntryUpdate } from '../types/entry';
-import { usePaginatedQuery } from './usePaginatedQuery';
 import * as entriesService from '../services/entries';
 import { useEntryNavigation, HighlightRange } from '../contexts/EntryNavigationContext';
+import { useEntriesState } from '../contexts/EntriesStateContext';
 
 const PAGE_SIZE = 30;
 
@@ -27,53 +27,60 @@ interface UseEntriesReturn {
 }
 
 export function useEntries(): UseEntriesReturn {
-    const queryFn = useCallback(
-        async (cursor: string | null, pageSize: number) => {
-            const page = await entriesService.getEntriesPage(cursor, pageSize);
-            return {
-                data: page.entries,
-                nextCursor: page.nextCursor,
-                hasMore: page.hasMore,
-            };
-        },
-        []
-    );
-
     const {
-        data: entries,
-        isLoading,
-        isLoadingMore,
-        hasMore,
-        loadMore,
-        refresh,
-    } = usePaginatedQuery<JournalEntry>({
-        queryFn,
-        pageSize: PAGE_SIZE,
-    });
+        state,
+        setEntries,
+        appendEntries,
+        updateEntryInState,
+        removeEntry,
+        addEntry,
+        setSelectedEntryId,
+        setTotalCount,
+        setHasMore,
+        setCursor,
+        setInitialized,
+    } = useEntriesState();
 
     const { target, clearTarget } = useEntryNavigation();
-    const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
-    const [localEntries, setLocalEntries] = useState<JournalEntry[]>([]);
-    const [totalCount, setTotalCount] = useState(0);
     const [highlightRange, setHighlightRange] = useState<HighlightRange | null>(null);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const handledTargetId = useRef<string | null>(null);
+    const isLoadingRef = useRef(false);
+
+    const isLoading = !state.isInitialized;
 
     const clearHighlight = useCallback(() => {
         setHighlightRange(null);
     }, []);
 
     useEffect(() => {
-        entriesService.getEntriesCount().then(setTotalCount);
-    }, []);
+        if (state.isInitialized || isLoadingRef.current) return;
+        isLoadingRef.current = true;
+
+        const loadInitial = async () => {
+            const [page, count] = await Promise.all([
+                entriesService.getEntriesPage(null, PAGE_SIZE),
+                entriesService.getEntriesCount(),
+            ]);
+
+            setEntries(page.entries);
+            setTotalCount(count);
+            setHasMore(page.hasMore);
+            setCursor(page.nextCursor);
+            setInitialized(true);
+
+            if (page.entries.length > 0 && !state.selectedEntryId) {
+                setSelectedEntryId(page.entries[0].id);
+            }
+        };
+
+        loadInitial();
+    }, [state.isInitialized, state.selectedEntryId, setEntries, setTotalCount, setHasMore, setCursor, setInitialized, setSelectedEntryId]);
 
     useEffect(() => {
-        setLocalEntries(entries);
-    }, [entries]);
-
-    useEffect(() => {
-        if (!target || localEntries.length === 0) {
-            if (localEntries.length > 0 && !selectedEntryId) {
-                setSelectedEntryId(localEntries[0].id);
+        if (!target || state.entries.length === 0) {
+            if (state.entries.length > 0 && !state.selectedEntryId) {
+                setSelectedEntryId(state.entries[0].id);
             }
             return;
         }
@@ -87,96 +94,101 @@ export function useEntries(): UseEntriesReturn {
             setHighlightRange(target.highlight);
         }
 
-        const existsInList = localEntries.some(e => e.id === target.entryId);
+        const existsInList = state.entries.some(e => e.id === target.entryId);
         if (existsInList) {
             setSelectedEntryId(target.entryId);
             clearTarget();
         } else {
             entriesService.getEntriesByIds([target.entryId]).then(fetched => {
                 if (fetched.length > 0) {
-                    setLocalEntries(prev => {
-                        const newList = [fetched[0], ...prev];
-                        newList.sort((a, b) => b.date.localeCompare(a.date));
-                        return newList;
-                    });
+                    const newList = [fetched[0], ...state.entries];
+                    newList.sort((a, b) => b.date.localeCompare(a.date));
+                    setEntries(newList);
                     setSelectedEntryId(target.entryId);
                 }
                 clearTarget();
             });
         }
-    }, [localEntries, selectedEntryId, target, clearTarget]);
+    }, [state.entries, state.selectedEntryId, target, clearTarget, setSelectedEntryId, setEntries]);
 
     const selectedEntry = useMemo(
-        () => localEntries.find(e => e.id === selectedEntryId) || null,
-        [localEntries, selectedEntryId]
+        () => state.entries.find(e => e.id === state.selectedEntryId) || null,
+        [state.entries, state.selectedEntryId]
     );
 
     const createEntry = useCallback(async (date?: string) => {
-        try {
-            const newEntry = await entriesService.createEntry(date);
-            setLocalEntries(prev => [newEntry, ...prev]);
-            setTotalCount(prev => prev + 1);
-            setSelectedEntryId(newEntry.id);
-            return newEntry;
-        } catch (error) {
-            console.error('Failed to create entry:', error);
-            throw error;
-        }
-    }, []);
+        const newEntry = await entriesService.createEntry(date);
+        addEntry(newEntry);
+        return newEntry;
+    }, [addEntry]);
 
     const updateEntry = useCallback(async (id: string, updates: EntryUpdate) => {
         const updated = await entriesService.updateEntry(id, updates);
         if (updated) {
-            setLocalEntries(prev => {
-                const newEntries = prev.map(e => e.id === id ? updated : e);
-                if (updates.date) {
-                    newEntries.sort((a, b) => b.date.localeCompare(a.date));
-                }
-                return newEntries;
-            });
+            updateEntryInState(id, () => updated);
+            if (updates.date) {
+                setEntries(
+                    [...state.entries.map(e => e.id === id ? updated : e)]
+                        .sort((a, b) => b.date.localeCompare(a.date))
+                );
+            }
         }
-    }, []);
+    }, [updateEntryInState, setEntries, state.entries]);
 
     const deleteEntry = useCallback(async (id: string) => {
-        try {
-            const success = await entriesService.deleteEntry(id);
-            if (success) {
-                setLocalEntries(prev => {
-                    const remaining = prev.filter(e => e.id !== id);
-                    if (selectedEntryId === id) {
-                        setSelectedEntryId(remaining.length > 0 ? remaining[0].id : null);
-                    }
-                    return remaining;
-                });
-                setTotalCount(prev => prev - 1);
-            }
-        } catch (error) {
-            console.error('deleteEntry failed:', error);
+        const success = await entriesService.deleteEntry(id);
+        if (success) {
+            removeEntry(id);
         }
-    }, [selectedEntryId]);
+    }, [removeEntry]);
 
     const selectEntry = useCallback((id: string | null) => {
-        if (id !== selectedEntryId) {
+        if (id !== state.selectedEntryId) {
             setHighlightRange(null);
         }
         setSelectedEntryId(id);
-    }, [selectedEntryId]);
+    }, [state.selectedEntryId, setSelectedEntryId]);
+
+    const loadMore = useCallback(async () => {
+        if (isLoadingMore || !state.hasMore || !state.cursor) return;
+
+        setIsLoadingMore(true);
+        const page = await entriesService.getEntriesPage(state.cursor, PAGE_SIZE);
+        appendEntries(page.entries);
+        setHasMore(page.hasMore);
+        setCursor(page.nextCursor);
+        setIsLoadingMore(false);
+    }, [isLoadingMore, state.hasMore, state.cursor, appendEntries, setHasMore, setCursor]);
+
+    const refreshEntries = useCallback(async () => {
+        const [page, count] = await Promise.all([
+            entriesService.getEntriesPage(null, PAGE_SIZE),
+            entriesService.getEntriesCount(),
+        ]);
+
+        setEntries(page.entries);
+        setTotalCount(count);
+        setHasMore(page.hasMore);
+        setCursor(page.nextCursor);
+
+        return page.entries;
+    }, [setEntries, setTotalCount, setHasMore, setCursor]);
 
     return {
-        entries: localEntries,
-        totalCount,
+        entries: state.entries,
+        totalCount: state.totalCount,
         selectedEntry,
-        selectedEntryId,
+        selectedEntryId: state.selectedEntryId,
         highlightRange,
         clearHighlight,
         isLoading,
         isLoadingMore,
-        hasMore,
+        hasMore: state.hasMore,
         selectEntry,
         createEntry,
         updateEntry,
         deleteEntry,
         loadMore,
-        refreshEntries: refresh,
+        refreshEntries,
     };
 }

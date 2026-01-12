@@ -555,7 +555,7 @@ export default function Insights() {
       let globalIndex = 0;
 
       return (
-        <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${theme.colors.border.primary}` }}>
+        <div style={{ marginTop: '40px' }}>
           <Text style={{
             fontSize: '0.75rem',
             fontWeight: 600,
@@ -691,7 +691,7 @@ export default function Insights() {
       let globalIndex = 0;
 
       return (
-        <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${theme.colors.border.primary}` }}>
+        <div style={{ marginTop: '40px' }}>
           <Text style={{
             fontSize: '0.75rem',
             fontWeight: 600,

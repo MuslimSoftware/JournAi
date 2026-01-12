@@ -45,6 +45,10 @@ interface NestedSidebarProps<T> {
   toolbarExtra?: ReactNode;
   itemHeight?: number;
   actionBar?: ReactNode;
+  onItemMouseLeave?: (id: string) => void;
+
+  initialScrollOffset?: number;
+  onScrollChange?: (offset: number) => void;
 }
 
 function groupItemsByDate<T>(
@@ -81,6 +85,9 @@ export default function NestedSidebar<T>({
   toolbarExtra,
   itemHeight = ITEM_HEIGHT_PX,
   actionBar,
+  onItemMouseLeave,
+  initialScrollOffset,
+  onScrollChange,
 }: NestedSidebarProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -148,7 +155,36 @@ export default function NestedSidebar<T>({
       return item.type === 'header' ? HEADER_HEIGHT_PX : itemHeight;
     },
     overscan: 5,
+    initialOffset: initialScrollOffset,
   });
+
+  const hasRestoredScroll = useRef(false);
+
+  useEffect(() => {
+    if (hasRestoredScroll.current || !initialScrollOffset || !parentRef.current) return;
+    hasRestoredScroll.current = true;
+    parentRef.current.scrollTop = initialScrollOffset;
+  }, [initialScrollOffset]);
+
+  useEffect(() => {
+    if (!onScrollChange || !parentRef.current) return;
+
+    const scrollElement = parentRef.current;
+    let rafId: number;
+
+    const handleScroll = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        onScrollChange(scrollElement.scrollTop);
+      });
+    };
+
+    scrollElement.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      scrollElement.removeEventListener('scroll', handleScroll);
+      cancelAnimationFrame(rafId);
+    };
+  }, [onScrollChange]);
 
   const isFiltering = searchQuery.trim();
 
@@ -286,6 +322,7 @@ export default function NestedSidebar<T>({
                         <div
                           className={`nested-sidebar-item ${selectedId === listItem.id ? 'selected' : ''}`}
                           onClick={() => onSelectItem(listItem.id)}
+                          onMouseLeave={() => onItemMouseLeave?.(listItem.id)}
                         >
                           {renderItem(listItem.item, selectedId === listItem.id)}
                         </div>

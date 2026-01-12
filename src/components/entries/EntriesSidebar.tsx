@@ -8,6 +8,7 @@ import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { parseLocalDate, toDateString, formatEntryDate } from '../../utils/date';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useFocusMode } from '../../contexts/FocusModeContext';
+import { useEntriesState } from '../../contexts/EntriesStateContext';
 import { ENTRIES_CONSTANTS } from '../../constants/entries';
 import EntriesToolbar, { TimeFilter } from './EntriesToolbar';
 import { DateRange } from 'react-day-picker';
@@ -58,6 +59,7 @@ export default function EntriesSidebar({
   const editButtonRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const { entriesPinned, toggleEntriesPin } = useSidebar();
   const { isFocusMode, toggleFocusMode } = useFocusMode();
+  const { state: entriesState, setScrollOffset } = useEntriesState();
   const [buttonHidden, setButtonHidden] = useState(false);
   const [isNearEdge, setIsNearEdge] = useState(false);
 
@@ -249,6 +251,9 @@ export default function EntriesSidebar({
         itemNamePlural="entries"
         itemHeight={ENTRY_ITEM_HEIGHT_PX}
         actionBar={actionBarContent}
+        onItemMouseLeave={(id) => {
+          if (moreMenuOpen === id) setMoreMenuOpen(null);
+        }}
         toolbarExtra={
           <EntriesToolbar
             onSearchChange={() => {}}
@@ -258,6 +263,8 @@ export default function EntriesSidebar({
             hideSearch
           />
         }
+        initialScrollOffset={entriesState.scrollOffset}
+        onScrollChange={setScrollOffset}
       />
 
       {datePickerOpen && createPortal(

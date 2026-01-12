@@ -5,6 +5,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { CalendarProvider } from "./contexts/CalendarContext";
 import { InsightsProvider } from "./contexts/InsightsContext";
 import { EntryNavigationProvider } from "./contexts/EntryNavigationContext";
+import { EntriesStateProvider } from "./contexts/EntriesStateContext";
 import App from "./App";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
@@ -13,9 +14,11 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <CalendarProvider>
         <InsightsProvider>
           <EntryNavigationProvider>
-            <BrowserRouter>
-              <App />
-            </BrowserRouter>
+            <EntriesStateProvider>
+              <BrowserRouter>
+                <App />
+              </BrowserRouter>
+            </EntriesStateProvider>
           </EntryNavigationProvider>
         </InsightsProvider>
       </CalendarProvider>

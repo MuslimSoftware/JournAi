@@ -469,7 +469,7 @@
   background-color: var(--bg-primary);
 }
 
-.todo-item-wrapper:hover:not(.dragging) {
+.todo-item-wrapper:hover:not(.dragging):not(:has(.todo-item-new)) {
   background-color: var(--bg-subtle);
 }
 
@@ -488,7 +488,7 @@
   user-select: none;
 }
 
-.todo-item-wrapper:hover .todo-drag-handle,
+.todo-item-wrapper:hover:not(:has(.todo-item-new)) .todo-drag-handle,
 .todo-item-wrapper.dragging .todo-drag-handle,
 .todo-item-wrapper.just-dropped .todo-drag-handle {
   width: 24px;
@@ -510,7 +510,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.5rem 0.5rem 0;
+  padding: 0.5rem 0.5rem 0.5rem 0.25rem;
   border-radius: 8px;
   transition: background-color 0.15s ease;
   flex: 1;
@@ -525,8 +525,9 @@
   opacity: 1;
 }
 
-.todo-item-new {
+.todo-item-wrapper:has(.todo-item-new) {
   background-color: var(--bg-subtle);
+  border-radius: 8px;
 }
 
 /* Modern Checkbox */

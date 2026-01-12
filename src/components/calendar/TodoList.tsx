@@ -228,11 +228,16 @@ export default function TodoList({ todos, onCreateTodo, onUpdateTodo, onDeleteTo
         })}
 
         {isAdding && (
-          <TodoItem
-            isNew
-            onSaveNew={handleNewTodoSave}
-            onCancelNew={handleNewTodoCancel}
-          />
+          <div className="todo-item-slot">
+            <div className="todo-item-wrapper">
+              <div className="todo-drag-handle" />
+              <TodoItem
+                isNew
+                onSaveNew={handleNewTodoSave}
+                onCancelNew={handleNewTodoCancel}
+              />
+            </div>
+          </div>
         )}
       </div>
 
