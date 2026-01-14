@@ -1,12 +1,11 @@
-import { CSSProperties } from 'react';
 import { Outlet } from 'react-router-dom';
 import { IoCalendarOutline, IoCalendar, IoBookOutline, IoBook, IoChatbubbleOutline, IoChatbubble, IoSparklesOutline, IoSparkles } from 'react-icons/io5';
 import BottomNav from './BottomNav';
 import SettingsModal from '../SettingsModal';
 import { SidebarProvider } from '../../contexts/SidebarContext';
 import { SettingsProvider, useSettings } from '../../contexts/SettingsContext';
-import { useTheme } from '../../contexts/ThemeContext';
 import { useKeyboard } from '../../hooks/useKeyboard';
+import '../../styles/mobile.css';
 
 const mobileNavItems = [
   { path: '/calendar', label: 'Calendar', icon: IoCalendarOutline, iconFilled: IoCalendar },
@@ -16,31 +15,14 @@ const mobileNavItems = [
 ];
 
 function MobileLayoutInner() {
-  const { theme } = useTheme();
   const { isOpen: isKeyboardOpen } = useKeyboard();
   const { isOpen: isSettingsOpen, openSettings, closeSettings } = useSettings();
 
-  const layoutStyle: CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    width: '100%',
-    height: '100%',
-    backgroundColor: theme.colors.background.primary,
-    paddingTop: 'var(--mobile-safe-area-top)',
-  };
-
-  const mainStyle: CSSProperties = {
-    flex: 1,
-    overflow: 'auto',
-    overflowX: 'hidden',
-    WebkitOverflowScrolling: 'touch',
-    paddingBottom: isKeyboardOpen ? '20px' : 'calc(var(--mobile-nav-height) + var(--mobile-safe-area-bottom))',
-    transition: 'padding-bottom 0.25s ease-out',
-  };
+  const mainPadding = isKeyboardOpen ? '20px' : 'calc(var(--mobile-nav-height) + var(--mobile-safe-area-bottom))';
 
   return (
-    <div style={layoutStyle} className="mobile-layout">
-      <main style={mainStyle} className="mobile-main">
+    <div className="mobile-layout">
+      <main className="mobile-layout__main mobile-main" style={{ paddingBottom: mainPadding }}>
         <Outlet />
       </main>
       {!isKeyboardOpen && (

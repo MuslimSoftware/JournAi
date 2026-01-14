@@ -211,6 +211,12 @@ pub fn run() {
                 created_at TEXT NOT NULL
             );",
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 13,
+            description: "add_tool_calls_to_chat_messages",
+            sql: "ALTER TABLE chat_messages ADD COLUMN tool_calls TEXT;",
+            kind: MigrationKind::Up,
         }
     ];
 

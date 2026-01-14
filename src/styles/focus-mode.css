@@ -36,6 +36,8 @@
 
 .focus-mode-button {
   transition: opacity 0.3s ease, visibility 0.3s ease, background-color 0.2s ease, color 0.2s ease;
+  min-width: 40px !important;
+  min-height: 40px !important;
 }
 
 .focus-mode-button:hover {

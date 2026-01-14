@@ -31,6 +31,7 @@
     "@tauri-apps/plugin-sql": "^2.3.1",
     "@tauri-apps/plugin-store": "^2",
     "date-fns": "^4.1.0",
+    "levenshtein-search": "^0.1.2",
     "react": "^19.1.0",
     "react-day-picker": "^9.13.0",
     "react-dom": "^19.1.0",

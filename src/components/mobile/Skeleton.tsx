@@ -57,7 +57,7 @@ export function SkeletonText({
   gap = '8px',
 }: SkeletonTextProps) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap }}>
+    <div className="skeleton-text" style={{ gap }}>
       {Array.from({ length: lines }).map((_, i) => (
         <Skeleton
           key={i}
@@ -86,16 +86,9 @@ export function SkeletonListItem({ hasAvatar = false, lines = 2 }: SkeletonListI
   const { theme } = useTheme();
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: theme.spacing.md,
-        padding: '14px 16px',
-        alignItems: 'flex-start',
-      }}
-    >
+    <div className="skeleton-list-item" style={{ gap: theme.spacing.md }}>
       {hasAvatar && <SkeletonCircle size="40px" />}
-      <div style={{ flex: 1 }}>
+      <div className="skeleton-list-item__content">
         <SkeletonText lines={lines} lastLineWidth="40%" />
       </div>
     </div>
@@ -109,21 +102,11 @@ interface SkeletonEntryItemProps {
 export function SkeletonEntryList({ count = 5 }: SkeletonEntryItemProps) {
   return (
     <div>
-      <div style={{ padding: '24px 16px 8px' }}>
+      <div className="skeleton-entry-list__header">
         <Skeleton width="80px" height="11px" />
       </div>
       {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            borderRadius: '8px',
-            margin: '0 8px',
-          }}
-        >
+        <div key={i} className="skeleton-entry-item">
           <Skeleton width="60px" height="12px" />
           <Skeleton width="100%" height="16px" />
         </div>
@@ -140,20 +123,10 @@ export function SkeletonChatMessage({ isUser = false }: SkeletonChatMessageProps
   const { theme } = useTheme();
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: isUser ? 'flex-end' : 'flex-start',
-        padding: '8px 16px',
-      }}
-    >
+    <div className={`skeleton-chat-message ${isUser ? 'skeleton-chat-message--user' : 'skeleton-chat-message--assistant'}`}>
       <div
-        style={{
-          maxWidth: '80%',
-          padding: '12px 16px',
-          backgroundColor: theme.colors.background.secondary,
-          borderRadius: '16px',
-        }}
+        className="skeleton-chat-bubble"
+        style={{ backgroundColor: theme.colors.background.secondary }}
       >
         <SkeletonText
           lines={isUser ? 1 : 2}
@@ -167,7 +140,7 @@ export function SkeletonChatMessage({ isUser = false }: SkeletonChatMessageProps
 
 export function SkeletonChatList({ count = 3 }: { count?: number }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+    <div className="skeleton-chat-list">
       {Array.from({ length: count }).map((_, i) => (
         <SkeletonChatMessage key={i} isUser={i % 2 === 0} />
       ))}
@@ -189,43 +162,22 @@ export function SkeletonGroup({ children, isLoading }: SkeletonGroupProps) {
 
 export function SkeletonCalendarGrid() {
   return (
-    <div style={{ padding: '16px' }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '24px',
-        }}
-      >
+    <div className="skeleton-calendar">
+      <div className="skeleton-calendar__header">
         <Skeleton width="120px" height="24px" />
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="skeleton-calendar__nav">
           <Skeleton width="32px" height="32px" borderRadius="8px" />
           <Skeleton width="32px" height="32px" borderRadius="8px" />
         </div>
       </div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: '4px',
-        }}
-      >
+      <div className="skeleton-calendar__grid">
         {Array.from({ length: 7 }).map((_, i) => (
-          <div key={`header-${i}`} style={{ textAlign: 'center', padding: '8px' }}>
+          <div key={`header-${i}`} className="skeleton-calendar__day-header">
             <Skeleton width="24px" height="12px" style={{ margin: '0 auto' }} />
           </div>
         ))}
         {Array.from({ length: 35 }).map((_, i) => (
-          <div
-            key={`day-${i}`}
-            style={{
-              aspectRatio: '1',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
+          <div key={`day-${i}`} className="skeleton-calendar__day">
             <Skeleton width="32px" height="32px" borderRadius="50%" />
           </div>
         ))}

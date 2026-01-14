@@ -247,7 +247,7 @@ export default function NestedSidebar<T>({
 
               {toolbarExtra}
 
-              <div style={{ display: 'flex', gap: '4px' }}>
+              <div className="nested-sidebar-toolbar-buttons">
                 <IconButton
                   icon={<FiPlus size={18} />}
                   label={createButtonLabel}
@@ -278,8 +278,8 @@ export default function NestedSidebar<T>({
 
           {items.length === 0 ? (
             <div className="sidebar-empty-state">
-              <Text variant="secondary" style={{ fontSize: '0.875rem', fontWeight: 500 }}>{emptyStateTitle}</Text>
-              <Text variant="muted" style={{ fontSize: '0.8125rem' }}>{emptyStateSubtitle}</Text>
+              <Text variant="secondary" className="sidebar-empty-state__title">{emptyStateTitle}</Text>
+              <Text variant="muted" className="sidebar-empty-state__subtitle">{emptyStateSubtitle}</Text>
               <Button
                 variant="secondary"
                 size="sm"

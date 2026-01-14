@@ -1,7 +1,7 @@
 .nested-sidebar {
   position: relative;
-  width: var(--entries-sidebar-collapsed, 48px);
-  min-width: var(--entries-sidebar-collapsed, 48px);
+  width: var(--entries-sidebar-collapsed, 64px);
+  min-width: var(--entries-sidebar-collapsed, 64px);
   flex-shrink: 0;
   background-color: var(--bg-tertiary);
   border-right: 1px solid var(--border-primary);
@@ -158,4 +158,18 @@
 
 .nested-sidebar-item.selected .nested-sidebar-item-actions {
   background: linear-gradient(to right, transparent, var(--bg-secondary) 30%);
+}
+
+.nested-sidebar-toolbar-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.sidebar-empty-state__title {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.sidebar-empty-state__subtitle {
+  font-size: 0.8125rem;
 }

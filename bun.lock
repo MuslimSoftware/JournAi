@@ -12,6 +12,7 @@
         "@tauri-apps/plugin-sql": "^2.3.1",
         "@tauri-apps/plugin-store": "^2",
         "date-fns": "^4.1.0",
+        "levenshtein-search": "^0.1.2",
         "react": "^19.1.0",
         "react-day-picker": "^9.13.0",
         "react-dom": "^19.1.0",
@@ -697,6 +698,8 @@
     "langium": ["langium@3.3.1", "", { "dependencies": { "chevrotain": "~11.0.3", "chevrotain-allstar": "~0.3.0", "vscode-languageserver": "~9.0.1", "vscode-languageserver-textdocument": "~1.0.11", "vscode-uri": "~3.0.8" } }, "sha512-QJv/h939gDpvT+9SiLVlY7tZC3xB2qK57v0J04Sh9wpMb6MP1q8gB21L3WIo8T5P1MSMg3Ep14L7KkDCFG3y4w=="],
 
     "layout-base": ["layout-base@1.0.2", "", {}, "sha512-8h2oVEZNktL4BH2JCOI90iD1yXwL6iNW7KcCKT2QZgQJR2vbqDsldCTPRU9NifTCqHZci57XvQQ15YTu+sTYPg=="],
+
+    "levenshtein-search": ["levenshtein-search@0.1.2", "", {}, "sha512-MEwjuzHgVaibXrmH1Kh0maHxLPtkWy+tKaWXa4o3eASKE4rX+vKBnh+ektEIoDm8s4HwOk1cVxlNAdSABi+YlA=="],
 
     "lodash-es": ["lodash-es@4.17.22", "", {}, "sha512-XEawp1t0gxSi9x01glktRZ5HDy0HXqrM0x5pXQM98EaI0NxO6jVM7omDOxsuEo5UIASAnm2bRp1Jt/e0a2XU8Q=="],
 

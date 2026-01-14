@@ -3,7 +3,7 @@ import { ThemeMode, lightTheme, darkTheme } from '../../theme/tokens';
 import { IoSunnyOutline, IoMoonOutline, IoLaptopOutline } from 'react-icons/io5';
 import ThemeOption from '../themed/ThemeOption';
 import Text from '../themed/Text';
-import { CSSProperties } from 'react';
+import '../../styles/settings.css';
 
 export default function PersonalizationSection() {
   const { mode, setTheme } = useTheme();
@@ -42,28 +42,13 @@ export default function PersonalizationSection() {
     },
   ];
 
-  const sectionStyle: CSSProperties = {
-    marginBottom: '16px',
-  };
-
-  const headerStyle: CSSProperties = {
-    marginBottom: '12px',
-    fontSize: '1rem',
-  };
-
-  const cardsContainerStyle: CSSProperties = {
-    display: 'flex',
-    gap: '12px',
-    flexWrap: 'wrap',
-  };
-
   return (
     <div>
-      <div style={sectionStyle}>
-        <Text as="h3" variant="primary" style={headerStyle}>
+      <div className="settings-section">
+        <Text as="h3" variant="primary" className="settings-section-header">
           Theme
         </Text>
-        <div style={cardsContainerStyle}>
+        <div className="settings-theme-cards">
           {themeOptions.map((option) => (
             <ThemeOption
               key={option.value}

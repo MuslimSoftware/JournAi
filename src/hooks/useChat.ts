@@ -242,6 +242,7 @@ export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOpt
               status: 'sent',
               citations: capturedRagContext?.citations,
               ragContext: capturedRagContext,
+              toolCalls: toolCallsState.length > 0 ? toolCallsState : undefined,
             });
 
             const updatedMessages = [...state.messages, userMessage, { ...assistantMessage, content: accumulatedContent, isStreaming: false }];
@@ -274,12 +275,27 @@ export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOpt
       if (error instanceof Error && error.name === 'AbortError') {
         return;
       }
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send message. Please try again.';
+      const errorContent = `Error: ${errorMessage}`;
+
       setState(prev => ({
         ...prev,
+        messages: prev.messages.map(msg =>
+          msg.id === assistantMessage.id
+            ? { ...msg, content: errorContent, isStreaming: false, status: 'error' }
+            : msg
+        ),
         isLoading: false,
         isThinking: false,
-        error: 'Failed to send message. Please try again.',
+        error: errorMessage,
       }));
+
+      await chatMessagesService.addMessage(chatId, {
+        id: assistantMessage.id,
+        role: 'assistant',
+        content: errorContent,
+        status: 'error',
+      });
     }
   }, [addMessage, updateMessage, state.messages, aiSettings, chatId, onMessageAdded, generateTitleIfNeeded]);
 

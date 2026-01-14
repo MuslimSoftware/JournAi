@@ -45,6 +45,9 @@ function applyThemeCSSVariables(theme: ThemeTokens): void {
   root.style.setProperty('--indicator-sticky-note', theme.colors.indicator.stickyNote);
   root.style.setProperty('--indicator-todo-complete', theme.colors.indicator.todoComplete);
   root.style.setProperty('--indicator-todo-pending', theme.colors.indicator.todoPending);
+  root.style.setProperty('--status-success', theme.colors.status.success);
+  root.style.setProperty('--status-error', theme.colors.status.error);
+  root.style.setProperty('--status-warning', theme.colors.status.warning);
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

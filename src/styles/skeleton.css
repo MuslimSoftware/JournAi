@@ -33,3 +33,90 @@
     animation: none;
   }
 }
+
+.skeleton-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-list-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 14px 16px;
+}
+
+.skeleton-list-item__content {
+  flex: 1;
+}
+
+.skeleton-entry-list__header {
+  padding: 24px 16px 8px;
+}
+
+.skeleton-entry-item {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 8px;
+  margin: 0 8px;
+}
+
+.skeleton-chat-message {
+  display: flex;
+  padding: 8px 16px;
+}
+
+.skeleton-chat-message--user {
+  justify-content: flex-end;
+}
+
+.skeleton-chat-message--assistant {
+  justify-content: flex-start;
+}
+
+.skeleton-chat-bubble {
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 16px;
+}
+
+.skeleton-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skeleton-calendar {
+  padding: 16px;
+}
+
+.skeleton-calendar__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.skeleton-calendar__nav {
+  display: flex;
+  gap: 8px;
+}
+
+.skeleton-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.skeleton-calendar__day-header {
+  text-align: center;
+  padding: 8px;
+}
+
+.skeleton-calendar__day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

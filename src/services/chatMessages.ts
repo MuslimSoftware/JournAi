@@ -1,4 +1,4 @@
-import type { ChatMessage, MessageRole, MessageStatus } from '../types/chat';
+import type { ChatMessage, MessageRole, MessageStatus, ToolCall } from '../types/chat';
 import type { Citation, RAGContext } from '../types/memory';
 import { getTimestamp } from '../utils/date';
 import { select, execute } from '../lib/db';
@@ -11,6 +11,7 @@ interface MessageRow {
     status: string | null;
     citations: string | null;
     rag_context: string | null;
+    tool_calls: string | null;
     created_at: string;
 }
 
@@ -33,6 +34,15 @@ function rowToMessage(row: MessageRow): ChatMessage {
         }
     }
 
+    let toolCalls: ToolCall[] | undefined;
+    if (row.tool_calls) {
+        try {
+            toolCalls = JSON.parse(row.tool_calls);
+        } catch {
+            toolCalls = undefined;
+        }
+    }
+
     return {
         id: row.id,
         role: row.role as MessageRole,
@@ -41,12 +51,13 @@ function rowToMessage(row: MessageRow): ChatMessage {
         status: (row.status as MessageStatus) || undefined,
         citations,
         ragContext,
+        toolCalls,
     };
 }
 
 export async function getMessages(chatId: string): Promise<ChatMessage[]> {
     const rows = await select<MessageRow>(
-        'SELECT id, chat_id, role, content, status, citations, rag_context, created_at FROM chat_messages WHERE chat_id = $1 ORDER BY created_at ASC',
+        'SELECT id, chat_id, role, content, status, citations, rag_context, tool_calls, created_at FROM chat_messages WHERE chat_id = $1 ORDER BY created_at ASC',
         [chatId]
     );
     return rows.map(rowToMessage);
@@ -54,14 +65,15 @@ export async function getMessages(chatId: string): Promise<ChatMessage[]> {
 
 export async function addMessage(
     chatId: string,
-    message: Pick<ChatMessage, 'id' | 'role' | 'content' | 'status' | 'citations' | 'ragContext'>
+    message: Pick<ChatMessage, 'id' | 'role' | 'content' | 'status' | 'citations' | 'ragContext' | 'toolCalls'>
 ): Promise<void> {
     const timestamp = getTimestamp();
     const citationsJson = message.citations ? JSON.stringify(message.citations) : null;
     const ragContextJson = message.ragContext ? JSON.stringify(message.ragContext) : null;
+    const toolCallsJson = message.toolCalls ? JSON.stringify(message.toolCalls) : null;
     await execute(
-        'INSERT INTO chat_messages (id, chat_id, role, content, status, citations, rag_context, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-        [message.id, chatId, message.role, message.content, message.status || null, citationsJson, ragContextJson, timestamp]
+        'INSERT INTO chat_messages (id, chat_id, role, content, status, citations, rag_context, tool_calls, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+        [message.id, chatId, message.role, message.content, message.status || null, citationsJson, ragContextJson, toolCallsJson, timestamp]
     );
 }
 

@@ -1,6 +1,7 @@
 import { CSSProperties, ReactNode, useState, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { lightTheme } from '../../theme/tokens';
+import '../../styles/mobile.css';
 
 interface TouchHighlightProps {
   children: ReactNode;
@@ -72,43 +73,35 @@ export default function TouchHighlight({
     }
   }, []);
 
-  const containerStyle: CSSProperties = {
-    position: 'relative',
-    overflow: 'hidden',
-    cursor: disabled ? 'default' : 'pointer',
-    WebkitTapHighlightColor: 'transparent',
-    userSelect: 'none',
-    opacity: isPressed ? activeOpacity : 1,
-    transform: isPressed ? `scale(${scaleFactor})` : 'scale(1)',
-    transition: 'opacity 0.15s ease-out, transform 0.1s ease-out',
-    ...style,
-  };
-
-  const rippleStyle: CSSProperties = ripple ? {
-    position: 'absolute',
-    left: ripple.x - ripple.size / 2,
-    top: ripple.y - ripple.size / 2,
-    width: ripple.size,
-    height: ripple.size,
-    borderRadius: '50%',
-    backgroundColor: highlight,
-    pointerEvents: 'none',
-    transform: isPressed ? 'scale(1)' : 'scale(0)',
-    opacity: isPressed ? 1 : 0,
-    transition: 'transform 0.3s ease-out, opacity 0.2s ease-out',
-  } : {};
-
   return (
     <div
       ref={containerRef}
       className={`touch-highlight ${className}`}
-      style={containerStyle}
+      style={{
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: isPressed ? activeOpacity : 1,
+        transform: isPressed ? `scale(${scaleFactor})` : 'scale(1)',
+        ...style,
+      }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
       onClick={disabled ? undefined : onPress}
     >
-      {ripple && <div style={rippleStyle} />}
+      {ripple && (
+        <div
+          className="touch-highlight-ripple"
+          style={{
+            left: ripple.x - ripple.size / 2,
+            top: ripple.y - ripple.size / 2,
+            width: ripple.size,
+            height: ripple.size,
+            backgroundColor: highlight,
+            transform: isPressed ? 'scale(1)' : 'scale(0)',
+            opacity: isPressed ? 1 : 0,
+          }}
+        />
+      )}
       {children}
     </div>
   );

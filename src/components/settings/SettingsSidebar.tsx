@@ -1,5 +1,4 @@
-import { CSSProperties } from 'react';
-import { useTheme } from '../../contexts/ThemeContext';
+import '../../styles/settings.css';
 
 interface SidebarItem {
   id: string;
@@ -13,37 +12,12 @@ interface SettingsSidebarProps {
 }
 
 export default function SettingsSidebar({ items, activeId, onSelect }: SettingsSidebarProps) {
-  const { theme } = useTheme();
-
-  const containerStyle: CSSProperties = {
-    width: '180px',
-    borderRight: `1px solid ${theme.colors.border.primary}`,
-    padding: '12px',
-  };
-
-  const itemStyle: CSSProperties = {
-    padding: '8px 12px',
-    cursor: 'pointer',
-    borderRadius: '6px',
-    marginBottom: '4px',
-    color: theme.colors.text.secondary,
-    fontSize: '0.875rem',
-    fontWeight: 500,
-    transition: 'all 0.15s',
-  };
-
-  const activeItemStyle: CSSProperties = {
-    ...itemStyle,
-    backgroundColor: theme.colors.background.subtle,
-    color: theme.colors.text.emphasis,
-  };
-
   return (
-    <div style={containerStyle}>
+    <div className="settings-sidebar">
       {items.map((item) => (
         <div
           key={item.id}
-          style={activeId === item.id ? activeItemStyle : itemStyle}
+          className={`settings-sidebar-item${activeId === item.id ? ' settings-sidebar-item--active' : ''}`}
           onClick={() => onSelect(item.id)}
         >
           {item.label}

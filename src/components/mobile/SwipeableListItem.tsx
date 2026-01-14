@@ -1,4 +1,4 @@
-import { ReactNode, CSSProperties, useState, useRef, useEffect } from 'react';
+import { ReactNode, useState, useRef, useEffect } from 'react';
 import { FiTrash2, FiCalendar } from 'react-icons/fi';
 import { useSwipeAction } from '../../hooks/useSwipeAction';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -83,134 +83,37 @@ export default function SwipeableListItem({
     }
   };
 
-  const containerStyle: CSSProperties = {
-    position: 'relative',
-    overflow: 'hidden',
-  };
-
   const actionsWidth = isOpen ? 160 : Math.min(revealedOffset, 160);
-
-  const contentStyle: CSSProperties = {
-    transform: `translateX(${offsetX}px)`,
-    transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)',
-    backgroundColor: theme.colors.background.primary,
-    position: 'relative',
-    zIndex: 1,
-  };
-
-  const actionsContainerStyle: CSSProperties = {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    right: 0,
-    width: `${actionsWidth}px`,
-    display: 'flex',
-    alignItems: 'stretch',
-    overflow: 'hidden',
-  };
-
   const isLightMode = theme === lightTheme;
   const deleteColor = isLightMode ? '#dc2626' : '#ef4444';
   const editDateColor = isLightMode ? '#6b7280' : '#9ca3af';
-
-  const actionButtonStyle = (bgColor: string): CSSProperties => ({
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: bgColor,
-    color: '#ffffff',
-    border: 'none',
-    cursor: 'pointer',
-    minWidth: '60px',
-    WebkitTapHighlightColor: 'transparent',
-  });
-
   const swipeProgress = Math.min(revealedOffset / 200, 1);
-
-  const fullSwipeOverlayStyle: CSSProperties = {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: deleteColor,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    color: '#ffffff',
-    fontWeight: 600,
-    fontSize: '1rem',
-    zIndex: 2,
-    transition: isDragging ? 'none' : 'all 0.25s ease-out',
-    opacity: swipeProgress > 0.5 ? (swipeProgress - 0.5) * 2 : 0,
-    transform: `scale(${isFullSwipe ? 1 : 0.95 + swipeProgress * 0.05})`,
-    pointerEvents: isFullSwipe ? 'auto' : 'none',
-  };
-
-  const deleteConfirmOverlayStyle: CSSProperties = {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: deleteColor,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '0 16px',
-    color: '#ffffff',
-    zIndex: 3,
-    animation: 'fadeSlideIn 0.2s ease-out',
-  };
-
-  const confirmButtonStyle: CSSProperties = {
-    padding: '8px 16px',
-    borderRadius: '8px',
-    border: '2px solid #ffffff',
-    backgroundColor: 'transparent',
-    color: '#ffffff',
-    fontWeight: 600,
-    fontSize: '0.875rem',
-    cursor: 'pointer',
-    WebkitTapHighlightColor: 'transparent',
-  };
-
-  const cancelButtonStyle: CSSProperties = {
-    padding: '8px 16px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    color: '#ffffff',
-    fontWeight: 500,
-    fontSize: '0.875rem',
-    cursor: 'pointer',
-    WebkitTapHighlightColor: 'transparent',
-  };
-
   const showActions = revealedOffset > 20;
 
+  const contentClass = `swipeable-content${isDragging ? '' : ' swipeable-content--animated'}`;
+  const fullOverlayClass = `swipeable-full-overlay${isFullSwipe ? ' swipeable-full-overlay--active' : ''}${isDragging ? '' : ' swipeable-full-overlay--animated'}`;
+
   return (
-    <div style={containerStyle} className={`swipeable-item ${className}`}>
+    <div className={`swipeable-container swipeable-item ${className}`}>
       {showDeleteConfirm && (
-        <div style={deleteConfirmOverlayStyle}>
-          <span style={{ fontWeight: 600 }}>Delete this entry?</span>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button style={cancelButtonStyle} onClick={handleCancelDelete}>
+        <div className="swipeable-delete-confirm" style={{ backgroundColor: deleteColor }}>
+          <span className="swipeable-delete-confirm__text">Delete this entry?</span>
+          <div className="swipeable-delete-confirm__buttons">
+            <button className="swipeable-button-cancel" onClick={handleCancelDelete}>
               Cancel
             </button>
-            <button style={confirmButtonStyle} onClick={handleDelete}>
+            <button className="swipeable-button-confirm" onClick={handleDelete}>
               Delete
             </button>
           </div>
         </div>
       )}
       {(showActions || isOpen) && !showDeleteConfirm && (
-        <div style={actionsContainerStyle}>
+        <div className="swipeable-actions" style={{ width: `${actionsWidth}px` }}>
           {onEditDate && (actionsWidth >= 120 || isOpen) && (
             <button
-              style={actionButtonStyle(editDateColor)}
+              className="swipeable-action-button"
+              style={{ backgroundColor: editDateColor }}
               onClick={handleEditDate}
               aria-label="Edit date"
             >
@@ -219,7 +122,8 @@ export default function SwipeableListItem({
           )}
           {onDelete && (
             <button
-              style={actionButtonStyle(deleteColor)}
+              className="swipeable-action-button"
+              style={{ backgroundColor: deleteColor }}
               onClick={handleDelete}
               aria-label="Delete"
             >
@@ -229,13 +133,21 @@ export default function SwipeableListItem({
         </div>
       )}
       {isFullSwipe && !showDeleteConfirm && (
-        <div style={fullSwipeOverlayStyle}>
+        <div
+          className={fullOverlayClass}
+          style={{
+            backgroundColor: deleteColor,
+            opacity: swipeProgress > 0.5 ? (swipeProgress - 0.5) * 2 : 0,
+            transform: `scale(${isFullSwipe ? 1 : 0.95 + swipeProgress * 0.05})`,
+          }}
+        >
           <FiTrash2 size={22} />
           <span>Release to Delete</span>
         </div>
       )}
       <div
-        style={contentStyle}
+        className={contentClass}
+        style={{ transform: `translateX(${offsetX}px)` }}
         onTouchStart={handlers.onTouchStart}
         onTouchMove={handlers.onTouchMove}
         onTouchEnd={handleTouchEnd}

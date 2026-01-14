@@ -56,9 +56,32 @@ export interface CitationWithContent extends Citation {
   snippet: string;
 }
 
+export interface FilteredEmotionInsight {
+  type: 'emotion';
+  emotion: string;
+  intensity: number;
+  trigger?: string;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  entryId: string;
+  entryDate: string;
+}
+
+export interface FilteredPersonInsight {
+  type: 'person';
+  name: string;
+  relationship?: string;
+  sentiment: string;
+  context?: string;
+  entryId: string;
+  entryDate: string;
+}
+
+export type FilteredInsight = FilteredEmotionInsight | FilteredPersonInsight;
+
 export interface RAGContext {
   citations: Citation[];
   entities: string[];
   timeRange?: { start: string; end: string };
   contextText?: string;
+  insights?: FilteredInsight[];
 }

@@ -1,5 +1,6 @@
 import { select, execute } from '../lib/db';
 import { getApiKey } from '../lib/secureStorage';
+import { fuzzySearch } from 'levenshtein-search';
 
 const MAX_CONTENT_LENGTH = 8000;
 const API_TEMPERATURE = 0.3;
@@ -67,79 +68,20 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
-function normalizeWhitespace(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
-
-function findLongestSubstringMatch(
-  content: string,
-  quote: string,
-  minLength: number = 30
-): { start: number; end: number; matchedText: string } | undefined {
-  const words = quote.split(/\s+/);
-  if (words.length < 3) return undefined;
-
-  for (let windowSize = words.length; windowSize >= 3; windowSize--) {
-    for (let i = 0; i <= words.length - windowSize; i++) {
-      const substring = words.slice(i, i + windowSize).join(' ');
-      if (substring.length < minLength) continue;
-      const idx = content.indexOf(substring);
-      if (idx !== -1) {
-        return { start: idx, end: idx + substring.length, matchedText: substring };
-      }
-    }
-  }
-  return undefined;
-}
-
 function findSourceRange(content: string, quote: string | undefined): SourceRange | undefined {
-  if (!quote) return undefined;
+  if (!quote || quote.length < 3) return undefined;
 
-  let start = content.indexOf(quote);
-  if (start !== -1) {
-    return { start, end: start + quote.length, quote };
-  }
+  const maxDistance = Math.max(3, Math.floor(quote.length * 0.15));
+  const matches = [...fuzzySearch(quote, content, maxDistance)];
 
-  const contentLower = content.toLowerCase();
-  const quoteLower = quote.toLowerCase();
-  start = contentLower.indexOf(quoteLower);
-  if (start !== -1) {
-    const matchedText = content.slice(start, start + quote.length);
-    return { start, end: start + quote.length, quote: matchedText };
-  }
+  if (matches.length === 0) return undefined;
 
-  const contentNorm = normalizeWhitespace(content);
-  const quoteNorm = normalizeWhitespace(quote);
-  const normIdx = contentNorm.indexOf(quoteNorm);
-  if (normIdx !== -1) {
-    let origIdx = 0;
-    let normPos = 0;
-    while (normPos < normIdx && origIdx < content.length) {
-      if (/\s/.test(content[origIdx])) {
-        while (origIdx < content.length && /\s/.test(content[origIdx])) origIdx++;
-        normPos++;
-      } else {
-        origIdx++;
-        normPos++;
-      }
-    }
-    const matchEnd = origIdx + quote.length + 20;
-    const matchedText = content.slice(origIdx, Math.min(matchEnd, content.length)).trim();
-    if (matchedText.length >= quoteNorm.length * 0.8) {
-      return { start: origIdx, end: origIdx + matchedText.length, quote: matchedText };
-    }
-  }
-
-  const substringMatch = findLongestSubstringMatch(content, quote);
-  if (substringMatch) {
-    return {
-      start: substringMatch.start,
-      end: substringMatch.end,
-      quote: substringMatch.matchedText,
-    };
-  }
-
-  return undefined;
+  const best = matches.reduce((a, b) => (a.dist < b.dist ? a : b));
+  return {
+    start: best.start,
+    end: best.end,
+    quote: content.slice(best.start, best.end),
+  };
 }
 
 export async function analyzeEntry(
@@ -416,7 +358,7 @@ export async function getAggregatedInsights(startDate?: string, endDate?: string
     .sort((a, b) => b.mentions - a.mentions)
     .slice(0, MAX_AGGREGATED_ITEMS);
 
-  return { emotions, people, themes: [], goals: [], patterns: [] };
+  return { emotions, people };
 }
 
 export async function getAnalyticsStats(): Promise<AnalyticsStats> {
@@ -642,4 +584,115 @@ export async function getRawPersonInsights(limit: number = DEFAULT_RAW_INSIGHTS_
       source: meta?.source,
     };
   });
+}
+
+export interface FilteredInsightsOptions {
+  type?: 'emotion' | 'person';
+  name?: string;
+  sentiment?: 'positive' | 'negative' | 'neutral' | 'tense' | 'mixed';
+  limit?: number;
+}
+
+export interface FilteredEmotionInsight {
+  type: 'emotion';
+  emotion: string;
+  intensity: number;
+  trigger?: string;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  entryId: string;
+  entryDate: string;
+}
+
+export interface FilteredPersonInsight {
+  type: 'person';
+  name: string;
+  relationship?: string;
+  sentiment: RelationshipSentiment;
+  context?: string;
+  entryId: string;
+  entryDate: string;
+}
+
+export type FilteredInsight = FilteredEmotionInsight | FilteredPersonInsight;
+
+export async function getFilteredInsights(options: FilteredInsightsOptions = {}): Promise<FilteredInsight[]> {
+  const { type, name, sentiment, limit = 20 } = options;
+  const results: FilteredInsight[] = [];
+
+  if (!type || type === 'person') {
+    let query = `SELECT content, metadata, entry_id, entry_date FROM journal_insights WHERE insight_type = 'person'`;
+    const params: (string | number)[] = [];
+
+    if (name) {
+      params.push(name.toLowerCase());
+      query += ` AND LOWER(content) LIKE '%' || $${params.length} || '%'`;
+    }
+
+    if (sentiment) {
+      params.push(sentiment);
+      query += ` AND json_extract(metadata, '$.sentiment') = $${params.length}`;
+    }
+
+    query += ` ORDER BY entry_date DESC LIMIT ${limit}`;
+
+    const rows = await select<{
+      content: string;
+      metadata: string;
+      entry_id: string;
+      entry_date: string;
+    }>(query, params);
+
+    for (const r of rows) {
+      const meta: PersonMetadata | null = r.metadata ? JSON.parse(r.metadata) : null;
+      results.push({
+        type: 'person',
+        name: r.content,
+        relationship: meta?.relationship,
+        sentiment: meta?.sentiment || 'neutral',
+        context: meta?.context,
+        entryId: r.entry_id,
+        entryDate: r.entry_date,
+      });
+    }
+  }
+
+  if (!type || type === 'emotion') {
+    let query = `SELECT content, metadata, entry_id, entry_date FROM journal_insights WHERE insight_type = 'emotion'`;
+    const params: (string | number)[] = [];
+
+    if (name) {
+      params.push(name.toLowerCase());
+      query += ` AND LOWER(content) LIKE '%' || $${params.length} || '%'`;
+    }
+
+    if (sentiment && (sentiment === 'positive' || sentiment === 'negative' || sentiment === 'neutral')) {
+      params.push(sentiment);
+      query += ` AND json_extract(metadata, '$.sentiment') = $${params.length}`;
+    }
+
+    query += ` ORDER BY entry_date DESC LIMIT ${limit}`;
+
+    const rows = await select<{
+      content: string;
+      metadata: string;
+      entry_id: string;
+      entry_date: string;
+    }>(query, params);
+
+    for (const r of rows) {
+      const meta: EmotionMetadata | null = r.metadata ? JSON.parse(r.metadata) : null;
+      results.push({
+        type: 'emotion',
+        emotion: r.content,
+        intensity: meta?.intensity || DEFAULT_INTENSITY,
+        trigger: meta?.trigger,
+        sentiment: meta?.sentiment || 'neutral',
+        entryId: r.entry_id,
+        entryDate: r.entry_date,
+      });
+    }
+  }
+
+  results.sort((a, b) => b.entryDate.localeCompare(a.entryDate));
+  return results.slice(0, limit);
 }

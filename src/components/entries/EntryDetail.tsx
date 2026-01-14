@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { FiPlus } from 'react-icons/fi';
-import { Text, Button, TextArea } from '../themed';
-import { HighlightOverlay } from './HighlightOverlay';
+import { Text, Button } from '../themed';
+import { ContentEditableEditor } from './ContentEditableEditor';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { ENTRIES_CONSTANTS } from '../../constants/entries';
 import type { HighlightRange } from '../../hooks/useEntries';
@@ -20,7 +20,6 @@ interface EntryDetailProps {
 export default function EntryDetail({ entry, hasEntries, highlightRange, onUpdate, onCreateEntry, onClearHighlight }: EntryDetailProps) {
   const [content, setContent] = useState('');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (entry) {
@@ -34,24 +33,23 @@ export default function EntryDetail({ entry, hasEntries, highlightRange, onUpdat
     }
   }, [entry, onUpdate]);
 
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value;
+  const handleContentChange = useCallback((newContent: string) => {
     setContent(newContent);
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
     saveTimeoutRef.current = setTimeout(() => saveContent(newContent), AUTOSAVE_DELAY_MS);
-  };
+  }, [saveContent]);
 
-  const handleBlur = () => {
+  const handleBlur = useCallback(() => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
     if (entry) {
       saveContent(content);
     }
-  };
+  }, [entry, saveContent, content]);
 
   if (!entry) {
     return (
@@ -85,24 +83,15 @@ export default function EntryDetail({ entry, hasEntries, highlightRange, onUpdat
 
   return (
     <div className="entries-content">
-      <div style={{ position: 'relative', flex: 1, width: '100%', maxWidth: 'var(--entries-content-max-width)', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
-        <HighlightOverlay
-          content={content}
-          highlightRange={highlightRange}
-          textareaRef={textareaRef}
-          onDismiss={onClearHighlight}
-          className="entry-content-editor scrollbar-hidden"
-        />
-        <TextArea
-          ref={textareaRef}
-          className="entry-content-editor scrollbar-hidden"
-          style={{ background: highlightRange ? 'transparent' : undefined }}
-          value={content}
-          onChange={handleContentChange}
-          onBlur={handleBlur}
-          placeholder="Start writing..."
-        />
-      </div>
+      <ContentEditableEditor
+        value={content}
+        onChange={handleContentChange}
+        onBlur={handleBlur}
+        placeholder="Start writing..."
+        highlightRange={highlightRange}
+        onHighlightDismiss={onClearHighlight}
+        className="entry-content-editor scrollbar-hidden"
+      />
     </div>
   );
 }

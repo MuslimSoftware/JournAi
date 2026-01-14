@@ -10,6 +10,7 @@ import BottomSheet from './BottomSheet';
 import SwipeableListItem from './SwipeableListItem';
 import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
 import type { Chat } from '../../types/chatHistory';
+import '../../styles/mobile.css';
 
 export default function MobileChat() {
   const { theme } = useTheme();
@@ -65,52 +66,28 @@ export default function MobileChat() {
     transition: `padding-bottom ${CHAT.transition.layout}`,
   };
 
-  const headerStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '6px',
-    padding: '12px 16px',
-    borderBottom: `1px solid ${theme.colors.border.primary}`,
-    backgroundColor: isHeaderPressed ? theme.colors.background.secondary : theme.colors.background.primary,
-    cursor: 'pointer',
-    WebkitTapHighlightColor: 'transparent',
-    minHeight: '48px',
-    transition: 'background-color 0.1s ease-out',
-  };
-
+  const headerClass = `mobile-chat-header${isHeaderPressed ? ' mobile-chat-header--pressed' : ''}`;
+  const chevronClass = `mobile-chat-chevron${showHistory ? ' mobile-chat-chevron--open' : ''}`;
   const currentTitle = selectedChat?.title || 'New Chat';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div className="mobile-chat-container">
       <header
-        style={headerStyle}
+        className={headerClass}
+        style={{ backgroundColor: isHeaderPressed ? undefined : theme.colors.background.primary }}
         onClick={handleHeaderClick}
         onTouchStart={() => !isKeyboardOpen && setIsHeaderPressed(true)}
         onTouchEnd={() => setIsHeaderPressed(false)}
         onTouchCancel={() => setIsHeaderPressed(false)}
       >
-        <Text
-          variant="primary"
-          style={{
-            fontWeight: 600,
-            fontSize: '1rem',
-            maxWidth: '200px',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
+        <Text variant="primary" className="mobile-chat-title">
           {currentTitle}
         </Text>
         {!isKeyboardOpen && (
           <IoChevronDown
             size={16}
             color={theme.colors.text.muted}
-            style={{
-              transition: 'transform 0.2s ease',
-              transform: showHistory ? 'rotate(180deg)' : 'rotate(0deg)',
-            }}
+            className={chevronClass}
           />
         )}
       </header>
@@ -156,62 +133,44 @@ function ChatHistoryList({
   onDelete,
   onNewChat,
 }: ChatHistoryListProps) {
-  const { theme } = useTheme();
   const [pressedId, setPressedId] = useState<string | null>(null);
   const [isNewChatPressed, setIsNewChatPressed] = useState(false);
 
-  const newChatButtonStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '14px 16px',
-    backgroundColor: isNewChatPressed ? theme.colors.background.secondary : 'transparent',
-    border: 'none',
-    width: '100%',
-    cursor: 'pointer',
-    color: theme.colors.text.accent,
-    WebkitTapHighlightColor: 'transparent',
-    transition: 'background-color 0.1s ease-out',
+  const newChatButtonClass = `mobile-chat-new-button${isNewChatPressed ? ' mobile-chat-new-button--pressed' : ''}`;
+
+  const getChatItemClass = (id: string) => {
+    let className = 'mobile-chat-item';
+    if (id === selectedId) className += ' mobile-chat-item--selected';
+    if (pressedId === id) className += ' mobile-chat-item--pressed';
+    return className;
   };
 
-  const chatItemStyle = (isSelected: boolean, isPressed: boolean): CSSProperties => ({
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    padding: '14px 16px',
-    backgroundColor: isPressed ? theme.colors.background.tertiary : isSelected ? theme.colors.background.secondary : 'transparent',
-    borderRadius: '8px',
-    margin: '0 8px',
-    cursor: 'pointer',
-    transition: 'background-color 0.1s ease-out',
-  });
-
   return (
-    <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+    <div className="mobile-chat-history">
       <button
-        style={newChatButtonStyle}
+        className={newChatButtonClass}
         onClick={onNewChat}
         onTouchStart={() => setIsNewChatPressed(true)}
         onTouchEnd={() => setIsNewChatPressed(false)}
         onTouchCancel={() => setIsNewChatPressed(false)}
       >
         <IoAddOutline size={20} />
-        <Text variant="accent" style={{ fontWeight: 500 }}>New conversation</Text>
+        <Text variant="accent" className="mobile-chat-new-text">New conversation</Text>
       </button>
 
       {chats.length === 0 ? (
-        <div style={{ padding: '24px', textAlign: 'center' }}>
+        <div className="mobile-chat-empty">
           <Text variant="muted">No conversations yet</Text>
         </div>
       ) : (
-        <div style={{ paddingTop: '8px' }}>
+        <div className="mobile-chat-list">
           {chats.map((chat) => (
             <SwipeableListItem
               key={chat.id}
               onDelete={() => onDelete(chat.id)}
             >
               <div
-                style={chatItemStyle(chat.id === selectedId, pressedId === chat.id)}
+                className={getChatItemClass(chat.id)}
                 onClick={() => onSelect(chat.id)}
                 onTouchStart={() => setPressedId(chat.id)}
                 onTouchEnd={() => setPressedId(null)}
@@ -219,25 +178,12 @@ function ChatHistoryList({
               >
                 <Text
                   variant="primary"
-                  style={{
-                    fontWeight: chat.id === selectedId ? 600 : 400,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
+                  className={`mobile-chat-item__title${chat.id === selectedId ? ' mobile-chat-item__title--selected' : ''}`}
                 >
                   {chat.title}
                 </Text>
                 {chat.preview && (
-                  <Text
-                    variant="muted"
-                    style={{
-                      fontSize: '0.875rem',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                  <Text variant="muted" className="mobile-chat-item__preview">
                     {chat.preview}
                   </Text>
                 )}

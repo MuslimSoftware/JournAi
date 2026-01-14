@@ -1,6 +1,6 @@
 import { ReactNode, useState, useCallback, createContext, useContext } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { useTheme } from '../../contexts/ThemeContext';
+import '../../styles/mobile.css';
 
 interface Screen {
   key: string;
@@ -32,7 +32,6 @@ const SWIPE_THRESHOLD = 100;
 const EDGE_WIDTH = 30;
 
 export default function StackNavigator({ children, onEmpty }: StackNavigatorProps) {
-  const { theme } = useTheme();
   const [stack, setStack] = useState<Screen[]>([{ key: 'root', component: children }]);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
   const [dragX, setDragX] = useState(0);
@@ -94,26 +93,15 @@ export default function StackNavigator({ children, onEmpty }: StackNavigatorProp
 
   const dragProgress = Math.min(dragX / window.innerWidth, 1);
   const previousScreenX = isDragging ? -30 + dragProgress * 30 : 0;
+  const screenClass = `stack-screen${isDragging ? ' stack-screen--dragging' : ''}`;
 
   return (
     <StackContext.Provider value={{ push, pop, canGoBack: stack.length > 1 }}>
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          height: '100%',
-          overflow: 'hidden',
-          backgroundColor: theme.colors.background.primary,
-        }}
-      >
+      <div className="stack-navigator">
         {previousScreen && isDragging && (
           <motion.div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              x: `${previousScreenX}%`,
-              backgroundColor: theme.colors.background.primary,
-            }}
+            className="stack-screen"
+            style={{ x: `${previousScreenX}%` }}
           >
             {previousScreen.component}
           </motion.div>
@@ -137,12 +125,7 @@ export default function StackNavigator({ children, onEmpty }: StackNavigatorProp
             onDragStart={handleDragStart}
             onDrag={handleDrag}
             onDragEnd={handleDragEnd}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundColor: theme.colors.background.primary,
-              boxShadow: isDragging ? '-4px 0 20px rgba(0,0,0,0.15)' : 'none',
-            }}
+            className={screenClass}
           >
             {currentScreen.component}
           </motion.div>

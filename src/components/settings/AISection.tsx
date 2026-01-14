@@ -1,10 +1,11 @@
-import { CSSProperties, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { IoEye, IoEyeOff, IoCheckmarkCircle, IoAlertCircle } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Text, Button } from '../themed';
 import { appStore, STORE_KEYS } from '../../lib/store';
 import { getApiKey, setApiKey } from '../../lib/secureStorage';
 import type { OpenAIModel } from '../../types/chat';
+import '../../styles/settings.css';
 
 const MODELS: { value: OpenAIModel; label: string }[] = [
   { value: 'gpt-5.2', label: 'GPT-5.2 (Recommended)' },
@@ -13,8 +14,13 @@ const MODELS: { value: OpenAIModel; label: string }[] = [
   { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano (Fastest)' },
 ];
 
+function getSelectArrowImage(isDark: boolean): string {
+  const color = isDark ? '%23888888' : '%23666666';
+  return `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${color}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`;
+}
+
 export default function AISection() {
-  const { theme, mode } = useTheme();
+  const { mode } = useTheme();
   const [apiKeyValue, setApiKeyValue] = useState('');
   const [model, setModel] = useState<OpenAIModel>('gpt-5.2');
   const [showKey, setShowKey] = useState(false);
@@ -50,123 +56,42 @@ export default function AISection() {
     }
   };
 
-  const fieldStyle: CSSProperties = {
-    marginBottom: '16px',
-  };
-
-  const labelStyle: CSSProperties = {
-    display: 'block',
-    marginBottom: '6px',
-    fontSize: '0.8125rem',
-    fontWeight: 500,
-    color: theme.colors.text.secondary,
-  };
-
-  const inputContainerStyle: CSSProperties = {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-  };
-
-  const inputStyle: CSSProperties = {
-    width: '100%',
-    padding: '8px 36px 8px 10px',
-    borderRadius: '6px',
-    border: `1px solid ${theme.colors.border.primary}`,
-    backgroundColor: inputBg,
-    color: theme.colors.text.primary,
-    fontSize: '0.8125rem',
-    fontFamily: 'monospace',
-    outline: 'none',
-    transition: 'border-color 0.15s',
-  };
-
-  const toggleButtonStyle: CSSProperties = {
-    position: 'absolute',
-    right: '4px',
-    background: 'none',
-    border: 'none',
-    padding: '6px',
-    cursor: 'pointer',
-    color: theme.colors.text.muted,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '4px',
-  };
-
-  const selectStyle: CSSProperties = {
-    width: '100%',
-    padding: '8px 10px',
-    borderRadius: '6px',
-    border: `1px solid ${theme.colors.border.primary}`,
-    backgroundColor: inputBg,
-    color: theme.colors.text.primary,
-    fontSize: '0.8125rem',
-    outline: 'none',
-    cursor: 'pointer',
-    WebkitAppearance: 'none',
-    appearance: 'none',
-    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${isDark ? '%23888888' : '%23666666'}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'right 10px center',
-    paddingRight: '32px',
-  };
-
-  const hintStyle: CSSProperties = {
-    marginTop: '6px',
-    fontSize: '0.75rem',
-    color: theme.colors.text.muted,
-  };
-
-  const footerStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    marginTop: '20px',
-  };
-
-  const statusStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    fontSize: '0.8125rem',
-  };
-
   return (
     <div>
-      <Text as="h3" variant="primary" style={{ marginBottom: '16px', fontSize: '1rem' }}>
+      <Text as="h3" variant="primary" className="settings-section__title">
         AI Configuration
       </Text>
 
-      <div style={fieldStyle}>
-        <label style={labelStyle}>OpenAI API Key</label>
-        <div style={inputContainerStyle}>
+      <div className="settings-field">
+        <label className="settings-label">OpenAI API Key</label>
+        <div className="settings-input-container">
           <input
             type={showKey ? 'text' : 'password'}
             value={apiKeyValue}
             onChange={(e) => setApiKeyValue(e.target.value)}
             placeholder="sk-..."
-            style={inputStyle}
+            className="settings-input"
+            style={{ backgroundColor: inputBg }}
           />
           <button
             type="button"
             onClick={() => setShowKey(!showKey)}
-            style={toggleButtonStyle}
+            className="settings-toggle-button"
             aria-label={showKey ? 'Hide API key' : 'Show API key'}
           >
             {showKey ? <IoEyeOff size={14} /> : <IoEye size={14} />}
           </button>
         </div>
-        <p style={hintStyle}>Get your API key from platform.openai.com</p>
+        <p className="settings-hint">Get your API key from platform.openai.com</p>
       </div>
 
-      <div style={fieldStyle}>
-        <label style={labelStyle}>Model</label>
+      <div className="settings-field">
+        <label className="settings-label">Model</label>
         <select
           value={model}
           onChange={(e) => setModel(e.target.value as OpenAIModel)}
-          style={selectStyle}
+          className="settings-select"
+          style={{ backgroundColor: inputBg, backgroundImage: getSelectArrowImage(isDark) }}
         >
           {MODELS.map((m) => (
             <option key={m.value} value={m.value}>{m.label}</option>
@@ -174,22 +99,22 @@ export default function AISection() {
         </select>
       </div>
 
-      <div style={footerStyle}>
+      <div className="settings-footer">
         <Button variant="secondary" size="sm" onClick={handleSave} disabled={!apiKeyValue || status === 'saving'}>
           {status === 'saving' ? 'Saving...' : 'Save'}
         </Button>
         {status === 'saved' && (
-          <span style={{ ...statusStyle, color: theme.colors.status.success }}>
+          <span className="settings-status settings-status--success">
             <IoCheckmarkCircle size={14} /> Saved
           </span>
         )}
         {status === 'error' && (
-          <span style={{ ...statusStyle, color: theme.colors.status.error }}>
+          <span className="settings-status settings-status--error">
             <IoAlertCircle size={14} /> Error saving
           </span>
         )}
         {status === 'invalid' && (
-          <span style={{ ...statusStyle, color: theme.colors.status.error }}>
+          <span className="settings-status settings-status--error">
             <IoAlertCircle size={14} /> Invalid API key format
           </span>
         )}

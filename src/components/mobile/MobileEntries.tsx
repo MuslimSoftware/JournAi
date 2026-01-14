@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, CSSProperties } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { format, parseISO } from 'date-fns';
 import { IoRefresh } from 'react-icons/io5';
@@ -15,9 +15,12 @@ import { FiPlus, FiSearch, FiX } from 'react-icons/fi';
 import { groupEntriesByDate } from '../../utils/dateGrouping';
 import { formatEntryDate } from '../../utils/date';
 import type { JournalEntry } from '../../types/entry';
+import '../../styles/mobile.css';
 import 'react-day-picker/style.css';
 
 type View = 'list' | 'editor';
+
+const PULL_THRESHOLD = 70;
 
 export default function MobileEntries() {
   const { theme } = useTheme();
@@ -54,7 +57,7 @@ export default function MobileEntries() {
     handlers: pullHandlers,
   } = usePullToRefresh({
     onRefresh: handleRefresh,
-    threshold: 70,
+    threshold: PULL_THRESHOLD,
     maxPull: 100,
     disabled: isSearching || view !== 'list',
   });
@@ -143,44 +146,11 @@ export default function MobileEntries() {
     );
   }
 
-  const pullProgress = Math.min(pullDistance / 70, 1);
-
-  const pullIndicatorStyle: CSSProperties = {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: `${pullDistance}px`,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    transition: isPulling ? 'none' : 'height 0.3s cubic-bezier(0.2, 0, 0, 1)',
-  };
-
-  const indicatorContainerStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    backgroundColor: canRelease ? theme.colors.text.primary : 'transparent',
-    transition: isPulling ? 'none' : 'background-color 0.2s ease-out, transform 0.2s ease-out',
-    transform: `scale(${0.8 + pullProgress * 0.2})`,
-  };
-
-  const indicatorIconStyle: CSSProperties = {
-    color: canRelease ? theme.colors.background.primary : theme.colors.text.muted,
-    transform: `rotate(${pullProgress * 180}deg)`,
-    transition: isPulling ? 'color 0.2s ease-out' : 'transform 0.2s ease-out, color 0.2s ease-out',
-    animation: isRefreshing ? 'spin 0.8s linear infinite' : 'none',
-  };
-
-  const listContainerStyle: CSSProperties = {
-    transform: `translateY(${pullDistance}px)`,
-    transition: isPulling ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)',
-  };
+  const pullProgress = Math.min(pullDistance / PULL_THRESHOLD, 1);
+  const pullIndicatorClass = `mobile-pull-indicator${isPulling ? '' : ' mobile-pull-indicator--animated'}`;
+  const pullIconContainerClass = `mobile-pull-icon-container${canRelease ? ' mobile-pull-icon-container--can-release' : ''}${isPulling ? '' : ' mobile-pull-icon-container--animated'}`;
+  const pullIconClass = `mobile-pull-icon${isPulling ? '' : ' mobile-pull-icon--animated'}${canRelease ? ' mobile-pull-icon--can-release' : ''}`;
+  const listClass = `mobile-list-transform${isPulling ? '' : ' mobile-list-transform--animated'}`;
 
   return (
     <div
@@ -189,14 +159,31 @@ export default function MobileEntries() {
       {...pullHandlers}
     >
       {(pullDistance > 0 || isRefreshing) && (
-        <div style={pullIndicatorStyle}>
-          <div style={indicatorContainerStyle}>
-            <IoRefresh size={20} style={indicatorIconStyle} />
+        <div
+          className={pullIndicatorClass}
+          style={{ height: `${pullDistance}px` }}
+        >
+          <div
+            className={pullIconContainerClass}
+            style={{ transform: `scale(${0.8 + pullProgress * 0.2})` }}
+          >
+            <IoRefresh
+              size={20}
+              className={pullIconClass}
+              style={{
+                color: canRelease ? theme.colors.background.primary : theme.colors.text.muted,
+                transform: `rotate(${pullProgress * 180}deg)`,
+                animation: isRefreshing ? 'spin 0.8s linear infinite' : 'none',
+              }}
+            />
           </div>
         </div>
       )}
 
-      <div style={listContainerStyle}>
+      <div
+        className={listClass}
+        style={{ transform: `translateY(${pullDistance}px)` }}
+      >
         {entries.length > 0 && (
           <header
             className="mobile-entries-header"
@@ -257,7 +244,7 @@ export default function MobileEntries() {
 
         {entries.length === 0 ? (
           <div className="mobile-entries-empty">
-            <Text variant="muted" style={{ fontSize: '1rem' }}>
+            <Text variant="muted" className="mobile-empty-text">
               Start your journal
             </Text>
             <Button variant="primary" onClick={handleCreate}>
@@ -333,7 +320,7 @@ export default function MobileEntries() {
         onClose={() => setEditingDateEntry(null)}
         title="Change Date"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: '16px' }}>
+        <div className="mobile-date-picker-container">
           <DayPicker
             mode="single"
             selected={editingDateEntry ? parseISO(editingDateEntry.date) : undefined}
@@ -346,13 +333,6 @@ export default function MobileEntries() {
           />
         </div>
       </BottomSheet>
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }

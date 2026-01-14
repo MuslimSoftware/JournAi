@@ -7,7 +7,7 @@ import type {
   OpenAIToolResultMessage,
   ToolCall,
 } from '../types/chat';
-import type { RAGContext } from '../types/memory';
+import type { RAGContext, FilteredInsight } from '../types/memory';
 import { hybridSearch, type SearchResult } from './search';
 import { getEntriesByDateRange, getEntriesByIds } from './entries';
 import { getAggregatedInsights } from './analytics';
@@ -27,18 +27,18 @@ Be warm, empathetic, and encouraging while remaining helpful and informative.`;
 const RAG_SYSTEM_PROMPT = `You are a helpful AI assistant for a journaling app called JournAi.
 You have access to two types of information from the user's journal:
 
-1. **Pre-Analyzed Insights** (if present): Aggregated themes, emotions, goals, people mentioned, and behavioral patterns extracted from all journal entries. Use these for questions about patterns, trends, or "how am I doing" type questions.
+1. **Pre-Analyzed Insights** (if present): Aggregated emotions and people mentioned extracted from all journal entries. Use these for questions about emotional patterns or relationships.
 
 2. **Relevant Journal Entries**: Specific entries found via semantic search, relevant to the current question. Use these for specific questions, to provide evidence, or to give context with dates.
 
 CRITICAL RULES:
-- If the Pre-Analyzed Insights section says "No analytics data available", you MUST tell the user that analytics haven't been generated yet. DO NOT make up or infer patterns from journal entries - only report actual analyzed insights.
+- If the Pre-Analyzed Insights section says "No analytics data available", you MUST tell the user that analytics haven't been generated yet. DO NOT make up or infer insights from journal entries - only report actual analyzed insights.
 - If no journal entries are provided or the context is empty, do NOT claim to have read journal entries. Be honest that you don't have access to specific entries for this query.
 - If unsure whether the user wants you to look at their journal, ask for clarification.
 - For general conversation or questions not about the journal, respond naturally without referencing journal context.
 
 When answering questions:
-- For pattern/trend questions: ONLY use Pre-Analyzed Insights. If none exist, tell the user.
+- For emotional/relationship questions: ONLY use Pre-Analyzed Insights. If none exist, tell the user.
 - For specific questions: Reference journal entries by date if provided
 - Combine both when useful - insights for the big picture, entries for specific examples
 - Be warm and empathetic while providing actionable insights
@@ -67,19 +67,33 @@ export async function sendChatMessage(
     ...messages,
   ];
 
-  const response = await fetch(OPENAI_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: messagesWithSystem,
-      stream: true,
-    }),
-    signal,
-  });
+  let response: Response;
+  try {
+    response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: messagesWithSystem,
+        stream: true,
+      }),
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw error;
+      }
+      if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
+        throw new Error('Network connection lost. Please check your internet connection and try again.');
+      }
+      throw new Error(`Connection failed: ${error.message}`);
+    }
+    throw new Error('Failed to connect to AI service. Please try again.');
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -205,8 +219,8 @@ function isSummaryQuery(query: string): boolean {
 }
 
 function isInsightQuery(query: string): boolean {
-  return /\b(pattern|patterns|trend|trends|theme|themes|insight|insights)\b/i.test(query) ||
-    /\b(notice|observe|see)\s+(any|a)?\s*(pattern|trend|theme)/i.test(query) ||
+  return /\b(emotion|emotions|feeling|feelings|mood|moods)\b/i.test(query) ||
+    /\b(people|person|relationship|relationships)\b/i.test(query) ||
     /\bwhat\s+(do|did|have)\s+(you|i)\s+(notice|see|observe)/i.test(query) ||
     /\bhow\s+(am|have)\s+i\s+(doing|been|changed)/i.test(query);
 }
@@ -217,12 +231,12 @@ function requiresJournalContext(query: string): boolean {
     /\b(journal|entries|entry|diary|logs?)\b/i,
     /\b(yesterday|today|last\s+(week|month|year)|this\s+(week|month|year)|recently|lately)\b/i,
     /\b(remind|remember|recall|mentioned|wrote\s+about|talked\s+about)\b/i,
-    /\b(pattern|patterns|trend|trends|theme|themes|insight|insights)\b/i,
+    /\b(emotion|emotions|feeling|feelings|mood|moods|people|person|relationship|relationships)\b/i,
     /\b(summar|overview|review|reflect|analyze|analysis)\w*\b/i,
     /\b(how\s+(have|has|was|did|am)\s+(i|my))\b/i,
     /\b(what\s+(have|has|did)\s+i)\b/i,
     /\b(when\s+did\s+i|where\s+did\s+i|why\s+did\s+i)\b/i,
-    /\b(my\s+(life|health|career|relationship|goal|progress|habit|routine|mood|feeling|emotion))/i,
+    /\b(my\s+(life|health|career|relationship|habit|routine|mood|feeling|emotion))/i,
   ];
   return journalIndicators.some(pattern => pattern.test(query));
 }
@@ -230,28 +244,16 @@ function requiresJournalContext(query: string): boolean {
 async function buildInsightsContext(): Promise<{ context: string; hasData: boolean }> {
   const insights = await getAggregatedInsights();
 
-  const hasAnyInsights = insights.themes.length > 0 ||
-    insights.emotions.length > 0 ||
-    insights.goals.length > 0 ||
-    insights.people.length > 0 ||
-    insights.patterns.length > 0;
+  const hasAnyInsights = insights.emotions.length > 0 || insights.people.length > 0;
 
   if (!hasAnyInsights) {
     return {
-      context: '## Pre-Analyzed Journal Insights\n\n**No analytics data available.** The journal entries have not been analyzed yet. You cannot answer questions about patterns, trends, or insights until the analytics have been generated.\n\n',
+      context: '## Pre-Analyzed Journal Insights\n\n**No analytics data available.** The journal entries have not been analyzed yet. You cannot answer questions about emotions or people until the analytics have been generated.\n\n',
       hasData: false
     };
   }
 
   let context = '## Pre-Analyzed Journal Insights\n\n';
-
-  if (insights.themes.length > 0) {
-    context += '### Recurring Themes\n';
-    for (const t of insights.themes.slice(0, 5)) {
-      context += `- **${t.theme}** (${t.count} entries, most recent: ${t.recentDate})\n`;
-    }
-    context += '\n';
-  }
 
   if (insights.emotions.length > 0) {
     context += '### Emotional Patterns\n';
@@ -262,29 +264,12 @@ async function buildInsightsContext(): Promise<{ context: string; hasData: boole
     context += '\n';
   }
 
-  if (insights.goals.length > 0) {
-    context += '### Goals & Intentions\n';
-    for (const g of insights.goals.slice(0, 5)) {
-      const blockers = g.blockers ? ` - Blocker: ${g.blockers}` : '';
-      context += `- ${g.goal} [${g.progress}] (${g.mentions}x mentioned)${blockers}\n`;
-    }
-    context += '\n';
-  }
-
   if (insights.people.length > 0) {
     context += '### Key People\n';
     for (const p of insights.people.slice(0, 5)) {
       const rel = p.relationship ? ` (${p.relationship})` : '';
       const ctx = p.recentContext ? ` - ${p.recentContext}` : '';
       context += `- **${p.name}**${rel} [${p.sentiment}] - ${p.mentions} mentions${ctx}\n`;
-    }
-    context += '\n';
-  }
-
-  if (insights.patterns.length > 0) {
-    context += '### Behavioral Patterns\n';
-    for (const p of insights.patterns.slice(0, 5)) {
-      context += `- ${p.pattern} [${p.type}] (${p.count}x, ${p.firstSeen} to ${p.lastSeen})${p.impact ? ` - ${p.impact}` : ''}\n`;
     }
     context += '\n';
   }
@@ -433,19 +418,33 @@ export async function sendRAGChatMessage(
     { role: 'user', content: userMessage },
   ];
 
-  const response = await fetch(OPENAI_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: messagesWithContext,
-      stream: true,
-    }),
-    signal,
-  });
+  let response: Response;
+  try {
+    response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: messagesWithContext,
+        stream: true,
+      }),
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw error;
+      }
+      if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
+        throw new Error('Network connection lost. Please check your internet connection and try again.');
+      }
+      throw new Error(`Connection failed: ${error.message}`);
+    }
+    throw new Error('Failed to connect to AI service. Please try again.');
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -506,7 +505,7 @@ TODAY'S DATE: ${dateStr} (${dayName})
 
 WHEN TO USE TOOLS:
 - Use search_journal when the user asks about specific topics, events, or things they wrote
-- Use get_insights for questions about patterns, trends, themes, or "how am I doing"
+- Use get_insights for questions about emotions, people, or "how am I doing"
 - Use get_entries_by_date for time-based summaries like "this week" or "last month"
 - For general conversation not about the journal, respond directly without tools
 
@@ -638,27 +637,42 @@ export async function sendAgentChatMessage(
   ];
 
   const citedEntryIds = new Set<string>();
+  let capturedInsights: FilteredInsight[] = [];
   let iterations = 0;
 
   while (iterations < maxIterations) {
     iterations++;
 
-    const response = await fetch(OPENAI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        tools: AGENT_TOOLS,
-        tool_choice: 'auto',
-        stream: true,
-        parallel_tool_calls: false,
-      }),
-      signal,
-    });
+    let response: Response;
+    try {
+      response = await fetch(OPENAI_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          tools: AGENT_TOOLS,
+          tool_choice: 'auto',
+          stream: true,
+          parallel_tool_calls: false,
+        }),
+        signal,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw error;
+        }
+        if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
+          throw new Error('Network connection lost. Please check your internet connection and try again.');
+        }
+        throw new Error(`Connection failed: ${error.message}`);
+      }
+      throw new Error('Failed to connect to AI service. Please try again.');
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -672,14 +686,14 @@ export async function sendAgentChatMessage(
     );
 
     if (finishReason === 'stop' || !toolCalls || toolCalls.length === 0) {
-      callbacks.onComplete();
-
-      if (citedEntryIds.size > 0) {
+      if (citedEntryIds.size > 0 || capturedInsights) {
         callbacks.onContext?.({
           citations: Array.from(citedEntryIds).map((id) => ({ entryId: id })),
           entities: [],
+          insights: capturedInsights,
         });
       }
+      callbacks.onComplete();
       return;
     }
 
@@ -705,9 +719,16 @@ export async function sendAgentChatMessage(
         const result = await executeToolCall(toolCall.function.name as ToolName, args);
 
         if (result.success && Array.isArray(result.data)) {
-          for (const item of result.data as Array<{ entryId?: string; id?: string }>) {
-            if (item.entryId) citedEntryIds.add(item.entryId);
-            if (item.id) citedEntryIds.add(item.id);
+          if (toolCall.function.name === 'get_insights') {
+            capturedInsights = result.data as FilteredInsight[];
+            for (const insight of capturedInsights) {
+              if (insight.entryId) citedEntryIds.add(insight.entryId);
+            }
+          } else {
+            for (const item of result.data as Array<{ entryId?: string; id?: string }>) {
+              if (item.entryId) citedEntryIds.add(item.entryId);
+              if (item.id) citedEntryIds.add(item.id);
+            }
           }
         }
 

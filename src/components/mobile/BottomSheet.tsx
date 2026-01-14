@@ -1,6 +1,5 @@
-import { ReactNode, useEffect, useRef, useState, useCallback, CSSProperties } from 'react';
+import { ReactNode, useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useTheme } from '../../contexts/ThemeContext';
 import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
 import { useSpringAnimation } from '../../hooks/useSpringAnimation';
 import '../../styles/bottom-sheet.css';
@@ -21,6 +20,11 @@ interface BottomSheetProps {
 
 const VELOCITY_THRESHOLD = 0.5;
 const DISMISS_THRESHOLD = 0.3;
+const HEIGHT_MAP = {
+  auto: '90dvh',
+  half: '50dvh',
+  full: 'calc(100dvh - var(--mobile-safe-area-top) - 20px)',
+};
 
 export default function BottomSheet({
   isOpen,
@@ -33,7 +37,6 @@ export default function BottomSheet({
   enableSwipeToDismiss = true,
   onSnapChange,
 }: BottomSheetProps) {
-  const { theme } = useTheme();
   const sheetRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [sheetHeight, setSheetHeight] = useState(0);
@@ -211,93 +214,39 @@ export default function BottomSheet({
 
   if (!isVisible) return null;
 
-  const overlayStyle: CSSProperties = {
-    position: 'fixed',
-    inset: 0,
-    backgroundColor: `rgba(0, 0, 0, ${0.5 * overlayOpacity})`,
-    zIndex: 2000,
-    transition: isDragging ? 'none' : 'background-color 0.3s ease',
-  };
-
-  const heightMap = {
-    auto: '90dvh',
-    half: '50dvh',
-    full: 'calc(100dvh - var(--mobile-safe-area-top) - 20px)',
-  };
-
-  const sheetStyle: CSSProperties = {
-    position: 'fixed',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    maxHeight: heightMap[height],
-    backgroundColor: theme.colors.background.primary,
-    borderTopLeftRadius: '12px',
-    borderTopRightRadius: '12px',
-    zIndex: 2001,
-    transform: `translateY(${translateY}px)`,
-    transition: isDragging ? 'none' : undefined,
-    paddingBottom: 'var(--mobile-safe-area-bottom)',
-    willChange: 'transform',
-  };
-
-  const handleStyle: CSSProperties = {
-    width: '36px',
-    height: '5px',
-    backgroundColor: theme.colors.border.primary,
-    borderRadius: '2.5px',
-    margin: '8px auto 4px',
-    opacity: 0.6,
-  };
-
-  const handleAreaStyle: CSSProperties = {
-    padding: '4px 0',
-    cursor: 'grab',
-  };
-
-  const headerStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '8px 16px 12px',
-    borderBottom: title ? `1px solid ${theme.colors.border.primary}` : 'none',
-  };
-
-  const titleStyle: CSSProperties = {
-    fontSize: '1.0625rem',
-    fontWeight: 600,
-    color: theme.colors.text.primary,
-  };
-
-  const contentStyle: CSSProperties = {
-    padding: '16px',
-    overflowY: 'auto',
-    maxHeight: 'calc(90dvh - 80px)',
-    WebkitOverflowScrolling: 'touch',
-  };
+  const overlayClass = `bottom-sheet-overlay${isDragging ? '' : ' bottom-sheet-overlay--animated'}`;
+  const headerClass = `bottom-sheet-header${title ? ' bottom-sheet-header--with-border' : ''}`;
 
   return createPortal(
     <>
-      <div style={overlayStyle} onClick={handleOverlayClick} />
+      <div
+        className={overlayClass}
+        style={{ backgroundColor: `rgba(0, 0, 0, ${0.5 * overlayOpacity})` }}
+        onClick={handleOverlayClick}
+      />
       <div
         ref={sheetRef}
-        style={sheetStyle}
         className="bottom-sheet"
+        style={{
+          maxHeight: HEIGHT_MAP[height],
+          transform: `translateY(${translateY}px)`,
+          transition: isDragging ? 'none' : undefined,
+        }}
       >
         <div
-          style={handleAreaStyle}
+          className="bottom-sheet-handle-area"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <div style={handleStyle} className="bottom-sheet-handle" />
+          <div className="bottom-sheet-handle" />
         </div>
         {title && (
-          <div style={headerStyle}>
-            <span style={titleStyle}>{title}</span>
+          <div className={headerClass}>
+            <span className="bottom-sheet-title">{title}</span>
           </div>
         )}
-        <div ref={contentRef} style={contentStyle}>{children}</div>
+        <div ref={contentRef} className="bottom-sheet-content">{children}</div>
       </div>
     </>,
     document.body

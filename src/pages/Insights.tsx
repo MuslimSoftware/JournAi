@@ -1,10 +1,9 @@
-import { CSSProperties, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IoSettingsOutline } from 'react-icons/io5';
 import { Container, Text, Spinner } from '../components/themed';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { useSettings } from '../contexts/SettingsContext';
-import { useTheme } from '../contexts/ThemeContext';
 import { useInsights, TimeFilter, SentimentFilter } from '../contexts/InsightsContext';
 import { useEntryNavigation } from '../contexts/EntryNavigationContext';
 import {
@@ -16,12 +15,6 @@ import { parseLocalDate } from '../utils/date';
 import { hapticSelection } from '../hooks/useHaptics';
 import '../styles/insights.css';
 
-const INTENSITY_COLORS = {
-  positive: '#22C55E',
-  negative: '#EF4444',
-  neutral: '#6B7280',
-};
-
 const SENTIMENT_COLORS = {
   positive: '#10b981',
   negative: '#ef4444',
@@ -32,9 +25,6 @@ const SENTIMENT_COLORS = {
 
 const INTENSITY_BAR_COUNT = 10;
 const RAW_INSIGHTS_QUERY_LIMIT = 500;
-const DROPDOWN_ZINDEX = 100;
-const DETAIL_GRID_COLUMNS_MOBILE = 2;
-const DETAIL_GRID_COLUMNS_DESKTOP = 4;
 
 interface TimeFilterGroup {
   label: string;
@@ -170,6 +160,11 @@ function groupByYear<T extends { entryDate: string }>(items: T[]): Map<number, T
   return new Map([...groups.entries()].sort((a, b) => b[0] - a[0]));
 }
 
+function getIntensityBarClass(sentiment: 'positive' | 'negative' | 'neutral', isFilled: boolean): string {
+  if (!isFilled) return 'insights-intensity-bar';
+  return `insights-intensity-bar insights-intensity-bar--filled-${sentiment}`;
+}
+
 type AggregatedEmotion = { emotion: string; avgIntensity: number; count: number; triggers: string[]; sentiment: 'positive' | 'negative' | 'neutral' };
 type AggregatedPerson = { name: string; relationship?: string; sentiment: string; mentions: number; recentContext?: string };
 
@@ -190,7 +185,6 @@ export default function Insights() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { openSettings } = useSettings();
-  const { theme } = useTheme();
   const { navigateToEntry } = useEntryNavigation();
   const {
     aggregated,
@@ -269,32 +263,9 @@ export default function Insights() {
     loadData();
   }, [timeFilter, reloadTrigger, setAggregated, setRawEmotions, setRawPeople, setDataLoaded]);
 
-  const headerStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: isMobile ? '12px 16px' : '0 0 16px',
-    minHeight: isMobile ? '56px' : undefined,
-  };
-
-  const iconButtonStyle: CSSProperties = {
-    background: 'none',
-    border: 'none',
-    padding: '8px',
-    color: theme.colors.text.muted,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  };
-
-  const contentStyle: CSSProperties = {
-    padding: isMobile ? '0 16px 100px' : '0',
-  };
-
   if (loading) {
     return (
-      <div style={{ height: '100%', backgroundColor: theme.colors.background.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="insights-loading">
         <Spinner size="lg" />
       </div>
     );
@@ -303,7 +274,7 @@ export default function Insights() {
   if (error) {
     return (
       <Container variant="primary" padding="lg">
-        <div style={{ textAlign: 'center', padding: '40px' }}>
+        <div className="insights-error">
           <Text variant="muted">{error}</Text>
         </div>
       </Container>
@@ -323,110 +294,38 @@ export default function Insights() {
 
   const renderEmotionsColumn = () => (
     <div>
-      <Text style={{
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em',
-        color: theme.colors.text.muted,
-        marginBottom: '12px',
-        display: 'block',
-      }}>
-        Emotions
-      </Text>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: '6px',
-      }}>
+      <Text className="insights-section-title">Emotions</Text>
+      <div className="insights-card-grid">
         {filteredEmotions?.map((e, i) => {
           const isSelected = selectedEmotion?.toLowerCase() === e.emotion.toLowerCase();
-          const barColor = INTENSITY_COLORS[e.sentiment] || INTENSITY_COLORS.neutral;
           return (
             <div
               key={i}
-              className="insight-aggregate-card"
+              className={`insights-emotion-card insight-aggregate-card${isSelected ? ' insights-emotion-card--selected' : ''}`}
               onClick={() => {
                 if (isMobile) hapticSelection();
                 setSelectedEmotion(isSelected ? null : e.emotion);
                 setSelectedPerson(null);
                 setSelectedOccurrenceIndex(null);
               }}
-              style={{
-                padding: '10px 12px',
-                borderRadius: '8px',
-                backgroundColor: theme.colors.background.secondary,
-                border: `1px solid ${isSelected ? theme.colors.text.primary : theme.colors.border.primary}`,
-                cursor: 'pointer',
-                transition: 'border-color 0.2s ease, background-color 0.2s ease',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
             >
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '6px',
-              }}>
-                <span style={{
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  color: theme.colors.text.primary,
-                  textTransform: 'capitalize',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {e.emotion}
-                </span>
-                <span style={{
-                  fontSize: '0.8rem',
-                  color: theme.colors.text.muted,
-                  marginLeft: '4px',
-                  flexShrink: 0,
-                }}>
-                  {e.count}x
-                </span>
+              <div className="insights-emotion-card__header">
+                <span className="insights-emotion-card__name">{e.emotion}</span>
+                <span className="insights-emotion-card__count">{e.count}x</span>
               </div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                marginTop: 'auto',
-              }}>
-                <div style={{
-                  flex: 1,
-                  display: 'flex',
-                  gap: '2px',
-                }}>
+              <div className="insights-emotion-card__intensity">
+                <div className="insights-intensity-bars">
                   {Array.from({ length: INTENSITY_BAR_COUNT }, (_, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        flex: 1,
-                        height: '4px',
-                        borderRadius: '1px',
-                        backgroundColor: i < e.avgIntensity
-                          ? barColor
-                          : theme.colors.background.primary,
-                      }}
-                    />
+                    <div key={i} className={getIntensityBarClass(e.sentiment, i < e.avgIntensity)} />
                   ))}
                 </div>
-                <span style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  color: theme.colors.text.muted,
-                }}>
-                  {e.avgIntensity}
-                </span>
+                <span className="insights-intensity-value">{e.avgIntensity}</span>
               </div>
             </div>
           );
         })}
         {(!filteredEmotions || filteredEmotions.length === 0) && (
-          <Text variant="muted" style={{ fontSize: '0.85rem', padding: '20px 0' }}>No emotions found</Text>
+          <Text variant="muted" className="insights-empty-message">No emotions found</Text>
         )}
       </div>
     </div>
@@ -434,114 +333,45 @@ export default function Insights() {
 
   const renderPeopleColumn = () => (
     <div>
-      <Text style={{
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em',
-        color: theme.colors.text.muted,
-        marginBottom: '12px',
-        display: 'block',
-      }}>
-        People
-      </Text>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: '6px',
-      }}>
+      <Text className="insights-section-title">People</Text>
+      <div className="insights-card-grid">
         {filteredPeople?.map((p, i) => {
           const isSelected = selectedPerson?.toLowerCase() === p.name.toLowerCase();
+          const sentimentColor = getSentimentColor(p.sentiment);
           return (
             <div
               key={i}
-              className="insight-aggregate-card"
+              className={`insights-person-card insight-aggregate-card${isSelected ? ' insights-person-card--selected' : ''}`}
               onClick={() => {
                 if (isMobile) hapticSelection();
                 setSelectedPerson(isSelected ? null : p.name);
                 setSelectedEmotion(null);
                 setSelectedOccurrenceIndex(null);
               }}
-              style={{
-                padding: '10px',
-                borderRadius: '8px',
-                backgroundColor: theme.colors.background.secondary,
-                border: `1px solid ${isSelected ? theme.colors.text.primary : theme.colors.border.primary}`,
-                cursor: 'pointer',
-                transition: 'border-color 0.2s ease, background-color 0.2s ease',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                minHeight: '52px',
-              }}
             >
-              <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                <div
-                  className="person-name-row"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    marginBottom: '2px',
-                    minWidth: 0,
-                  }}
-                >
-                  <span
-                    className="person-name"
-                    style={{
-                      fontSize: '0.9rem',
-                      fontWeight: 600,
-                      color: theme.colors.text.primary,
-                      textTransform: 'capitalize',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      minWidth: 0,
-                      flex: '0 1 auto',
-                    }}
-                  >
-                    {p.name}
-                  </span>
+              <div className="insights-person-card__info">
+                <div className="insights-person-card__name-row person-name-row">
+                  <span className="insights-person-card__name person-name">{p.name}</span>
                   {p.relationship && (
-                    <span
-                      className="person-relationship"
-                      style={{
-                        fontSize: '0.7rem',
-                        color: theme.colors.text.muted,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        minWidth: 0,
-                      }}
-                    >
-                      · {p.relationship}
-                    </span>
+                    <span className="insights-person-card__relationship person-relationship">· {p.relationship}</span>
                   )}
                 </div>
-                <div style={{
-                  fontSize: '0.75rem',
-                  color: theme.colors.text.muted,
-                }}>
-                  {p.mentions} mentions
-                </div>
+                <div className="insights-person-card__mentions">{p.mentions} mentions</div>
               </div>
-              <span style={{
-                fontSize: '0.75rem',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                backgroundColor: `${getSentimentColor(p.sentiment)}18`,
-                color: getSentimentColor(p.sentiment),
-                fontWeight: 600,
-                textTransform: 'capitalize',
-                flexShrink: 0,
-              }}>
+              <span
+                className="insights-sentiment-badge"
+                style={{
+                  backgroundColor: `${sentimentColor}18`,
+                  color: sentimentColor,
+                }}
+              >
                 {p.sentiment}
               </span>
             </div>
           );
         })}
         {(!filteredPeople || filteredPeople.length === 0) && (
-          <Text variant="muted" style={{ fontSize: '0.85rem', padding: '20px 0' }}>No people found</Text>
+          <Text variant="muted" className="insights-empty-message">No people found</Text>
         )}
       </div>
     </div>
@@ -555,19 +385,11 @@ export default function Insights() {
       let globalIndex = 0;
 
       return (
-        <div style={{ marginTop: '40px' }}>
-          <Text style={{
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            color: theme.colors.text.muted,
-            marginBottom: '16px',
-            display: 'block',
-          }}>
+        <div className="insights-detail-section">
+          <Text className="insights-detail-section__title">
             {selectedEmotion} occurrences ({filteredEmotionEntries.length})
           </Text>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div className="insights-year-groups">
             {years.map((year) => {
               const yearEntries = groupedByYear.get(year)!;
               const startIndex = globalIndex;
@@ -575,100 +397,51 @@ export default function Insights() {
 
               return (
                 <div key={year}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    marginBottom: '12px',
-                  }}>
-                    <span style={{
-                      fontSize: '0.9rem',
-                      fontWeight: 700,
-                      color: theme.colors.text.primary,
-                    }}>
+                  <div className="insights-year-header">
+                    <span className="insights-year-header__title">
                       {year === currentYear ? 'This Year' : year}
                     </span>
-                    <span style={{
-                      fontSize: '0.75rem',
-                      color: theme.colors.text.muted,
-                    }}>
+                    <span className="insights-year-header__count">
                       {yearEntries.length} {yearEntries.length === 1 ? 'occurrence' : 'occurrences'}
                     </span>
-                    <div style={{
-                      flex: 1,
-                      height: '1px',
-                      backgroundColor: theme.colors.border.primary,
-                    }} />
+                    <div className="insights-year-header__line" />
                   </div>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${isMobile ? DETAIL_GRID_COLUMNS_MOBILE : DETAIL_GRID_COLUMNS_DESKTOP}, 1fr)`,
-                    gap: '8px',
-                  }}>
+                  <div className={`insights-detail-grid ${isMobile ? 'insights-detail-grid--mobile' : 'insights-detail-grid--desktop'}`}>
                     {yearEntries.map((e, i) => {
                       const idx = startIndex + i;
                       const isSelected = selectedOccurrenceIndex === idx && selectedEmotion;
+                      const sentimentColor = getSentimentColor(e.sentiment);
                       return (
                         <div
                           key={`${e.entryId}-${idx}`}
-                          className={`insight-detail-card${isSelected ? ' selected' : ''}`}
-                          onClick={() => { if (isMobile) hapticSelection(); setSelectedOccurrenceIndex(idx); navigateToEntry(e.entryId, e.source ? { start: e.source.start, end: e.source.end } : undefined); navigate('/entries'); }}
-                          style={{
-                            padding: '12px',
-                            backgroundColor: theme.colors.background.secondary,
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            border: `1px solid ${isSelected ? theme.colors.text.primary : theme.colors.border.primary}`,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '10px',
+                          className={`insights-occurrence-card insight-detail-card${isSelected ? ' insights-occurrence-card--selected selected' : ''}`}
+                          onClick={() => {
+                            if (isMobile) hapticSelection();
+                            setSelectedOccurrenceIndex(idx);
+                            navigateToEntry(e.entryId, e.source ? { start: e.source.start, end: e.source.end } : undefined);
+                            navigate('/entries');
                           }}
                         >
-                          <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                          }}>
-                            <span style={{
-                              fontSize: '0.85rem',
-                              fontWeight: 500,
-                              color: theme.colors.text.muted,
-                            }}>
+                          <div className="insights-occurrence-card__header">
+                            <span className="insights-occurrence-card__date">
                               {formatDateWithoutYear(e.entryDate)}
                             </span>
-                            <div style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                            }}>
-                              <div style={{
-                                display: 'flex',
-                                gap: '2px',
-                              }}>
+                            <div className="insights-occurrence-card__intensity">
+                              <div className="insights-occurrence-intensity-bars">
                                 {Array.from({ length: INTENSITY_BAR_COUNT }, (_, idx) => (
                                   <div
                                     key={idx}
+                                    className="insights-occurrence-intensity-bar"
                                     style={{
-                                      width: '6px',
-                                      height: '6px',
-                                      borderRadius: '1.5px',
-                                      backgroundColor: idx < e.intensity
-                                        ? getSentimentColor(e.sentiment)
-                                        : theme.colors.background.primary,
+                                      backgroundColor: idx < e.intensity ? sentimentColor : undefined,
                                     }}
                                   />
                                 ))}
                               </div>
-                              <span style={{ fontSize: '0.8rem', fontWeight: 500, color: theme.colors.text.muted }}>
-                                {e.intensity}
-                              </span>
+                              <span className="insights-occurrence-card__intensity-value">{e.intensity}</span>
                             </div>
                           </div>
-                          <div style={{
-                            fontSize: '0.9rem',
-                            color: theme.colors.text.secondary,
-                            lineHeight: '1.45',
-                          }}>
+                          <div className="insights-occurrence-card__content">
                             {e.trigger || 'No trigger'}
                           </div>
                           <span className="insight-detail-card-tip">Go to occurrence →</span>
@@ -691,19 +464,11 @@ export default function Insights() {
       let globalIndex = 0;
 
       return (
-        <div style={{ marginTop: '40px' }}>
-          <Text style={{
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            color: theme.colors.text.muted,
-            marginBottom: '16px',
-            display: 'block',
-          }}>
+        <div className="insights-detail-section">
+          <Text className="insights-detail-section__title">
             {selectedPerson} occurrences ({filteredPeopleEntries.length})
           </Text>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div className="insights-year-groups">
             {years.map((year) => {
               const yearEntries = groupedByYear.get(year)!;
               const startIndex = globalIndex;
@@ -711,84 +476,46 @@ export default function Insights() {
 
               return (
                 <div key={year}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    marginBottom: '12px',
-                  }}>
-                    <span style={{
-                      fontSize: '0.9rem',
-                      fontWeight: 700,
-                      color: theme.colors.text.primary,
-                    }}>
+                  <div className="insights-year-header">
+                    <span className="insights-year-header__title">
                       {year === currentYear ? 'This Year' : year}
                     </span>
-                    <span style={{
-                      fontSize: '0.75rem',
-                      color: theme.colors.text.muted,
-                    }}>
+                    <span className="insights-year-header__count">
                       {yearEntries.length} {yearEntries.length === 1 ? 'occurrence' : 'occurrences'}
                     </span>
-                    <div style={{
-                      flex: 1,
-                      height: '1px',
-                      backgroundColor: theme.colors.border.primary,
-                    }} />
+                    <div className="insights-year-header__line" />
                   </div>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${isMobile ? DETAIL_GRID_COLUMNS_MOBILE : DETAIL_GRID_COLUMNS_DESKTOP}, 1fr)`,
-                    gap: '8px',
-                  }}>
+                  <div className={`insights-detail-grid ${isMobile ? 'insights-detail-grid--mobile' : 'insights-detail-grid--desktop'}`}>
                     {yearEntries.map((p, i) => {
                       const idx = startIndex + i;
                       const isSelected = selectedOccurrenceIndex === idx && selectedPerson;
+                      const sentimentColor = getSentimentColor(p.sentiment);
                       return (
                         <div
                           key={`${p.entryId}-${idx}`}
-                          className={`insight-detail-card${isSelected ? ' selected' : ''}`}
-                          onClick={() => { if (isMobile) hapticSelection(); setSelectedOccurrenceIndex(idx); navigateToEntry(p.entryId, p.source ? { start: p.source.start, end: p.source.end } : undefined); navigate('/entries'); }}
-                          style={{
-                            padding: '14px',
-                            backgroundColor: theme.colors.background.secondary,
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            border: `1px solid ${isSelected ? theme.colors.text.primary : theme.colors.border.primary}`,
-                            display: 'flex',
-                            flexDirection: 'column',
+                          className={`insights-occurrence-card insights-occurrence-card--person insight-detail-card${isSelected ? ' insights-occurrence-card--selected selected' : ''}`}
+                          onClick={() => {
+                            if (isMobile) hapticSelection();
+                            setSelectedOccurrenceIndex(idx);
+                            navigateToEntry(p.entryId, p.source ? { start: p.source.start, end: p.source.end } : undefined);
+                            navigate('/entries');
                           }}
                         >
-                          <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '12px',
-                          }}>
-                            <span style={{
-                              fontSize: '0.85rem',
-                              fontWeight: 500,
-                              color: theme.colors.text.muted,
-                            }}>
+                          <div className="insights-occurrence-card__header insights-occurrence-card__header--person">
+                            <span className="insights-occurrence-card__date">
                               {formatDateWithoutYear(p.entryDate)}
                             </span>
-                            <span style={{
-                              fontSize: '0.8rem',
-                              padding: '4px 10px',
-                              borderRadius: '6px',
-                              backgroundColor: `${getSentimentColor(p.sentiment)}18`,
-                              color: getSentimentColor(p.sentiment),
-                              fontWeight: 600,
-                              textTransform: 'capitalize',
-                            }}>
+                            <span
+                              className="insights-person-badge"
+                              style={{
+                                backgroundColor: `${sentimentColor}18`,
+                                color: sentimentColor,
+                              }}
+                            >
                               {p.sentiment}
                             </span>
                           </div>
-                          <div style={{
-                            fontSize: '0.9rem',
-                            color: theme.colors.text.secondary,
-                            lineHeight: '1.45',
-                          }}>
+                          <div className="insights-occurrence-card__content">
                             {p.context || 'No context'}
                           </div>
                           <span className="insight-detail-card-tip">Go to occurrence →</span>
@@ -815,129 +542,69 @@ export default function Insights() {
   ];
 
   const content = (
-    <div style={contentStyle}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        <div ref={filterDropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
+    <div className={`insights-content${isMobile ? ' insights-content--mobile' : ''}`}>
+      <div className="insights-filters">
+        <div ref={filterDropdownRef} className="insights-filter-dropdown">
           <button
             onClick={() => { if (isMobile) hapticSelection(); setShowFilterDropdown(!showFilterDropdown); }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: isMobile ? '10px 14px' : '8px 12px',
-              fontSize: isMobile ? '0.9rem' : '0.85rem',
-              fontWeight: 500,
-              color: theme.colors.text.primary,
-              backgroundColor: theme.colors.background.secondary,
-              border: `1px solid ${theme.colors.border.primary}`,
-              borderRadius: '8px',
-              cursor: 'pointer',
-              minHeight: isMobile ? '44px' : undefined,
-              WebkitTapHighlightColor: 'transparent',
-            }}
+            className={`insights-filter-button${isMobile ? ' insights-filter-button--mobile' : ''}`}
           >
             {getFilterLabel(timeFilter)}
-            <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>▼</span>
+            <span className="insights-filter-button__arrow">▼</span>
           </button>
-        {showFilterDropdown && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              marginTop: '4px',
-              backgroundColor: theme.colors.background.secondary,
-              border: `1px solid ${theme.colors.border.primary}`,
-              borderRadius: '8px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              zIndex: DROPDOWN_ZINDEX,
-              minWidth: '160px',
-              overflow: 'hidden',
-            }}
-          >
-            {TIME_FILTER_GROUPS.map((group, gi) => (
-              <div key={gi}>
-                {group.label && (
-                  <div style={{
-                    padding: '6px 12px 4px',
-                    fontSize: '0.65rem',
-                    fontWeight: 600,
-                    color: theme.colors.text.muted,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    borderTop: gi > 0 ? `1px solid ${theme.colors.border.primary}` : 'none',
-                  }}>
-                    {group.label}
-                  </div>
-                )}
-                {group.options.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => {
-                      if (isMobile) hapticSelection();
-                      setTimeFilter(option.value);
-                      setShowFilterDropdown(false);
-                      resetSelections();
-                    }}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      padding: '8px 12px',
-                      fontSize: '0.8rem',
-                      fontWeight: timeFilter === option.value ? 600 : 400,
-                      color: timeFilter === option.value ? theme.colors.text.primary : theme.colors.text.secondary,
-                      backgroundColor: timeFilter === option.value ? theme.colors.background.primary : 'transparent',
-                      border: 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
+          {showFilterDropdown && (
+            <div className="insights-filter-menu">
+              {TIME_FILTER_GROUPS.map((group, gi) => (
+                <div key={gi}>
+                  {group.label && (
+                    <div className={`insights-filter-group-label${gi > 0 ? ' insights-filter-group-label--bordered' : ''}`}>
+                      {group.label}
+                    </div>
+                  )}
+                  {group.options.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => {
+                        if (isMobile) hapticSelection();
+                        setTimeFilter(option.value);
+                        setShowFilterDropdown(false);
+                        resetSelections();
+                      }}
+                      className={`insights-filter-option${timeFilter === option.value ? ' insights-filter-option--active' : ''}`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        <div style={{ display: 'flex', gap: '4px' }}>
-          {sentimentOptions.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => {
-                if (isMobile) hapticSelection();
-                setSentimentFilter(opt.value);
-                resetSelections();
-              }}
-              style={{
-                padding: isMobile ? '10px 14px' : '6px 10px',
-                fontSize: isMobile ? '0.85rem' : '0.75rem',
-                fontWeight: sentimentFilter === opt.value ? 600 : 400,
-                color: sentimentFilter === opt.value
-                  ? (opt.color || theme.colors.text.primary)
-                  : theme.colors.text.muted,
-                backgroundColor: sentimentFilter === opt.value
-                  ? (opt.color ? `${opt.color}15` : theme.colors.background.secondary)
-                  : 'transparent',
-                border: `1px solid ${sentimentFilter === opt.value
-                  ? (opt.color || theme.colors.border.primary)
-                  : 'transparent'}`,
-                borderRadius: '6px',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                minHeight: isMobile ? '44px' : undefined,
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="insights-sentiment-filters">
+          {sentimentOptions.map((opt) => {
+            const isActive = sentimentFilter === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  if (isMobile) hapticSelection();
+                  setSentimentFilter(opt.value);
+                  resetSelections();
+                }}
+                className={`insights-sentiment-button${isMobile ? ' insights-sentiment-button--mobile' : ''}${isActive ? ' insights-sentiment-button--active' : ''}`}
+                style={isActive ? {
+                  color: opt.color || undefined,
+                  backgroundColor: opt.color ? `${opt.color}15` : undefined,
+                  borderColor: opt.color || undefined,
+                } : undefined}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
       </div>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-        gap: '24px',
-      }}>
+      <div className={`insights-columns${isMobile ? ' insights-columns--mobile' : ''}`}>
         {renderEmotionsColumn()}
         {renderPeopleColumn()}
       </div>
@@ -947,10 +614,10 @@ export default function Insights() {
 
   if (isMobile) {
     return (
-      <div style={{ height: '100%', backgroundColor: theme.colors.background.primary, overflowY: 'auto' }}>
-        <header style={headerStyle}>
-          <Text style={{ fontSize: '1.5rem', fontWeight: 700 }}>Insights</Text>
-          <button onClick={openSettings} style={iconButtonStyle} aria-label="Settings">
+      <div className="insights-page">
+        <header className="insights-header insights-header--mobile">
+          <Text className="insights-header__title--mobile">Insights</Text>
+          <button onClick={openSettings} className="insights-icon-button" aria-label="Settings">
             <IoSettingsOutline size={22} />
           </button>
         </header>
@@ -960,9 +627,9 @@ export default function Insights() {
   }
 
   return (
-    <Container variant="primary" padding="lg" style={{ height: '100%', overflowY: 'auto' }}>
-      <header style={headerStyle}>
-        <Text as="h1" style={{ margin: 0 }}>Insights</Text>
+    <Container variant="primary" padding="lg" className="insights-page">
+      <header className="insights-header">
+        <Text as="h1" className="insights-header__title">Insights</Text>
       </header>
       {content}
     </Container>

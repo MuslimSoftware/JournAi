@@ -38,6 +38,7 @@ export function useEntries(): UseEntriesReturn {
         setTotalCount,
         setHasMore,
         setCursor,
+        setScrollOffset,
         setInitialized,
     } = useEntriesState();
 
@@ -94,6 +95,8 @@ export function useEntries(): UseEntriesReturn {
             setHighlightRange(target.highlight);
         }
 
+        setScrollOffset(0);
+
         const existsInList = state.entries.some(e => e.id === target.entryId);
         if (existsInList) {
             setSelectedEntryId(target.entryId);
@@ -109,7 +112,7 @@ export function useEntries(): UseEntriesReturn {
                 clearTarget();
             });
         }
-    }, [state.entries, state.selectedEntryId, target, clearTarget, setSelectedEntryId, setEntries]);
+    }, [state.entries, state.selectedEntryId, target, clearTarget, setSelectedEntryId, setEntries, setScrollOffset]);
 
     const selectedEntry = useMemo(
         () => state.entries.find(e => e.id === state.selectedEntryId) || null,

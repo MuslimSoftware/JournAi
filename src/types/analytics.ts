@@ -65,25 +65,6 @@ export interface AggregatedInsights {
     mentions: number;
     recentContext?: string;
   }>;
-  themes: Array<{
-    theme: string;
-    count: number;
-    recentDate: string;
-  }>;
-  goals: Array<{
-    goal: string;
-    progress: string;
-    mentions: number;
-    blockers?: string;
-  }>;
-  patterns: Array<{
-    pattern: string;
-    type: string;
-    count: number;
-    firstSeen: string;
-    lastSeen: string;
-    impact?: string;
-  }>;
 }
 
 export type SentimentFilter = 'all' | 'positive' | 'negative';

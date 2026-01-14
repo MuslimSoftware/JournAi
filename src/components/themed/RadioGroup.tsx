@@ -1,5 +1,4 @@
-import { CSSProperties } from 'react';
-import { useTheme } from '../../contexts/ThemeContext';
+import '../../styles/themed.css';
 
 interface RadioOption {
   value: string;
@@ -15,67 +14,27 @@ interface RadioGroupProps {
 }
 
 export default function RadioGroup({ options, value, onChange, name }: RadioGroupProps) {
-  const { theme } = useTheme();
-
-  const containerStyle: CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: theme.spacing.sm,
-  };
-
-  const optionStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    border: `1px solid ${theme.colors.border.primary}`,
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  };
-
-  const selectedStyle: CSSProperties = {
-    ...optionStyle,
-    borderColor: theme.colors.text.accent,
-    backgroundColor: theme.colors.background.subtle,
-  };
-
   return (
-    <div style={containerStyle}>
+    <div className="radio-group">
       {options.map((option) => {
         const isSelected = value === option.value;
+        const optionClass = `radio-group__option${isSelected ? ' radio-group__option--selected' : ''}`;
+        const labelClass = `radio-group__label${option.description ? ' radio-group__label--with-description' : ''}`;
+
         return (
-          <label
-            key={option.value}
-            style={isSelected ? selectedStyle : optionStyle}
-          >
+          <label key={option.value} className={optionClass}>
             <input
               type="radio"
               name={name}
               value={option.value}
               checked={isSelected}
               onChange={() => onChange(option.value)}
-              style={{ marginTop: '2px' }}
+              className="radio-group__input"
             />
-            <div style={{ flex: 1 }}>
-              <div
-                style={{
-                  fontWeight: 500,
-                  color: theme.colors.text.primary,
-                  marginBottom: option.description ? theme.spacing.xs : 0,
-                }}
-              >
-                {option.label}
-              </div>
+            <div className="radio-group__content">
+              <div className={labelClass}>{option.label}</div>
               {option.description && (
-                <div
-                  style={{
-                    fontSize: '0.875rem',
-                    color: theme.colors.text.muted,
-                  }}
-                >
-                  {option.description}
-                </div>
+                <div className="radio-group__description">{option.description}</div>
               )}
             </div>
           </label>

@@ -1,6 +1,6 @@
 import type { OpenAITool } from '../types/chat';
 import { hybridSearch } from './search';
-import { getAggregatedInsights } from './analytics';
+import { getFilteredInsights } from './analytics';
 import { getEntriesByDateRange } from './entries';
 
 export const AGENT_TOOLS: OpenAITool[] = [
@@ -29,10 +29,29 @@ export const AGENT_TOOLS: OpenAITool[] = [
     type: 'function',
     function: {
       name: 'get_insights',
-      description: 'Get aggregated insights from the journal including recurring themes, emotional patterns, goals, key people mentioned, and behavioral patterns. Use for questions about trends, patterns, or "how am I doing" type questions.',
+      description: 'Get specific insights from the journal about emotions or people. Use filters to get relevant results. For questions about a specific person, use the person filter. For questions about emotions, use type or sentiment filters.',
       parameters: {
         type: 'object',
-        properties: {},
+        properties: {
+          type: {
+            type: 'string',
+            enum: ['emotion', 'person'],
+            description: 'Filter by insight type. Use "person" for questions about relationships, "emotion" for questions about feelings.',
+          },
+          name: {
+            type: 'string',
+            description: 'Filter by name - either a person\'s name or an emotion name (e.g., "frustrated", "happy", "wife", "mom")',
+          },
+          sentiment: {
+            type: 'string',
+            enum: ['positive', 'negative', 'neutral', 'tense', 'mixed'],
+            description: 'Filter by sentiment. Use "negative" to find difficult interactions or negative emotions.',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of insights to return (default: 15, max: 30)',
+          },
+        },
         required: [],
       },
     },
@@ -88,7 +107,11 @@ export async function executeToolCall(
         };
       }
       case 'get_insights': {
-        const insights = await getAggregatedInsights();
+        const type = args.type as 'emotion' | 'person' | undefined;
+        const name = args.name as string | undefined;
+        const sentiment = args.sentiment as 'positive' | 'negative' | 'neutral' | 'tense' | 'mixed' | undefined;
+        const limit = Math.min((args.limit as number) || 15, 30);
+        const insights = await getFilteredInsights({ type, name, sentiment, limit });
         return { success: true, data: insights };
       }
       case 'get_entries_by_date': {
@@ -129,8 +152,14 @@ export function getToolDescription(name: string, args: string): string {
     switch (name) {
       case 'search_journal':
         return `Searching for "${parsed.query}"`;
-      case 'get_insights':
-        return 'Getting journal insights';
+      case 'get_insights': {
+        const parts: string[] = [];
+        if (parsed.name) parts.push(`"${parsed.name}"`);
+        if (parsed.type) parts.push(parsed.type === 'person' ? 'people' : 'emotions');
+        if (parsed.sentiment) parts.push(parsed.sentiment);
+        if (parts.length === 0) return 'Getting insights';
+        return `Getting ${parts.join(' ')} insights`;
+      }
       case 'get_entries_by_date':
         return `Getting entries from ${parsed.start} to ${parsed.end}`;
       default:
