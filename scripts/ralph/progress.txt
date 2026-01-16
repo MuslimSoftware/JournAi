@@ -1,0 +1,23 @@
+=== Ralph Progress Log ===
+
+Started: 2026-01-16
+
+Features completed:
+- [2026-01-16] Feature 1: "System tracks processing status for each entry"
+  - Added Migration 16: processed_at and content_hash columns to entries table
+  - Added Migration 17: source_text, source_start, source_end columns to journal_insights table
+  - Updated TypeScript types (JournalEntry, JournalInsight) with new optional fields
+  - Updated EntryRow interface and rowToEntry function in src/services/entries.ts
+  - Updated all SELECT queries in entries service to include new columns
+  - Updated packages/core types and services to match
+  - TypeScript compiles without errors
+
+Current task:
+- Completed first iteration
+
+Notes:
+- This file tracks progress across Ralph iterations
+- Each completed feature should be logged here with timestamp
+- Include any important decisions or blockers encountered
+- Feature 1 addresses PRD requirements for tracking processing status
+- New fields are nullable to support existing entries without breaking changes

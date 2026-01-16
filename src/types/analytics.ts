@@ -30,6 +30,9 @@ export interface JournalInsight {
   content: string;
   metadata?: EmotionMetadata | PersonMetadata;
   createdAt: string;
+  sourceText?: string | null;
+  sourceStart?: number | null;
+  sourceEnd?: number | null;
 }
 
 export interface AggregatedInsights {

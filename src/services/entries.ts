@@ -10,6 +10,8 @@ interface EntryRow {
     date: string;
     content: string;
     created_at: string;
+    processed_at: string | null;
+    content_hash: string | null;
 }
 
 function rowToEntry(row: EntryRow): JournalEntry {
@@ -18,6 +20,8 @@ function rowToEntry(row: EntryRow): JournalEntry {
         date: row.date,
         content: row.content,
         preview: generatePreview(row.content),
+        processedAt: row.processed_at,
+        contentHash: row.content_hash,
     };
 }
 
@@ -29,7 +33,7 @@ export interface EntriesPage {
 
 export async function getEntriesPage(cursor: string | null, limit: number = 20): Promise<EntriesPage> {
     const result = await selectPaginated<EntryRow, JournalEntry>(
-        'SELECT id, date, content, created_at FROM entries',
+        'SELECT id, date, content, created_at, processed_at, content_hash FROM entries',
         [
             { column: 'date', direction: 'DESC' },
             { column: 'id', direction: 'DESC' },
@@ -48,7 +52,7 @@ export async function getEntriesPage(cursor: string | null, limit: number = 20):
 
 export async function getEntries(): Promise<JournalEntry[]> {
     const rows = await select<EntryRow>(
-        'SELECT id, date, content, created_at FROM entries ORDER BY date DESC, created_at DESC'
+        'SELECT id, date, content, created_at, processed_at, content_hash FROM entries ORDER BY date DESC, created_at DESC'
     );
     return rows.map(rowToEntry);
 }
@@ -88,7 +92,7 @@ export async function updateEntry(
     }
 
     const rows = await select<EntryRow>(
-        'SELECT id, date, content, created_at FROM entries WHERE id = $1',
+        'SELECT id, date, content, created_at, processed_at, content_hash FROM entries WHERE id = $1',
         [id]
     );
 
@@ -116,7 +120,7 @@ export async function getEntriesByIds(ids: string[]): Promise<JournalEntry[]> {
 
     const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ');
     const rows = await select<EntryRow>(
-        `SELECT id, date, content, created_at FROM entries WHERE id IN (${placeholders})`,
+        `SELECT id, date, content, created_at, processed_at, content_hash FROM entries WHERE id IN (${placeholders})`,
         ids
     );
     return rows.map(rowToEntry);
@@ -127,7 +131,7 @@ export async function getEntriesByDateRange(
     end: string
 ): Promise<JournalEntry[]> {
     const rows = await select<EntryRow>(
-        `SELECT id, date, content, created_at FROM entries
+        `SELECT id, date, content, created_at, processed_at, content_hash FROM entries
          WHERE date >= $1 AND date <= $2
          ORDER BY date DESC`,
         [start, end]

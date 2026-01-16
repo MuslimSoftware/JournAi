@@ -231,10 +231,25 @@ pub fn run() {
             CREATE INDEX IF NOT EXISTS idx_analytics_queue_status ON analytics_queue(status);
             CREATE INDEX IF NOT EXISTS idx_journal_insights_entry_id ON journal_insights(entry_id);",
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 16,
+            description: "add_processing_status_to_entries",
+            sql: "ALTER TABLE entries ADD COLUMN processed_at TEXT;
+            ALTER TABLE entries ADD COLUMN content_hash TEXT;",
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 17,
+            description: "add_source_location_to_insights",
+            sql: "ALTER TABLE journal_insights ADD COLUMN source_text TEXT;
+            ALTER TABLE journal_insights ADD COLUMN source_start INTEGER;
+            ALTER TABLE journal_insights ADD COLUMN source_end INTEGER;",
+            kind: MigrationKind::Up,
         }
     ];
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
@@ -243,7 +258,14 @@ pub fn run() {
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:journai.db", migrations)
                 .build(),
-        )
+        );
+
+    #[cfg(debug_assertions)]
+    {
+        builder = builder.plugin(tauri_plugin_mcp_bridge::init());
+    }
+
+    builder
         .setup(|_app| {
             #[cfg(target_os = "ios")]
             {

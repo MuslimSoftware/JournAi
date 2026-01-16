@@ -3,6 +3,8 @@ export interface JournalEntry {
   date: string;
   preview: string;
   content: string;
+  processedAt?: string | null;
+  contentHash?: string | null;
 }
 
 export interface EntryUpdate {
