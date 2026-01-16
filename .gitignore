@@ -29,6 +29,9 @@ bun-debug.log*
 .DS_Store
 Thumbs.db
 
+# Database
+*.db
+
 # IDE
 .idea
 *.suo

@@ -10,7 +10,7 @@ interface UseAutoScrollOptions {
 interface UseAutoScrollReturn {
   scrollRef: React.RefObject<HTMLDivElement | null>;
   isAtBottom: boolean;
-  scrollToBottom: () => void;
+  scrollToBottom: (immediate?: boolean) => void;
   enableAutoScroll: () => void;
   disableAutoScroll: () => void;
 }

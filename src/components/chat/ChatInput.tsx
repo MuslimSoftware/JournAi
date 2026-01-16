@@ -1,5 +1,5 @@
 import { useState, useRef, KeyboardEvent } from 'react';
-import { IoSend } from 'react-icons/io5';
+import { IoSend, IoCopy, IoCheckmark } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
 import { IconButton, TextArea } from '../themed';
 import { CHAT } from './constants';
@@ -16,6 +16,7 @@ interface ChatInputProps {
 export default function ChatInput({ onSend, disabled, placeholder = "Message...", messages = [] }: ChatInputProps) {
   const { theme } = useTheme();
   const [value, setValue] = useState('');
+  const [copied, setCopied] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSend = () => {
@@ -49,11 +50,51 @@ export default function ChatInput({ onSend, disabled, placeholder = "Message..."
       .filter(msg => msg.role !== 'system')
       .map(msg => {
         const role = msg.role === 'user' ? 'You' : 'Assistant';
-        return `${role}: ${msg.content}`;
+        let text = `${role}: ${msg.content}`;
+
+        // Add sources if available
+        if (msg.role === 'assistant') {
+          const hasInsights = msg.ragContext?.insights && msg.ragContext.insights.length > 0;
+          const hasCitations = msg.citations && msg.citations.length > 0;
+
+          if (hasInsights || hasCitations) {
+            text += '\n\nSources:';
+
+            if (hasInsights) {
+              text += '\n\nInsights:';
+              msg.ragContext!.insights!.forEach(insight => {
+                if (insight.type === 'person') {
+                  const rel = insight.relationship ? ` (${insight.relationship})` : '';
+                  const ctx = insight.context ? ` - ${insight.context}` : '';
+                  text += `\n  • ${insight.name}${rel} [${insight.sentiment}] on ${insight.entryDate}${ctx}`;
+                } else {
+                  const trigger = insight.trigger ? ` - ${insight.trigger}` : '';
+                  text += `\n  • ${insight.emotion} (intensity: ${insight.intensity}/10) [${insight.sentiment}] on ${insight.entryDate}${trigger}`;
+                }
+              });
+            }
+
+            if (hasCitations) {
+              text += '\n\nJournal Entries:';
+              msg.citations!.forEach(citation => {
+                text += `\n  • Entry from ${citation.entryId}`;
+              });
+            }
+          }
+
+          // Add context if available
+          if (msg.ragContext?.contextText) {
+            text += '\n\nContext:\n' + msg.ragContext.contextText;
+          }
+        }
+
+        return text;
       })
       .join('\n\n');
 
     await navigator.clipboard.writeText(conversationText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -96,11 +137,16 @@ export default function ChatInput({ onSend, disabled, placeholder = "Message..."
             fontFamily: theme.typography.fontFamily,
             '--toolbar-hover-bg': theme.colors.background.secondary,
             '--toolbar-hover-color': theme.colors.text.secondary,
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.xs,
+            transition: 'all 0.25s ease-out',
           } as React.CSSProperties}
           onClick={handleCopyConversation}
           disabled={messages.length === 0}
         >
-          Copy to clipboard
+          {copied ? <IoCheckmark size={14} /> : <IoCopy size={14} />}
+          {copied ? 'Copied!' : 'Copy to clipboard'}
         </button>
       </div>
     </div>

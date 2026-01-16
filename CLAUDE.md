@@ -17,17 +17,26 @@ bun run tauri build  # Production build
 
 | Directory            | Responsibility                                                |
 | -------------------- | ------------------------------------------------------------- |
-| `pages/`             | Route-level components (Entries, Calendar, Chat, Projections) |
+| `pages/`             | Route-level components (Entries, Calendar, Chat, Insights)    |
 | `components/`        | Reusable UI components                                        |
 | `components/themed/` | Design system primitives (Button, Card, Text, Container)      |
 | `components/mobile/` | Mobile-specific components                                    |
-| `contexts/`          | React contexts (Theme, FocusMode, Sidebar)                    |
-| `hooks/`             | Custom hooks (useEntries, useMediaQuery, useKeyboard)         |
+| `contexts/`          | React contexts (8 total - see Contexts section)               |
+| `hooks/`             | Custom hooks (15 total - see Hooks section)                   |
 | `services/`          | Business logic and data operations                            |
-| `lib/`               | Infrastructure (db.ts, store.ts)                              |
+| `ai/`                | AI agent runtime, modules, providers, and evaluation          |
+| `lib/`               | Infrastructure (db.ts, store.ts, secureStorage.ts)            |
 | `styles/`            | CSS files per feature                                         |
 | `theme/`             | Design tokens                                                 |
 | `types/`             | TypeScript interfaces                                         |
+
+### Project Root Directories
+
+| Directory  | Responsibility                                      |
+| ---------- | --------------------------------------------------- |
+| `/evals`   | Evaluation datasets and optimization scripts        |
+| `/plans`   | Planning documents                                  |
+| `/scripts` | Utility scripts                                     |
 
 ### Backend (`/src-tauri`)
 
@@ -38,6 +47,95 @@ bun run tauri build  # Production build
 | `tauri.conf.json` | App configuration                      |
 
 SQLite database via `tauri-plugin-sql`. Settings persisted via `tauri-plugin-store`.
+
+## Contexts
+
+| Context                  | Responsibility                                         |
+| ------------------------ | ------------------------------------------------------ |
+| `ThemeContext`           | Theme state (light/dark mode)                          |
+| `FocusModeContext`       | Focus mode toggle and keyboard shortcuts               |
+| `SidebarContext`         | Sidebar visibility state                               |
+| `CalendarContext`        | Calendar view state and navigation                     |
+| `EntriesStateContext`    | Paginated entries state, CRUD operations, navigation   |
+| `EntryNavigationContext` | Cross-page entry navigation tracking                   |
+| `InsightsContext`        | Analytics state, time/sentiment filters, insights data |
+| `MemoryContext`          | AI memory and context management                       |
+
+## Hooks
+
+| Hook               | Purpose                                                    |
+| ------------------ | ---------------------------------------------------------- |
+| `useEntries`       | Entry CRUD operations and state management                 |
+| `useMediaQuery`    | Breakpoint detection (mobile < 768px)                      |
+| `useIsMobile`      | Mobile platform detection                                  |
+| `useKeyboard`      | Soft keyboard state (`{ isOpen, height }`)                 |
+| `useKeyPress`      | Centralized keyboard shortcut handler                      |
+| `useEscapeKey`     | Escape key shortcut (wrapper around useKeyPress)           |
+| `useSwipeAction`   | Horizontal swipe gesture handling with threshold detection |
+| `useAutoScroll`    | Automatic scrolling for chat messages                      |
+| `useChat`          | Chat state management and AI agent integration             |
+| `useDebounce`      | Debounced value updates                                    |
+
+## AI Agent System
+
+### Architecture (`/src/ai`)
+
+The AI agent system uses a modular architecture with providers, modules, and evaluation tools.
+
+**Directory Structure:**
+
+| Directory       | Purpose                                               |
+| --------------- | ----------------------------------------------------- |
+| `modules/`      | Agent modules (chat, tool routing)                    |
+| `providers/`    | LLM providers (OpenAI)                                |
+| `evaluation/`   | Evaluation interfaces (exact match, tool match)       |
+| `optimization/` | Prompt optimization engine using DSPy                 |
+| `runtime.ts`    | `JournalAIRuntime` - orchestrates AI operations       |
+
+### Agent Tools (`services/agentTools.ts`)
+
+Two main tools available to the AI agent:
+
+1. **`query_insights`**: Query aggregated analytics (emotions, people, sentiment)
+   - Filters: category, sentiment, date range, semantic search, specific names
+   - Grouping: entity, category, sentiment, date
+   - Returns: aggregated insights with optional entry IDs
+
+2. **`query_entries`**: Query journal entries
+   - Filters: semantic search, date range, tags
+   - Returns: entry metadata with optional full text
+
+### RAG & Context Assembly (`services/ai.ts`)
+
+- System prompt with journal context and current date
+- Tool calling support with OpenAI function format
+- Streaming responses with tool call visualization
+- Message history management
+- Citation extraction from responses
+
+## Evaluation & Optimization (`/evals`)
+
+### Datasets
+
+| Dataset               | Purpose                                  |
+| --------------------- | ---------------------------------------- |
+| `chat-golden.json`    | Golden examples for chat responses       |
+| `tool-routing.json`   | Golden examples for tool selection       |
+
+### Optimization Scripts
+
+| Script         | Purpose                                      |
+| -------------- | -------------------------------------------- |
+| `evaluate.ts`  | Run evaluations against golden datasets     |
+| `optimize.ts`  | Optimize prompts using DSPy (SIMBA/MIPROv2)  |
+
+**Optimization Process:**
+1. Curate golden examples with input/expectedOutput pairs
+2. Choose optimizer (SIMBA for speed, MIPROv2 for quality)
+3. Run optimization to refine prompts
+4. Evaluate improved prompts against test set
+
+**Cost estimates:** $2.50-$14 depending on dataset size and optimizer choice.
 
 ## Mobile Implementation
 
@@ -54,23 +152,31 @@ Handles all mobile container concerns:
 - Adjusts padding when keyboard opens
 - Hides bottom nav during keyboard input
 
-### Mobile Hooks
+### Key Hooks (See Hooks section for complete list)
 
-| Hook               | Purpose                                                    |
-| ------------------ | ---------------------------------------------------------- |
-| `useKeyboard()`    | Returns `{ isOpen, height }` for soft keyboard state       |
-| `useMediaQuery()`  | Breakpoint detection (mobile < 768px)                      |
-| `useSwipeAction()` | Horizontal swipe gesture handling with threshold detection |
+All hooks are documented in the Hooks section above. Mobile-specific hooks:
+- `useKeyboard()` - Soft keyboard state detection
+- `useSwipeAction()` - Swipe gesture handling
+- `useIsMobile()` - Mobile platform detection
 
 ### Mobile Components
 
-| Component           | Purpose                                       |
-| ------------------- | --------------------------------------------- |
-| `BottomNav`         | Fixed bottom navigation bar                   |
-| `BottomSheet`       | Draggable modal from bottom, swipe-to-dismiss |
-| `SwipeableListItem` | List item with swipe actions (delete/edit)    |
-| `MobileEntries`     | Mobile entries list with FAB and search       |
-| `MobileEntryEditor` | Keyboard-aware entry editor                   |
+| Component              | Purpose                                       |
+| ---------------------- | --------------------------------------------- |
+| `BottomNav`            | Fixed bottom navigation bar                   |
+| `BottomSheet`          | Draggable modal from bottom, swipe-to-dismiss |
+| `SwipeableListItem`    | List item with swipe actions (delete/edit)    |
+| `MobileEntries`        | Mobile entries list with FAB and search       |
+| `MobileEntryEditor`    | Keyboard-aware entry editor                   |
+
+### Key Components
+
+| Component                 | Purpose                                       |
+| ------------------------- | --------------------------------------------- |
+| `ContentEditableEditor`   | Rich text editing with cursor position tracking |
+| `ToolCallDisplay`         | AI agent tool call visualization with status  |
+| `MessageBubble`           | Chat message with tool calls and citations    |
+| `ChatContainer`           | Chat interface with agent orchestration       |
 
 ### CSS Variables (`styles/mobile.css`)
 
@@ -111,3 +217,70 @@ Handles all mobile container concerns:
 ```
 
 `viewport-fit=cover` allows content to extend into safe areas (notches).
+
+## Keyboard Shortcuts
+
+### Implementation Pattern
+
+All keyboard shortcuts use the centralized `useKeyPress` and `useEscapeKey` hooks (`hooks/useKeyPress.ts`).
+
+**Benefits:**
+- Single event listener per shortcut (not dozens)
+- Automatic cleanup on unmount
+- Prevents conflicts between handlers
+- Configurable behavior (preventDefault, ignoreInputFields, modifier keys)
+
+### Available Hooks
+
+```typescript
+// Generic key handler
+useKeyPress(
+  'f',                    // Key to listen for
+  () => console.log('F'), // Callback
+  {
+    ctrlKey: true,        // Require Ctrl
+    metaKey: false,       // Don't require Cmd
+    shiftKey: true,       // Require Shift
+    altKey: false,        // Don't require Alt
+    ignoreInputFields: true,    // Skip if user is typing
+    preventDefault: true,       // Prevent default browser behavior
+    stopPropagation: true,      // Stop event propagation
+  }
+);
+
+// Escape key shortcut
+useEscapeKey(() => closeModal(), {
+  ignoreInputFields: false,  // Also trigger in input fields
+});
+```
+
+### Registered Shortcuts
+
+| Shortcut          | Action                   | Context              |
+| ----------------- | ------------------------ | -------------------- |
+| `Escape`          | Exit focus mode          | FocusModeContext     |
+| `Escape`          | Close modal              | Modal component      |
+| `Ctrl+Shift+F`    | Toggle focus mode        | FocusModeContext     |
+| `Cmd+Shift+F`     | Toggle focus mode (Mac)  | FocusModeContext     |
+
+### Adding New Shortcuts
+
+1. **Component-level** (contextual actions):
+   ```typescript
+   import { useKeyPress } from '../hooks/useKeyPress';
+
+   function MyComponent() {
+     useKeyPress('s', () => save(), { ctrlKey: true });
+     // ...
+   }
+   ```
+
+2. **App-level** (global navigation):
+   Add to `FocusModeContext.tsx` or create a dedicated keyboard context.
+
+### Best Practices
+
+- Use `ignoreInputFields: true` by default (prevents triggering while typing)
+- Always set `preventDefault: true` for custom shortcuts to avoid browser conflicts
+- Conditional shortcuts: Check state inside the callback rather than conditionally mounting the hook
+- Document all shortcuts in the table above

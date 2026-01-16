@@ -418,7 +418,7 @@ export default function Insights() {
                           onClick={() => {
                             if (isMobile) hapticSelection();
                             setSelectedOccurrenceIndex(idx);
-                            navigateToEntry(e.entryId, e.source ? { start: e.source.start, end: e.source.end } : undefined);
+                            navigateToEntry(e.entryId);
                             navigate('/entries');
                           }}
                         >
@@ -497,7 +497,7 @@ export default function Insights() {
                           onClick={() => {
                             if (isMobile) hapticSelection();
                             setSelectedOccurrenceIndex(idx);
-                            navigateToEntry(p.entryId, p.source ? { start: p.source.start, end: p.source.end } : undefined);
+                            navigateToEntry(p.entryId);
                             navigate('/entries');
                           }}
                         >
@@ -617,9 +617,11 @@ export default function Insights() {
       <div className="insights-page">
         <header className="insights-header insights-header--mobile">
           <Text className="insights-header__title--mobile">Insights</Text>
-          <button onClick={openSettings} className="insights-icon-button" aria-label="Settings">
-            <IoSettingsOutline size={22} />
-          </button>
+          <div className="insights-header__actions">
+            <button onClick={openSettings} className="insights-icon-button" aria-label="Settings">
+              <IoSettingsOutline size={22} />
+            </button>
+          </div>
         </header>
         {content}
       </div>

@@ -61,8 +61,12 @@ export function InsightsProvider({ children }: { children: ReactNode }) {
     const handleInsightsChanged = () => {
       setDataLoaded(false);
     };
+
     window.addEventListener('insights-changed', handleInsightsChanged);
-    return () => window.removeEventListener('insights-changed', handleInsightsChanged);
+
+    return () => {
+      window.removeEventListener('insights-changed', handleInsightsChanged);
+    };
   }, []);
 
   return (

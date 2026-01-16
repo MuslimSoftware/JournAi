@@ -5,6 +5,7 @@ import StickyNote from './StickyNote';
 import SectionHeader from './SectionHeader';
 import AddItemButton from './AddItemButton';
 import { createEntry } from '../../services/entries';
+import { useEntryNavigation } from '../../contexts/EntryNavigationContext';
 import type { DayData, Todo, StickyNote as StickyNoteType } from '../../types/todo';
 
 interface DayDetailProps {
@@ -29,6 +30,7 @@ export default function DayDetail({
   onUpdateStickyNote,
 }: DayDetailProps) {
   const navigate = useNavigate();
+  const { navigateToEntry } = useEntryNavigation();
 
   if (isLoading) {
     return (
@@ -47,8 +49,16 @@ export default function DayDetail({
   }
 
   const handleAddEntry = async () => {
-    await createEntry(dayData.date);
+    const newEntry = await createEntry(dayData.date);
+    navigateToEntry(newEntry.id);
     navigate('/entries');
+  };
+
+  const handleViewEntry = () => {
+    if (dayData.entryId) {
+      navigateToEntry(dayData.entryId);
+      navigate('/entries');
+    }
   };
 
   return (
@@ -59,7 +69,7 @@ export default function DayDetail({
           <Card
             padding="md"
             className="day-detail-entry-card"
-            onClick={() => navigate('/entries')}
+            onClick={handleViewEntry}
           >
             <Text variant="secondary" className="day-detail-entry-preview">
               {dayData.entryPreview}

@@ -1,11 +1,5 @@
 import { select, execute } from '../lib/db';
-import { getApiKey } from '../lib/secureStorage';
-import { fuzzySearch } from 'levenshtein-search';
 
-const MAX_CONTENT_LENGTH = 8000;
-const API_TEMPERATURE = 0.3;
-const API_MODEL = 'gpt-4o-mini';
-const MAX_RETRY_COUNT = 3;
 const DEFAULT_INTENSITY = 5;
 const MAX_AGGREGATED_ITEMS = 20;
 const MAX_TRIGGERS_PER_EMOTION = 3;
@@ -15,8 +9,6 @@ const DEFAULT_RAW_INSIGHTS_LIMIT = 100;
 import type {
   JournalInsight,
   InsightType,
-  AnalyticsQueueItem,
-  AnalyticsStats,
   AggregatedInsights,
   EmotionMetadata,
   PersonMetadata,
@@ -25,137 +17,6 @@ import type {
   TimeGroupedPerson,
   SourceRange,
 } from '../types/analytics';
-
-const ANALYSIS_PROMPT = `Analyze this journal entry. Return JSON only.
-
-Entry Date: {date}
-Entry Content:
-{content}
-
-Extract the following:
-
-1. emotions: What emotions are present? Be precise.
-   - emotion: The feeling (1 word)
-   - intensity: Rate 1-10 (1=barely noticeable, 5=moderate, 10=overwhelming)
-   - trigger: A detailed summary (2-3 sentences) explaining WHY this emotion was felt. Include enough context that someone reading this a year later would fully understand the situation without needing to read the original entry. Mention specific events, people involved, and circumstances.
-   - sentiment: "positive", "negative", or "neutral"
-   - source_quote: Copy the exact verbatim text from the entry. When detailed context exists, include 2-4 complete sentences. For brief mentions in lists, schedules, or abstract entries, just copy the relevant text as-is (even if short). Must match the entry exactly including typos/punctuation.
-   Examples:
-   - Detailed: {"emotion": "anxious", "intensity": 6, "trigger": "Had an important presentation at work that didn't go as planned.", "sentiment": "negative", "source_quote": "The presentation did not go well at all. I fumbled through the Q&A section and could tell the client wasn't impressed. I should have prepared more."}
-   - Brief: {"emotion": "stressed", "intensity": 5, "trigger": "Busy day with many tasks to complete.", "sentiment": "negative", "source_quote": "so much to do is making me stressed"}
-
-2. people: Who is mentioned?
-   - name: Person's name (use the exact name/nickname from the entry)
-   - relationship: How they relate to the writer (if clear)
-   - sentiment: "positive", "negative", "neutral", "tense", or "mixed"
-   - context: A detailed summary (2-3 sentences) explaining what happened with this person and the nature of the interaction. Include enough context that someone reading this a year later would fully understand the situation without needing to read the original entry.
-   - source_quote: Copy the exact verbatim text from the entry. When detailed context exists, include 2-4 complete sentences. For brief mentions in lists, schedules, or nicknames, just copy the relevant text as-is (even if short). Must match the entry exactly including typos/punctuation.
-   Examples:
-   - Detailed: {"name": "Sarah", "relationship": "coworker", "sentiment": "positive", "context": "Sarah helped review the project proposal and provided valuable feedback before the deadline.", "source_quote": "Sarah stayed late to help me finish the proposal. She caught several errors I had missed and suggested improvements to the structure."}
-   - Brief: {"name": "Mom", "relationship": "family", "sentiment": "neutral", "context": "Mentioned spending time with Mom as part of daily schedule.", "source_quote": "Mom"}
-   - Nickname: {"name": "AJ", "relationship": "friend", "sentiment": "positive", "context": "Hung out with friend known as AJ.", "source_quote": "chilled with AJ"}
-
-Return format:
-{
-  "emotions": [{"emotion": "frustrated", "intensity": 7, "trigger": "summary", "sentiment": "negative", "source_quote": "2-4 complete sentences from entry"}],
-  "people": [{"name": "Name", "relationship": "friend", "sentiment": "tense", "context": "summary", "source_quote": "2-4 complete sentences from entry"}]
-}
-
-Only include categories clearly present. Empty arrays for missing categories.
-If the entry is too short, vague, or lacks meaningful content to extract insights from, return empty arrays for both.`;
-
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
-
-function findSourceRange(content: string, quote: string | undefined): SourceRange | undefined {
-  if (!quote || quote.length < 3) return undefined;
-
-  const maxDistance = Math.max(3, Math.floor(quote.length * 0.15));
-  const matches = [...fuzzySearch(quote, content, maxDistance)];
-
-  if (matches.length === 0) return undefined;
-
-  const best = matches.reduce((a, b) => (a.dist < b.dist ? a : b));
-  return {
-    start: best.start,
-    end: best.end,
-    quote: content.slice(best.start, best.end),
-  };
-}
-
-export async function analyzeEntry(
-  entryId: string,
-  entryDate: string,
-  content: string
-): Promise<JournalInsight[]> {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error('No API key configured');
-
-  const prompt = ANALYSIS_PROMPT
-    .replace('{date}', entryDate)
-    .replace('{content}', content.slice(0, MAX_CONTENT_LENGTH));
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: API_MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      temperature: API_TEMPERATURE,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error?.message || `API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const analysis = JSON.parse(data.choices[0].message.content);
-  const insights: JournalInsight[] = [];
-  const timestamp = new Date().toISOString();
-
-  for (const e of analysis.emotions || []) {
-    insights.push({
-      id: generateId(),
-      entryId,
-      entryDate,
-      insightType: 'emotion',
-      content: e.emotion,
-      metadata: {
-        intensity: e.intensity || DEFAULT_INTENSITY,
-        trigger: e.trigger,
-        sentiment: e.sentiment || 'neutral',
-        source: findSourceRange(content, e.source_quote),
-      },
-      createdAt: timestamp,
-    });
-  }
-
-  for (const person of analysis.people || []) {
-    insights.push({
-      id: generateId(),
-      entryId,
-      entryDate,
-      insightType: 'person',
-      content: person.name,
-      metadata: {
-        relationship: person.relationship,
-        sentiment: person.sentiment || 'neutral',
-        context: person.context,
-        source: findSourceRange(content, person.source_quote),
-      },
-      createdAt: timestamp,
-    });
-  }
-
-  return insights;
-}
 
 export async function saveInsights(insights: JournalInsight[]): Promise<void> {
   for (const insight of insights) {
@@ -181,84 +42,7 @@ export async function deleteEntryInsights(entryId: string): Promise<void> {
 
 export async function clearAllInsights(): Promise<void> {
   await execute('DELETE FROM journal_insights');
-  await execute('DELETE FROM analytics_queue');
   window.dispatchEvent(new CustomEvent('insights-changed'));
-}
-
-export async function queueEntryForAnalysis(entryId: string): Promise<void> {
-  const hasInsights = await select<{ count: number }>(
-    'SELECT COUNT(*) as count FROM journal_insights WHERE entry_id = $1',
-    [entryId]
-  );
-  if (hasInsights[0]?.count > 0) return;
-
-  const existing = await select<{ id: string }>(
-    'SELECT id FROM analytics_queue WHERE entry_id = $1',
-    [entryId]
-  );
-  if (existing.length > 0) return;
-
-  const timestamp = new Date().toISOString();
-  await execute(
-    `INSERT INTO analytics_queue (id, entry_id, status, retry_count, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [generateId(), entryId, 'pending', 0, timestamp, timestamp]
-  );
-}
-
-export async function processAnalyticsQueue(
-  onProgress?: (current: number, total: number, insightCount?: number) => void,
-  signal?: AbortSignal
-): Promise<{ success: number; failed: number; cancelled: boolean }> {
-  const pending = await select<AnalyticsQueueItem & { content: string; date: string }>(
-    `SELECT q.id, q.entry_id as entryId, q.status, q.retry_count as retryCount, q.error, q.created_at as createdAt, q.updated_at as updatedAt, e.content, e.date
-     FROM analytics_queue q
-     JOIN entries e ON e.id = q.entry_id
-     WHERE q.status = 'pending' AND q.retry_count < ${MAX_RETRY_COUNT}
-     ORDER BY q.created_at ASC`
-  );
-
-  let success = 0;
-  let failed = 0;
-  const total = pending.length;
-
-  onProgress?.(0, total);
-
-  for (let i = 0; i < pending.length; i++) {
-    if (signal?.aborted) {
-      return { success, failed, cancelled: true };
-    }
-
-    const item = pending[i];
-
-    try {
-      await execute(
-        'UPDATE analytics_queue SET status = $1, updated_at = $2 WHERE id = $3',
-        ['processing', new Date().toISOString(), item.id]
-      );
-
-      await deleteEntryInsights(item.entryId);
-      const insights = await analyzeEntry(item.entryId, item.date, item.content);
-      await saveInsights(insights);
-
-      await execute(
-        'UPDATE analytics_queue SET status = $1, updated_at = $2 WHERE id = $3',
-        ['completed', new Date().toISOString(), item.id]
-      );
-      success++;
-      onProgress?.(i + 1, total, insights.length);
-      window.dispatchEvent(new CustomEvent('insights-changed'));
-    } catch (error) {
-      failed++;
-      await execute(
-        'UPDATE analytics_queue SET status = $1, retry_count = retry_count + 1, error = $2, updated_at = $3 WHERE id = $4',
-        ['pending', error instanceof Error ? error.message : String(error), new Date().toISOString(), item.id]
-      );
-      onProgress?.(i + 1, total, undefined);
-    }
-  }
-
-  return { success, failed, cancelled: false };
 }
 
 export async function getInsightsByType(
@@ -359,97 +143,6 @@ export async function getAggregatedInsights(startDate?: string, endDate?: string
     .slice(0, MAX_AGGREGATED_ITEMS);
 
   return { emotions, people };
-}
-
-export async function getAnalyticsStats(): Promise<AnalyticsStats> {
-  const total = await select<{ count: number }>('SELECT COUNT(*) as count FROM journal_insights');
-  const byType = await select<{ insight_type: string; count: number }>(
-    'SELECT insight_type, COUNT(*) as count FROM journal_insights GROUP BY insight_type'
-  );
-  const entriesProcessed = await select<{ count: number }>(
-    `SELECT COUNT(*) as count FROM (
-      SELECT entry_id FROM journal_insights
-      UNION
-      SELECT entry_id FROM analytics_queue WHERE status = 'completed'
-    )`
-  );
-  const pending = await select<{ count: number }>(
-    `SELECT COUNT(*) as count FROM analytics_queue WHERE status = 'pending' AND retry_count < ${MAX_RETRY_COUNT}`
-  );
-  const lastAnalyzed = await select<{ created_at: string }>(
-    'SELECT created_at FROM journal_insights ORDER BY created_at DESC LIMIT 1'
-  );
-
-  const insightsByType: Record<InsightType, number> = { emotion: 0, person: 0 };
-  for (const row of byType) {
-    if (row.insight_type === 'emotion' || row.insight_type === 'person') {
-      insightsByType[row.insight_type] = row.count;
-    }
-  }
-
-  return {
-    totalInsights: total[0]?.count ?? 0,
-    insightsByType,
-    entriesAnalyzed: entriesProcessed[0]?.count ?? 0,
-    entriesPending: pending[0]?.count ?? 0,
-    lastAnalyzedAt: lastAnalyzed[0]?.created_at,
-  };
-}
-
-export interface FailedAnalysisEntry {
-  id: string;
-  entryId: string;
-  entryDate: string;
-  error: string | null;
-  retryCount: number;
-}
-
-export async function getFailedAnalysisEntries(): Promise<FailedAnalysisEntry[]> {
-  const rows = await select<{
-    id: string;
-    entry_id: string;
-    error: string | null;
-    retry_count: number;
-    date: string;
-  }>(
-    `SELECT q.id, q.entry_id, q.error, q.retry_count, e.date
-     FROM analytics_queue q
-     JOIN entries e ON e.id = q.entry_id
-     WHERE q.status = 'pending' AND q.retry_count > 0
-     ORDER BY e.date DESC`
-  );
-
-  return rows.map(r => ({
-    id: r.id,
-    entryId: r.entry_id,
-    entryDate: r.date,
-    error: r.error,
-    retryCount: r.retry_count,
-  }));
-}
-
-export async function retryFailedEntry(queueId: string): Promise<void> {
-  await execute(
-    'UPDATE analytics_queue SET retry_count = 0, status = $1, updated_at = $2 WHERE id = $3',
-    ['pending', new Date().toISOString(), queueId]
-  );
-}
-
-export async function dismissFailedEntry(queueId: string): Promise<void> {
-  await execute('DELETE FROM analytics_queue WHERE id = $1', [queueId]);
-}
-
-export async function queueAllEntriesForAnalysis(): Promise<number> {
-  const unanalyzed = await select<{ id: string }>(
-    `SELECT e.id FROM entries e
-     WHERE e.id NOT IN (SELECT DISTINCT entry_id FROM journal_insights)`
-  );
-
-  for (const entry of unanalyzed) {
-    await queueEntryForAnalysis(entry.id);
-  }
-
-  return unanalyzed.length;
 }
 
 export interface EmotionOccurrence {

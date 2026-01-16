@@ -20,7 +20,7 @@ interface NestedSidebarProps<T> {
   totalCount: number;
   selectedId: string | null;
   onSelectItem: (id: string) => void;
-  onCreateItem: () => void;
+  onCreateItem: () => void | Promise<void>;
   hasMore: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
@@ -251,7 +251,7 @@ export default function NestedSidebar<T>({
                 <IconButton
                   icon={<FiPlus size={18} />}
                   label={createButtonLabel}
-                  onClick={onCreateItem}
+                  onClick={() => void onCreateItem()}
                   variant="ghost"
                   size="sm"
                   className="toolbar-button"
@@ -284,7 +284,7 @@ export default function NestedSidebar<T>({
                 variant="secondary"
                 size="sm"
                 icon={<FiPlus size={14} />}
-                onClick={onCreateItem}
+                onClick={() => void onCreateItem()}
               >
                 {emptyStateButtonText}
               </Button>

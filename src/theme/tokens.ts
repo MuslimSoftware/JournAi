@@ -22,6 +22,14 @@ export interface ThemeTokens {
       hover: string;
       active: string;
     };
+    button: {
+      primary: string;
+      primaryHover: string;
+      secondary: string;
+      secondaryHover: string;
+      ghost: string;
+      ghostHover: string;
+    };
     indicator: {
       entry: string;
       stickyNote: string;
@@ -32,6 +40,11 @@ export interface ThemeTokens {
       success: string;
       error: string;
       warning: string;
+    };
+    danger: {
+      background: string;
+      backgroundHover: string;
+      text: string;
     };
   };
   spacing: {
@@ -100,6 +113,14 @@ export const lightTheme: ThemeTokens = {
       hover: '#1a1a1a',
       active: '#f0f0f0',
     },
+    button: {
+      primary: '#f59e0b',
+      primaryHover: '#d97706',
+      secondary: '#ffffff',
+      secondaryHover: '#f5f5f5',
+      ghost: 'transparent',
+      ghostHover: 'rgba(0, 0, 0, 0.04)',
+    },
     indicator: {
       entry: '#f59e0b',
       stickyNote: '#8b5cf6',
@@ -110,6 +131,11 @@ export const lightTheme: ThemeTokens = {
       success: '#22c55e',
       error: '#ef4444',
       warning: '#f59e0b',
+    },
+    danger: {
+      background: '#dc2626',
+      backgroundHover: '#b91c1c',
+      text: '#ffffff',
     },
   },
   spacing: {
@@ -178,6 +204,14 @@ export const darkTheme: ThemeTokens = {
       hover: '#e0e0e0',
       active: '#2a2a2a',
     },
+    button: {
+      primary: '#fbbf24',
+      primaryHover: '#f59e0b',
+      secondary: '#1e1e1e',
+      secondaryHover: '#2a2a2a',
+      ghost: 'transparent',
+      ghostHover: 'rgba(255, 255, 255, 0.08)',
+    },
     indicator: {
       entry: '#fbbf24',
       stickyNote: '#a78bfa',
@@ -188,6 +222,11 @@ export const darkTheme: ThemeTokens = {
       success: '#4ade80',
       error: '#f87171',
       warning: '#fbbf24',
+    },
+    danger: {
+      background: '#991b1b',
+      backgroundHover: '#7f1d1d',
+      text: '#ffffff',
     },
   },
   spacing: lightTheme.spacing,

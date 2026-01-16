@@ -3,7 +3,7 @@ import { getTodayString, getTimestamp } from '../utils/date';
 import { generateId, generatePreview } from '../utils/generators';
 import { select, execute, selectPaginated } from '../lib/db';
 import { deleteEntryEmbeddings } from './embeddings';
-import { queueEntryForAnalysis, deleteEntryInsights } from './analytics';
+import { deleteEntryInsights } from './analytics';
 
 interface EntryRow {
     id: string;
@@ -75,7 +75,7 @@ export async function updateEntry(
 
     if (updates.content !== undefined) {
         await execute(
-            'UPDATE entries SET content = $1, updated_at = $2 WHERE id = $3',
+            'UPDATE entries SET content = $1, updated_at = $2, last_content_update = $2 WHERE id = $3',
             [updates.content, timestamp, id]
         );
     }
@@ -95,10 +95,6 @@ export async function updateEntry(
     if (rows.length === 0) return null;
 
     const entry = rowToEntry(rows[0]);
-
-    if (updates.content && updates.content.length > 50) {
-        queueEntryForAnalysis(entry.id).catch(console.error);
-    }
 
     return entry;
 }

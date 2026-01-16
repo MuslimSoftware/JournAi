@@ -11,26 +11,21 @@ import { Text } from '../themed';
 import { ContentEditableEditor } from '../entries/ContentEditableEditor';
 import BottomSheet from './BottomSheet';
 import { ENTRIES_CONSTANTS, MOBILE_ENTRIES_CONSTANTS } from '../../constants/entries';
-import type { HighlightRange } from '../../hooks/useEntries';
 import '../../styles/mobile.css';
 import 'react-day-picker/style.css';
 
 interface MobileEntryEditorProps {
   entry: JournalEntry;
-  highlightRange?: HighlightRange | null;
   onBack: () => void;
   onUpdate: (id: string, updates: EntryUpdate) => void;
   onDelete?: (id: string) => void;
-  onClearHighlight?: () => void;
 }
 
 export default function MobileEntryEditor({
   entry,
-  highlightRange,
   onBack,
   onUpdate,
   onDelete,
-  onClearHighlight,
 }: MobileEntryEditorProps) {
   const { theme } = useTheme();
   const { isOpen: isKeyboardOpen } = useKeyboard();
@@ -190,8 +185,6 @@ export default function MobileEntryEditor({
           onChange={handleChange}
           onBlur={handleBlur}
           placeholder="Start writing..."
-          highlightRange={highlightRange ?? null}
-          onHighlightDismiss={onClearHighlight}
           className="mobile-editor-textarea"
           style={{
             color: theme.colors.text.primary,

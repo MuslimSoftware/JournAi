@@ -518,7 +518,7 @@
   background-color: var(--bg-secondary);
   border-radius: 16px;
   border: 1px solid var(--border-primary);
-  padding: var(--chat-spacing-sm) var(--chat-spacing-xl);
+  padding: var(--chat-spacing-md) var(--chat-spacing-xl);
   cursor: text;
   transition: border-color 0.15s ease-out;
 }
@@ -536,7 +536,7 @@
 
 .chat-toolbar {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--chat-spacing-sm);
 }
 

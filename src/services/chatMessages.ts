@@ -55,12 +55,23 @@ function rowToMessage(row: MessageRow): ChatMessage {
     };
 }
 
-export async function getMessages(chatId: string): Promise<ChatMessage[]> {
-    const rows = await select<MessageRow>(
-        'SELECT id, chat_id, role, content, status, citations, rag_context, tool_calls, created_at FROM chat_messages WHERE chat_id = $1 ORDER BY created_at ASC',
-        [chatId]
-    );
-    return rows.map(rowToMessage);
+export async function getMessages(chatId: string, limit?: number, offset?: number): Promise<ChatMessage[]> {
+    let query = 'SELECT id, chat_id, role, content, status, citations, rag_context, tool_calls, created_at FROM chat_messages WHERE chat_id = $1 ORDER BY created_at DESC';
+    const params: (string | number)[] = [chatId];
+
+    if (limit !== undefined) {
+        params.push(limit);
+        query += ` LIMIT $${params.length}`;
+    }
+
+    if (offset !== undefined) {
+        params.push(offset);
+        query += ` OFFSET $${params.length}`;
+    }
+
+    const rows = await select<MessageRow>(query, params);
+    // Reverse to get ascending order (oldest to newest)
+    return rows.map(rowToMessage).reverse();
 }
 
 export async function addMessage(

@@ -25,8 +25,6 @@ function DesktopEntries() {
     totalCount,
     selectedEntry,
     selectedEntryId,
-    highlightRange,
-    clearHighlight,
     isLoading,
     isLoadingMore,
     hasMore,
@@ -62,10 +60,11 @@ function DesktopEntries() {
       <EntryDetail
         entry={selectedEntry}
         hasEntries={entries.length > 0}
-        highlightRange={highlightRange}
+        recentEntries={entries}
         onUpdate={updateEntry}
         onCreateEntry={createEntry}
-        onClearHighlight={clearHighlight}
+        onClearSelection={() => selectEntry(null)}
+        onSelectEntry={selectEntry}
       />
     </div>
   );

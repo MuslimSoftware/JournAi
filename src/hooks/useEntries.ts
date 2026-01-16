@@ -1,20 +1,16 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import type { JournalEntry, EntryUpdate } from '../types/entry';
 import * as entriesService from '../services/entries';
-import { useEntryNavigation, HighlightRange } from '../contexts/EntryNavigationContext';
+import { useEntryNavigation } from '../contexts/EntryNavigationContext';
 import { useEntriesState } from '../contexts/EntriesStateContext';
 
 const PAGE_SIZE = 30;
-
-export type { HighlightRange };
 
 interface UseEntriesReturn {
     entries: JournalEntry[];
     totalCount: number;
     selectedEntry: JournalEntry | null;
     selectedEntryId: string | null;
-    highlightRange: HighlightRange | null;
-    clearHighlight: () => void;
     isLoading: boolean;
     isLoadingMore: boolean;
     hasMore: boolean;
@@ -43,16 +39,11 @@ export function useEntries(): UseEntriesReturn {
     } = useEntriesState();
 
     const { target, clearTarget } = useEntryNavigation();
-    const [highlightRange, setHighlightRange] = useState<HighlightRange | null>(null);
-    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const handledTargetId = useRef<string | null>(null);
     const isLoadingRef = useRef(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const isLoading = !state.isInitialized;
-
-    const clearHighlight = useCallback(() => {
-        setHighlightRange(null);
-    }, []);
 
     useEffect(() => {
         if (state.isInitialized || isLoadingRef.current) return;
@@ -69,20 +60,13 @@ export function useEntries(): UseEntriesReturn {
             setHasMore(page.hasMore);
             setCursor(page.nextCursor);
             setInitialized(true);
-
-            if (page.entries.length > 0 && !state.selectedEntryId) {
-                setSelectedEntryId(page.entries[0].id);
-            }
         };
 
         loadInitial();
-    }, [state.isInitialized, state.selectedEntryId, setEntries, setTotalCount, setHasMore, setCursor, setInitialized, setSelectedEntryId]);
+    }, [state.isInitialized, setEntries, setTotalCount, setHasMore, setCursor, setInitialized]);
 
     useEffect(() => {
         if (!target || state.entries.length === 0) {
-            if (state.entries.length > 0 && !state.selectedEntryId) {
-                setSelectedEntryId(state.entries[0].id);
-            }
             return;
         }
 
@@ -90,10 +74,6 @@ export function useEntries(): UseEntriesReturn {
             return;
         }
         handledTargetId.current = target.entryId;
-
-        if (target.highlight) {
-            setHighlightRange(target.highlight);
-        }
 
         setScrollOffset(0);
 
@@ -112,7 +92,7 @@ export function useEntries(): UseEntriesReturn {
                 clearTarget();
             });
         }
-    }, [state.entries, state.selectedEntryId, target, clearTarget, setSelectedEntryId, setEntries, setScrollOffset]);
+    }, [state.entries, target, clearTarget, setSelectedEntryId, setEntries, setScrollOffset]);
 
     const selectedEntry = useMemo(
         () => state.entries.find(e => e.id === state.selectedEntryId) || null,
@@ -146,10 +126,8 @@ export function useEntries(): UseEntriesReturn {
     }, [removeEntry]);
 
     const selectEntry = useCallback((id: string | null) => {
-        if (id !== state.selectedEntryId) {
-            setHighlightRange(null);
-        }
-        setSelectedEntryId(id);
+        const newId = (id === state.selectedEntryId) ? null : id;
+        setSelectedEntryId(newId);
     }, [state.selectedEntryId, setSelectedEntryId]);
 
     const loadMore = useCallback(async () => {
@@ -182,8 +160,6 @@ export function useEntries(): UseEntriesReturn {
         totalCount: state.totalCount,
         selectedEntry,
         selectedEntryId: state.selectedEntryId,
-        highlightRange,
-        clearHighlight,
         isLoading,
         isLoadingMore,
         hasMore: state.hasMore,

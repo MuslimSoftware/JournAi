@@ -217,6 +217,20 @@ pub fn run() {
             description: "add_tool_calls_to_chat_messages",
             sql: "ALTER TABLE chat_messages ADD COLUMN tool_calls TEXT;",
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 14,
+            description: "add_last_content_update_to_entries",
+            sql: "ALTER TABLE entries ADD COLUMN last_content_update TEXT;",
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 15,
+            description: "add_analytics_indices",
+            sql: "CREATE INDEX IF NOT EXISTS idx_analytics_queue_entry_id ON analytics_queue(entry_id);
+            CREATE INDEX IF NOT EXISTS idx_analytics_queue_status ON analytics_queue(status);
+            CREATE INDEX IF NOT EXISTS idx_journal_insights_entry_id ON journal_insights(entry_id);",
+            kind: MigrationKind::Up,
         }
     ];
 

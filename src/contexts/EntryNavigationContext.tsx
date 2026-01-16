@@ -1,18 +1,12 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
-export interface HighlightRange {
-  start: number;
-  end: number;
-}
-
 interface NavigationTarget {
   entryId: string;
-  highlight?: HighlightRange;
 }
 
 interface EntryNavigationContextType {
   target: NavigationTarget | null;
-  navigateToEntry: (entryId: string, highlight?: HighlightRange) => void;
+  navigateToEntry: (entryId: string) => void;
   clearTarget: () => void;
 }
 
@@ -21,8 +15,8 @@ const EntryNavigationContext = createContext<EntryNavigationContextType | undefi
 export function EntryNavigationProvider({ children }: { children: ReactNode }) {
   const [target, setTarget] = useState<NavigationTarget | null>(null);
 
-  const navigateToEntry = useCallback((entryId: string, highlight?: HighlightRange) => {
-    setTarget({ entryId, highlight });
+  const navigateToEntry = useCallback((entryId: string) => {
+    setTarget({ entryId });
   }, []);
 
   const clearTarget = useCallback(() => {

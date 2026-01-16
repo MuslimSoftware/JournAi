@@ -1,10 +1,9 @@
 import type {
   OpenAIMessage,
-  OpenAIStreamChunk,
-  OpenAIModel,
-  OpenAIToolCall,
   OpenAIMessageWithToolCalls,
   OpenAIToolResultMessage,
+  OpenAIStreamChunk,
+  OpenAIModel,
   ToolCall,
 } from '../types/chat';
 import type { RAGContext, FilteredInsight } from '../types/memory';
@@ -12,11 +11,12 @@ import { hybridSearch, type SearchResult } from './search';
 import { getEntriesByDateRange, getEntriesByIds } from './entries';
 import { getAggregatedInsights } from './analytics';
 import {
-  AGENT_TOOLS,
   executeToolCall,
   formatToolResultForAPI,
+  AGENT_TOOLS,
   type ToolName,
 } from './agentTools';
+import { initializeRuntime, JournalAIRuntime } from '../ai';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
@@ -87,17 +87,67 @@ export async function sendChatMessage(
       if (error.name === 'AbortError') {
         throw error;
       }
-      if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
-        throw new Error('Network connection lost. Please check your internet connection and try again.');
+      if (error.message.includes('network') || error.message.includes('Failed to fetch') || error.message.includes('Load failed')) {
+        throw new Error('Network connection lost. Check your internet connection and try again.');
+      }
+      if (error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
+        throw new Error('Cannot reach OpenAI servers. Check your internet connection or try again later.');
       }
       throw new Error(`Connection failed: ${error.message}`);
     }
-    throw new Error('Failed to connect to AI service. Please try again.');
+    throw new Error('Failed to connect to OpenAI. Please try again.');
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error?.message || `API error: ${response.status}`);
+    let errorMessage = `API error (${response.status})`;
+
+    try {
+      const errorData = await response.json();
+      if (errorData.error?.message) {
+        errorMessage = errorData.error.message;
+      } else if (errorData.error?.code) {
+        switch (errorData.error.code) {
+          case 'invalid_api_key':
+            errorMessage = 'Invalid API key. Please check your OpenAI API key in Settings.';
+            break;
+          case 'insufficient_quota':
+            errorMessage = 'OpenAI API quota exceeded. Please check your billing status at OpenAI.';
+            break;
+          case 'model_not_found':
+            errorMessage = 'Selected model not available. Try changing the model in Settings.';
+            break;
+          case 'context_length_exceeded':
+            errorMessage = 'Message too long. Try starting a new conversation.';
+            break;
+          case 'rate_limit_exceeded':
+            errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+            break;
+          default:
+            errorMessage = `OpenAI error: ${errorData.error.code}`;
+        }
+      }
+    } catch {
+      switch (response.status) {
+        case 401:
+          errorMessage = 'Invalid API key. Please check your OpenAI API key in Settings.';
+          break;
+        case 429:
+          errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+          break;
+        case 500:
+        case 502:
+        case 503:
+          errorMessage = 'OpenAI servers are experiencing issues. Please try again later.';
+          break;
+        case 504:
+          errorMessage = 'Request timed out. Please try again.';
+          break;
+        default:
+          errorMessage = `API error: ${response.status}`;
+      }
+    }
+
+    throw new Error(errorMessage);
   }
 
   const reader = response.body?.getReader();
@@ -438,17 +488,67 @@ export async function sendRAGChatMessage(
       if (error.name === 'AbortError') {
         throw error;
       }
-      if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
-        throw new Error('Network connection lost. Please check your internet connection and try again.');
+      if (error.message.includes('network') || error.message.includes('Failed to fetch') || error.message.includes('Load failed')) {
+        throw new Error('Network connection lost. Check your internet connection and try again.');
+      }
+      if (error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
+        throw new Error('Cannot reach OpenAI servers. Check your internet connection or try again later.');
       }
       throw new Error(`Connection failed: ${error.message}`);
     }
-    throw new Error('Failed to connect to AI service. Please try again.');
+    throw new Error('Failed to connect to OpenAI. Please try again.');
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error?.message || `API error: ${response.status}`);
+    let errorMessage = `API error (${response.status})`;
+
+    try {
+      const errorData = await response.json();
+      if (errorData.error?.message) {
+        errorMessage = errorData.error.message;
+      } else if (errorData.error?.code) {
+        switch (errorData.error.code) {
+          case 'invalid_api_key':
+            errorMessage = 'Invalid API key. Please check your OpenAI API key in Settings.';
+            break;
+          case 'insufficient_quota':
+            errorMessage = 'OpenAI API quota exceeded. Please check your billing status at OpenAI.';
+            break;
+          case 'model_not_found':
+            errorMessage = 'Selected model not available. Try changing the model in Settings.';
+            break;
+          case 'context_length_exceeded':
+            errorMessage = 'Message too long. Try starting a new conversation.';
+            break;
+          case 'rate_limit_exceeded':
+            errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+            break;
+          default:
+            errorMessage = `OpenAI error: ${errorData.error.code}`;
+        }
+      }
+    } catch {
+      switch (response.status) {
+        case 401:
+          errorMessage = 'Invalid API key. Please check your OpenAI API key in Settings.';
+          break;
+        case 429:
+          errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+          break;
+        case 500:
+        case 502:
+        case 503:
+          errorMessage = 'OpenAI servers are experiencing issues. Please try again later.';
+          break;
+        case 504:
+          errorMessage = 'Request timed out. Please try again.';
+          break;
+        default:
+          errorMessage = `API error: ${response.status}`;
+      }
+    }
+
+    throw new Error(errorMessage);
   }
 
   const reader = response.body?.getReader();
@@ -493,63 +593,378 @@ export async function sendRAGChatMessage(
   }
 }
 
-function getAgentSystemPrompt(): string {
-  const today = new Date();
-  const dateStr = today.toISOString().split('T')[0];
-  const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
-
-  return `You are a helpful AI assistant for a journaling app called JournAi.
-You have access to tools to search and analyze the user's journal entries.
-
-TODAY'S DATE: ${dateStr} (${dayName})
-
-WHEN TO USE TOOLS:
-- Use search_journal when the user asks about specific topics, events, or things they wrote
-- Use get_insights for questions about emotions, people, or "how am I doing"
-- Use get_entries_by_date for time-based summaries like "this week" or "last month"
-- For general conversation not about the journal, respond directly without tools
-
-DATE CALCULATIONS:
-- "this week" = last 7 days from today
-- "last week" = 7-14 days ago
-- "this month" = last 30 days from today
-- "last month" = 30-60 days ago
-
-IMPORTANT:
-- Only use tools when the question relates to the user's journal
-- If tools return no results or empty data, tell the user honestly
-- Reference specific dates when citing journal entries
-- Be warm, empathetic, and supportive
-- This is the user's private journal - treat it with care and respect`;
-}
-
 export interface AgentStreamCallbacks extends StreamCallbacks {
   onToolCallStart?: (toolCall: ToolCall) => void;
   onToolCallComplete?: (toolCall: ToolCall) => void;
   onContext?: (context: RAGContext) => void;
 }
 
-type AgentMessage = OpenAIMessage | OpenAIMessageWithToolCalls | OpenAIToolResultMessage;
+let runtime: JournalAIRuntime | null = null;
 
-interface AgentStreamResult {
-  content: string;
-  toolCalls: OpenAIToolCall[] | null;
-  finishReason: string | null;
+async function getRuntime(apiKey: string, model: string): Promise<JournalAIRuntime> {
+  if (!runtime) {
+    await initializeRuntime();
+    runtime = new JournalAIRuntime({
+      provider: 'openai',
+      llmConfig: { apiKey, model },
+    });
+  }
+  return runtime;
 }
 
-async function processAgentStream(
-  response: Response,
+export async function sendAgentChatMessage(
+  userMessage: string,
+  conversationHistory: OpenAIMessage[],
+  apiKey: string,
+  model: OpenAIModel,
   callbacks: AgentStreamCallbacks,
-  _signal?: AbortSignal
-): Promise<AgentStreamResult> {
+  signal?: AbortSignal
+): Promise<void> {
+  try {
+    const rt = await getRuntime(apiKey, model);
+    const today = new Date();
+    const currentDate = today.toISOString().split('T')[0];
+
+    // Get system prompt from ChatModule
+    const chatModule = await rt.getModule('journal-chat');
+    const systemPrompt = chatModule.defaultPrompt.replace('{{currentDate}}', currentDate);
+
+    // Build messages for OpenAI
+    const messages: (OpenAIMessage | OpenAIMessageWithToolCalls | OpenAIToolResultMessage)[] = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory,
+      { role: 'user', content: userMessage },
+    ];
+
+    // First call with tool support (don't call onComplete yet)
+    const firstResponse = await streamWithTools(
+      messages,
+      apiKey,
+      model,
+      { ...callbacks, onComplete: () => {} }, // Suppress onComplete for first call
+      signal
+    );
+
+    // If no tool calls, call onComplete and we're done
+    if (!firstResponse.toolCalls || firstResponse.toolCalls.length === 0) {
+      callbacks.onComplete();
+      return;
+    }
+
+    // Execute tools and collect citations
+    const toolMessages: OpenAIToolResultMessage[] = [];
+    const allCitations: Array<{ entryId: string }> = [];
+    const allInsights: FilteredInsight[] = [];
+    let contextText = '';
+
+    for (const toolCall of firstResponse.toolCalls) {
+      callbacks.onToolCallStart?.(toolCall);
+
+      const result = await executeToolCall(
+        toolCall.name as ToolName,
+        JSON.parse(toolCall.arguments)
+      );
+
+      callbacks.onToolCallComplete?.({
+        ...toolCall,
+        result: formatToolResultForAPI(result),
+        status: 'completed',
+      });
+
+      // Handle different tool result types
+      if (result.success && Array.isArray(result.data)) {
+        const toolName = toolCall.name as ToolName;
+
+        if (toolName === 'query_insights') {
+          const insights = result.data as Array<{
+            type: string;
+            name?: string;
+            emotion?: string;
+            entryId?: string;
+            entryIds?: string[];
+            entryDate?: string;
+            mostRecentDate?: string;
+            relationship?: string;
+            sentiment?: string;
+            context?: string;
+            intensity?: number;
+            trigger?: string;
+          }>;
+
+          // Extract insights for display and collect all entry IDs
+          const allEntryIds = new Set<string>();
+
+          for (const insight of insights) {
+            // Handle individual insight with single entryId
+            if (insight.entryId) {
+              const formattedInsight: FilteredInsight = insight.type === 'person'
+                ? {
+                    type: 'person',
+                    name: insight.name || '',
+                    relationship: insight.relationship,
+                    sentiment: insight.sentiment || 'neutral',
+                    context: insight.context,
+                    entryId: insight.entryId,
+                    entryDate: insight.entryDate || '',
+                  }
+                : {
+                    type: 'emotion',
+                    emotion: insight.emotion || '',
+                    intensity: insight.intensity || 5,
+                    trigger: insight.trigger,
+                    sentiment: (insight.sentiment || 'neutral') as 'positive' | 'negative' | 'neutral',
+                    entryId: insight.entryId,
+                    entryDate: insight.entryDate || '',
+                  };
+              allInsights.push(formattedInsight);
+              allEntryIds.add(insight.entryId);
+            }
+
+            // Handle grouped results with multiple entry IDs - only create ONE insight for display
+            if (insight.entryIds && Array.isArray(insight.entryIds) && insight.entryIds.length > 0) {
+              const displayDate = insight.mostRecentDate || insight.entryDate || '';
+              const firstEntryId = insight.entryIds[0];
+
+              // Create ONE insight for display using the first entry ID
+              const formattedInsight: FilteredInsight = insight.type === 'person'
+                ? {
+                    type: 'person',
+                    name: insight.name || '',
+                    relationship: insight.relationship,
+                    sentiment: insight.sentiment || 'neutral',
+                    context: insight.context,
+                    entryId: firstEntryId,
+                    entryDate: displayDate,
+                  }
+                : {
+                    type: 'emotion',
+                    emotion: insight.emotion || '',
+                    intensity: insight.intensity || 5,
+                    trigger: insight.trigger,
+                    sentiment: (insight.sentiment || 'neutral') as 'positive' | 'negative' | 'neutral',
+                    entryId: firstEntryId,
+                    entryDate: displayDate,
+                  };
+              allInsights.push(formattedInsight);
+
+              // Only cite the entry we're actually displaying the insight for
+              allEntryIds.add(firstEntryId);
+            }
+          }
+
+          // Add all entry IDs to citations
+          for (const entryId of allEntryIds) {
+            if (!allCitations.some(c => c.entryId === entryId)) {
+              allCitations.push({ entryId });
+            }
+          }
+
+          // Build formatted context text with ONLY insights (no full entries)
+          // Insights already contain context/triggers which are detailed summaries
+          const contextParts: string[] = ['INSIGHTS:'];
+          for (const insight of allInsights) {
+            if (insight.type === 'person') {
+              const rel = insight.relationship ? ` (${insight.relationship})` : '';
+              contextParts.push(`\n• ${insight.name}${rel} [${insight.sentiment}] on ${insight.entryDate}`);
+              if (insight.context) {
+                contextParts.push(`  Context: ${insight.context}`);
+              }
+            } else {
+              contextParts.push(`\n• ${insight.emotion} (intensity: ${insight.intensity}/10) [${insight.sentiment}] on ${insight.entryDate}`);
+              if (insight.trigger) {
+                contextParts.push(`  Trigger: ${insight.trigger}`);
+              }
+            }
+          }
+          contextText = contextParts.join('\n');
+        } else if (toolName === 'query_entries' || toolName === 'get_entries_by_ids') {
+          // Extract entry IDs and build context
+          const entryData = result.data as Array<{
+            entryId?: string;
+            date?: string;
+            content?: string;
+            snippet?: string;
+          }>;
+
+          for (const item of entryData) {
+            if (item.entryId && !allCitations.some(c => c.entryId === item.entryId)) {
+              allCitations.push({ entryId: item.entryId });
+            }
+          }
+
+          // Build context text from entries
+          const contextParts: string[] = ['JOURNAL ENTRIES:'];
+          for (const item of entryData) {
+            if (item.date) {
+              contextParts.push(`\n--- Entry from ${item.date} ---`);
+              if (item.content) {
+                contextParts.push(item.content);
+              } else if (item.snippet) {
+                contextParts.push(item.snippet);
+              }
+            }
+          }
+          contextText = contextParts.join('\n');
+        }
+      }
+
+      toolMessages.push({
+        role: 'tool',
+        content: formatToolResultForAPI(result),
+        tool_call_id: toolCall.id,
+      });
+    }
+
+    // Provide context/citations/insights if we have any
+    if (allCitations.length > 0 || allInsights.length > 0 || contextText) {
+      callbacks.onContext?.({
+        citations: allCitations,
+        entities: [],
+        contextText: contextText || JSON.stringify(allCitations),
+        insights: allInsights.length > 0 ? allInsights : undefined,
+      });
+    }
+
+    // Second call with tool results (this one will call onComplete)
+    const messagesWithTools: (OpenAIMessage | OpenAIMessageWithToolCalls | OpenAIToolResultMessage)[] = [
+      ...messages,
+      {
+        role: 'assistant',
+        content: firstResponse.content || '',
+        tool_calls: firstResponse.toolCalls.map((tc) => ({
+          index: 0,
+          id: tc.id,
+          type: 'function' as const,
+          function: {
+            name: tc.name,
+            arguments: tc.arguments,
+          },
+        })),
+      },
+      ...toolMessages,
+    ];
+
+    await streamWithTools(
+      messagesWithTools,
+      apiKey,
+      model,
+      callbacks, // This call will properly call onComplete
+      signal
+    );
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error;
+    }
+    callbacks.onError(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+interface StreamWithToolsResult {
+  content: string;
+  toolCalls?: ToolCall[];
+}
+
+async function streamWithTools(
+  messages: (OpenAIMessage | OpenAIMessageWithToolCalls | OpenAIToolResultMessage)[],
+  apiKey: string,
+  model: string,
+  callbacks: AgentStreamCallbacks,
+  signal?: AbortSignal
+): Promise<StreamWithToolsResult> {
+  let response: Response;
+  try {
+    response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        tools: AGENT_TOOLS,
+        tool_choice: 'auto',
+        stream: true,
+      }),
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw error;
+      }
+      if (error.message.includes('network') || error.message.includes('Failed to fetch') || error.message.includes('Load failed')) {
+        throw new Error('Network connection lost. Check your internet connection and try again.');
+      }
+      if (error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
+        throw new Error('Cannot reach OpenAI servers. Check your internet connection or try again later.');
+      }
+      throw new Error(`Connection failed: ${error.message}`);
+    }
+    throw new Error('Failed to connect to OpenAI. Please try again.');
+  }
+
+  if (!response.ok) {
+    let errorMessage = `API error (${response.status})`;
+
+    try {
+      const errorData = await response.json();
+      if (errorData.error?.message) {
+        errorMessage = errorData.error.message;
+      } else if (errorData.error?.code) {
+        // Handle specific OpenAI error codes
+        switch (errorData.error.code) {
+          case 'invalid_api_key':
+            errorMessage = 'Invalid API key. Please check your OpenAI API key in Settings.';
+            break;
+          case 'insufficient_quota':
+            errorMessage = 'OpenAI API quota exceeded. Please check your billing status at OpenAI.';
+            break;
+          case 'model_not_found':
+            errorMessage = 'Selected model not available. Try changing the model in Settings.';
+            break;
+          case 'context_length_exceeded':
+            errorMessage = 'Message too long. Try starting a new conversation.';
+            break;
+          case 'rate_limit_exceeded':
+            errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+            break;
+          default:
+            errorMessage = `OpenAI error: ${errorData.error.code}`;
+        }
+      }
+    } catch {
+      // If parsing fails, use status-based messages
+      switch (response.status) {
+        case 401:
+          errorMessage = 'Invalid API key. Please check your OpenAI API key in Settings.';
+          break;
+        case 429:
+          errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+          break;
+        case 500:
+        case 502:
+        case 503:
+          errorMessage = 'OpenAI servers are experiencing issues. Please try again later.';
+          break;
+        case 504:
+          errorMessage = 'Request timed out. Please try again.';
+          break;
+        default:
+          errorMessage = `API error: ${response.status}`;
+      }
+    }
+
+    throw new Error(errorMessage);
+  }
+
   const reader = response.body?.getReader();
   if (!reader) throw new Error('No response body');
 
   const decoder = new TextDecoder();
   let buffer = '';
   let content = '';
-  const toolCallsMap = new Map<number, OpenAIToolCall>();
-  let finishReason: string | null = null;
+  const toolCalls: ToolCall[] = [];
 
   try {
     while (true) {
@@ -567,38 +982,31 @@ async function processAgentStream(
 
         try {
           const chunk: OpenAIStreamChunk = JSON.parse(trimmed.slice(6));
-          const choice = chunk.choices[0];
+          const delta = chunk.choices[0]?.delta;
 
-          if (choice?.finish_reason) {
-            finishReason = choice.finish_reason;
-          }
-
-          const delta = choice?.delta;
-          if (!delta) continue;
-
-          if (delta.content) {
+          // Handle content
+          if (delta?.content) {
             content += delta.content;
             callbacks.onToken(delta.content);
           }
 
-          if (delta.tool_calls) {
-            for (const tcDelta of delta.tool_calls) {
-              const index = tcDelta.index;
-
-              if (!toolCallsMap.has(index)) {
-                toolCallsMap.set(index, {
-                  index,
-                  id: '',
-                  type: 'function',
-                  function: { name: '', arguments: '' },
-                });
+          // Handle tool calls
+          if (delta?.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              if (!toolCalls[tc.index]) {
+                toolCalls[tc.index] = {
+                  id: tc.id || '',
+                  name: tc.function?.name || '',
+                  arguments: '',
+                  status: 'running',
+                };
               }
-
-              const tc = toolCallsMap.get(index)!;
-
-              if (tcDelta.id) tc.id += tcDelta.id;
-              if (tcDelta.function?.name) tc.function.name += tcDelta.function.name;
-              if (tcDelta.function?.arguments) tc.function.arguments += tcDelta.function.arguments;
+              if (tc.function?.name) {
+                toolCalls[tc.index].name = tc.function.name;
+              }
+              if (tc.function?.arguments) {
+                toolCalls[tc.index].arguments += tc.function.arguments;
+              }
             }
           }
         } catch {
@@ -606,157 +1014,13 @@ async function processAgentStream(
         }
       }
     }
+
+    callbacks.onComplete();
+    return { content, toolCalls: toolCalls.length > 0 ? toolCalls : undefined };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      return { content, toolCalls: null, finishReason: 'abort' };
+      throw error;
     }
     throw error;
   }
-
-  const toolCalls =
-    toolCallsMap.size > 0
-      ? Array.from(toolCallsMap.values()).sort((a, b) => a.index - b.index)
-      : null;
-
-  return { content, toolCalls, finishReason };
-}
-
-export async function sendAgentChatMessage(
-  userMessage: string,
-  conversationHistory: OpenAIMessage[],
-  apiKey: string,
-  model: OpenAIModel,
-  callbacks: AgentStreamCallbacks,
-  signal?: AbortSignal,
-  maxIterations: number = 5
-): Promise<void> {
-  const messages: AgentMessage[] = [
-    { role: 'system', content: getAgentSystemPrompt() },
-    ...conversationHistory,
-    { role: 'user', content: userMessage },
-  ];
-
-  const citedEntryIds = new Set<string>();
-  let capturedInsights: FilteredInsight[] = [];
-  let iterations = 0;
-
-  while (iterations < maxIterations) {
-    iterations++;
-
-    let response: Response;
-    try {
-      response = await fetch(OPENAI_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          tools: AGENT_TOOLS,
-          tool_choice: 'auto',
-          stream: true,
-          parallel_tool_calls: false,
-        }),
-        signal,
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          throw error;
-        }
-        if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
-          throw new Error('Network connection lost. Please check your internet connection and try again.');
-        }
-        throw new Error(`Connection failed: ${error.message}`);
-      }
-      throw new Error('Failed to connect to AI service. Please try again.');
-    }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error?.message || `API error: ${response.status}`);
-    }
-
-    const { content, toolCalls, finishReason } = await processAgentStream(
-      response,
-      callbacks,
-      signal
-    );
-
-    if (finishReason === 'stop' || !toolCalls || toolCalls.length === 0) {
-      if (citedEntryIds.size > 0 || capturedInsights) {
-        callbacks.onContext?.({
-          citations: Array.from(citedEntryIds).map((id) => ({ entryId: id })),
-          entities: [],
-          insights: capturedInsights,
-        });
-      }
-      callbacks.onComplete();
-      return;
-    }
-
-    const assistantMessage: OpenAIMessageWithToolCalls = {
-      role: 'assistant',
-      content: content || '',
-      tool_calls: toolCalls,
-    };
-    messages.push(assistantMessage);
-
-    for (const toolCall of toolCalls) {
-      const toolCallState: ToolCall = {
-        id: toolCall.id,
-        name: toolCall.function.name,
-        arguments: toolCall.function.arguments,
-        status: 'running',
-      };
-
-      callbacks.onToolCallStart?.(toolCallState);
-
-      try {
-        const args = JSON.parse(toolCall.function.arguments);
-        const result = await executeToolCall(toolCall.function.name as ToolName, args);
-
-        if (result.success && Array.isArray(result.data)) {
-          if (toolCall.function.name === 'get_insights') {
-            capturedInsights = result.data as FilteredInsight[];
-            for (const insight of capturedInsights) {
-              if (insight.entryId) citedEntryIds.add(insight.entryId);
-            }
-          } else {
-            for (const item of result.data as Array<{ entryId?: string; id?: string }>) {
-              if (item.entryId) citedEntryIds.add(item.entryId);
-              if (item.id) citedEntryIds.add(item.id);
-            }
-          }
-        }
-
-        const resultContent = formatToolResultForAPI(result);
-
-        messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: resultContent,
-        });
-
-        toolCallState.result = resultContent;
-        toolCallState.status = 'completed';
-        callbacks.onToolCallComplete?.(toolCallState);
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify({ error: errorMsg }),
-        });
-
-        toolCallState.result = errorMsg;
-        toolCallState.status = 'error';
-        callbacks.onToolCallComplete?.(toolCallState);
-      }
-    }
-  }
-
-  callbacks.onError(new Error('Max iterations reached'));
 }

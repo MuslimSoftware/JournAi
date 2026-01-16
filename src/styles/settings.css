@@ -88,10 +88,6 @@
   gap: var(--settings-spacing-sm);
 }
 
-.settings-button--danger {
-  border-color: var(--status-error);
-  color: var(--status-error);
-}
 
 .settings-progress-container {
   width: 100%;

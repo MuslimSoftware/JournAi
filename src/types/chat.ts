@@ -45,6 +45,15 @@ export interface OpenAIMessage {
   content: string;
 }
 
+export interface JSONSchemaProperty {
+  type: string;
+  description?: string;
+  enum?: string[];
+  items?: JSONSchemaProperty;
+  properties?: Record<string, JSONSchemaProperty>;
+  required?: string[];
+}
+
 export interface OpenAITool {
   type: 'function';
   function: {
@@ -52,11 +61,7 @@ export interface OpenAITool {
     description: string;
     parameters: {
       type: 'object';
-      properties: Record<string, {
-        type: string;
-        description: string;
-        enum?: string[];
-      }>;
+      properties: Record<string, JSONSchemaProperty>;
       required?: string[];
     };
   };

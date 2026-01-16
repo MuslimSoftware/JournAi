@@ -1,7 +1,3 @@
-::highlight(insight-highlight) {
-  background-color: rgba(250, 204, 21, 0.4);
-}
-
 .content-editable-editor:empty::before {
   content: attr(data-placeholder);
   color: var(--text-muted);

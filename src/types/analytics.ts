@@ -32,24 +32,6 @@ export interface JournalInsight {
   createdAt: string;
 }
 
-export interface AnalyticsQueueItem {
-  id: string;
-  entryId: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  retryCount: number;
-  error?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface AnalyticsStats {
-  totalInsights: number;
-  insightsByType: Record<InsightType, number>;
-  entriesAnalyzed: number;
-  entriesPending: number;
-  lastAnalyzedAt?: string;
-}
-
 export interface AggregatedInsights {
   emotions: Array<{
     emotion: string;

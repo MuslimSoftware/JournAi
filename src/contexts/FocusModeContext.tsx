@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { appStore } from '../lib/store';
+import { useEscapeKey, useKeyPress } from '../hooks/useKeyPress';
 
 interface FocusModeContextType {
   isFocusMode: boolean;
@@ -25,28 +26,19 @@ export function FocusModeProvider({ children }: { children: ReactNode }) {
     appStore.set(FOCUS_MODE_KEY, isFocusMode);
   }, [isFocusMode]);
 
-  useEffect(() => {
-    if (!isFocusMode) return;
+  useEscapeKey(() => {
+    if (isFocusMode) setIsFocusMode(false);
+  });
 
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsFocusMode(false);
-    };
+  useKeyPress('f', () => setIsFocusMode((prev) => !prev), {
+    ctrlKey: true,
+    shiftKey: true,
+  });
 
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isFocusMode]);
-
-  useEffect(() => {
-    const handleKeyboard = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
-        e.preventDefault();
-        setIsFocusMode((prev) => !prev);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyboard);
-    return () => document.removeEventListener('keydown', handleKeyboard);
-  }, []);
+  useKeyPress('F', () => setIsFocusMode((prev) => !prev), {
+    metaKey: true,
+    shiftKey: true,
+  });
 
   const toggleFocusMode = useCallback(() => setIsFocusMode((prev) => !prev), []);
   const enterFocusMode = useCallback(() => setIsFocusMode(true), []);

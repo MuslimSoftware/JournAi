@@ -41,6 +41,12 @@ function applyThemeCSSVariables(theme: ThemeTokens): void {
   root.style.setProperty('--interactive-default', theme.colors.interactive.default);
   root.style.setProperty('--interactive-hover', theme.colors.interactive.hover);
   root.style.setProperty('--interactive-active', theme.colors.interactive.active);
+  root.style.setProperty('--button-primary', theme.colors.button.primary);
+  root.style.setProperty('--button-primary-hover', theme.colors.button.primaryHover);
+  root.style.setProperty('--button-secondary', theme.colors.button.secondary);
+  root.style.setProperty('--button-secondary-hover', theme.colors.button.secondaryHover);
+  root.style.setProperty('--button-ghost', theme.colors.button.ghost);
+  root.style.setProperty('--button-ghost-hover', theme.colors.button.ghostHover);
   root.style.setProperty('--indicator-entry', theme.colors.indicator.entry);
   root.style.setProperty('--indicator-sticky-note', theme.colors.indicator.stickyNote);
   root.style.setProperty('--indicator-todo-complete', theme.colors.indicator.todoComplete);
@@ -48,6 +54,9 @@ function applyThemeCSSVariables(theme: ThemeTokens): void {
   root.style.setProperty('--status-success', theme.colors.status.success);
   root.style.setProperty('--status-error', theme.colors.status.error);
   root.style.setProperty('--status-warning', theme.colors.status.warning);
+  root.style.setProperty('--danger-bg', theme.colors.danger.background);
+  root.style.setProperty('--danger-bg-hover', theme.colors.danger.backgroundHover);
+  root.style.setProperty('--danger-text', theme.colors.danger.text);
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

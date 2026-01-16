@@ -51,7 +51,6 @@ export default function MessageBubble({ message, onToggleThinking }: MessageBubb
   const { theme } = useTheme();
   const navigate = useNavigate();
   const { navigateToEntry } = useEntryNavigation();
-  const [showRaw, setShowRaw] = useState(false);
   const [showCitations, setShowCitations] = useState(false);
   const [showContext, setShowContext] = useState(false);
   const [citedEntries, setCitedEntries] = useState<JournalEntry[]>([]);
@@ -63,7 +62,12 @@ export default function MessageBubble({ message, onToggleThinking }: MessageBubb
   const hasInsights = message.ragContext?.insights && message.ragContext.insights.length > 0;
   const hasSources = hasCitations || hasInsights;
   const hasContext = message.ragContext?.contextText;
-  const showThinkingIndicator = !isUser && message.isStreaming && !hasContent && !hasToolCalls;
+  const allToolsCompleted = hasToolCalls && message.toolCalls!.every(tc => tc.status === 'completed');
+
+  // Show thinking/calling indicator until first content chunk arrives
+  const showThinkingIndicator = !isUser && message.isStreaming && !hasContent;
+  const showCallingToolsIndicator = hasToolCalls && !allToolsCompleted;
+
   const isError = message.status === 'error';
 
   useEffect(() => {
@@ -98,32 +102,32 @@ export default function MessageBubble({ message, onToggleThinking }: MessageBubb
 
   return (
     <div className={containerClass} style={{ gap: theme.spacing.xs }}>
+      {/* TOOL CALLS - ALWAYS FIRST */}
+      {hasToolCalls && <ToolCallDisplay toolCalls={message.toolCalls!} />}
+
+      {/* THINKING/CALLING INDICATOR */}
       {showThinkingIndicator && (
         <div
           className="chat-bubble chat-bubble--assistant chat-bubble--thinking"
           style={{ padding: `${theme.spacing.sm} ${theme.spacing.md}`, gap: theme.spacing.sm }}
         >
           <Spinner size="sm" />
-          <span>Thinking...</span>
+          <span>{showCallingToolsIndicator ? 'Calling tools...' : 'Thinking...'}</span>
         </div>
       )}
-      {hasToolCalls && <ToolCallDisplay toolCalls={message.toolCalls!} />}
+
+      {/* CONTENT - ALWAYS LAST */}
       {hasContent && (
         <div className={getBubbleClass()} style={{ padding: `${theme.spacing.sm} ${theme.spacing.md}` }}>
           {isUser ? (
             message.content
-          ) : showRaw ? (
-            <pre className="chat-bubble__raw">{message.content}</pre>
           ) : (
             <Streamdown className="streamdown" components={streamdownComponents}>{message.content}</Streamdown>
           )}
         </div>
       )}
-      {hasContent && !isUser && (
+      {hasContent && !isUser && (hasSources || hasContext) && (
         <div className="chat-message-actions">
-          <button onClick={() => setShowRaw(!showRaw)} className="chat-action-button">
-            {showRaw ? 'Show Rendered' : 'Show Raw'}
-          </button>
           {hasSources && (
             <button onClick={() => setShowCitations(!showCitations)} className="chat-action-button">
               <IoDocumentText size={12} />

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useCallback, CSSProperties, forwardRef, useImperativeHandle } from 'react';
-import type { HighlightRange } from '../../contexts/EntryNavigationContext';
 import '../../styles/content-editable.css';
 
 interface ContentEditableEditorProps {
@@ -7,8 +6,6 @@ interface ContentEditableEditorProps {
   onChange: (value: string) => void;
   onBlur?: () => void;
   placeholder?: string;
-  highlightRange?: HighlightRange | null;
-  onHighlightDismiss?: () => void;
   className?: string;
   style?: CSSProperties;
 }
@@ -18,7 +15,6 @@ export interface ContentEditableEditorRef {
   blur: () => void;
 }
 
-const supportsHighlightAPI = typeof CSS !== 'undefined' && 'highlights' in CSS;
 
 function findTextNodeAndOffset(
   container: HTMLElement,
@@ -53,40 +49,6 @@ function findTextNodeAndOffset(
   }
 
   return null;
-}
-
-function createRangeForOffsets(
-  container: HTMLElement,
-  start: number,
-  end: number
-): Range | null {
-  const startPoint = findTextNodeAndOffset(container, start);
-  const endPoint = findTextNodeAndOffset(container, end);
-
-  if (!startPoint || !endPoint) return null;
-
-  const range = new Range();
-  range.setStart(startPoint.node, startPoint.offset);
-  range.setEnd(endPoint.node, endPoint.offset);
-  return range;
-}
-
-function applyHighlight(element: HTMLElement, highlightRange: HighlightRange) {
-  if (!supportsHighlightAPI || !CSS.highlights) return;
-
-  CSS.highlights.delete('insight-highlight');
-
-  const { start, end } = highlightRange;
-  const range = createRangeForOffsets(element, start, end);
-  if (!range) return;
-
-  const highlight = new Highlight(range);
-  CSS.highlights.set('insight-highlight', highlight);
-}
-
-function clearHighlight() {
-  if (!supportsHighlightAPI || !CSS.highlights) return;
-  CSS.highlights.delete('insight-highlight');
 }
 
 function getTextContent(element: HTMLElement): string {
@@ -155,8 +117,6 @@ export const ContentEditableEditor = forwardRef<ContentEditableEditorRef, Conten
       onChange,
       onBlur,
       placeholder = 'Start writing...',
-      highlightRange,
-      onHighlightDismiss,
       className,
       style,
     },
@@ -194,69 +154,39 @@ export const ContentEditableEditor = forwardRef<ContentEditableEditorRef, Conten
       }
     }, [value]);
 
-    useEffect(() => {
+    const scrollCursorIntoView = useCallback(() => {
       if (!editorRef.current) return;
 
-      if (highlightRange) {
-        if (editorRef.current.innerText !== value) {
-          editorRef.current.innerText = value;
-          lastValueRef.current = value;
-        }
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
 
-        applyHighlight(editorRef.current, highlightRange);
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      const editorRect = editorRef.current.getBoundingClientRect();
 
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (!editorRef.current) return;
-            const range = createRangeForOffsets(editorRef.current, highlightRange.start, highlightRange.end);
-            if (!range) return;
+      const isAboveView = rect.top < editorRect.top;
+      const isBelowView = rect.bottom > editorRect.bottom;
 
-            const rect = range.getBoundingClientRect();
-            const scrollParent = editorRef.current.closest('.entries-content') || editorRef.current;
+      if (isAboveView || isBelowView) {
+        const scrollParent = editorRef.current.closest('.entries-content, .mobile-editor-content-wrapper') as HTMLElement;
 
-            if (scrollParent instanceof HTMLElement) {
-              const targetScroll = rect.top - scrollParent.getBoundingClientRect().top + scrollParent.scrollTop - 100;
-              scrollParent.scrollTo({ top: Math.max(0, targetScroll), behavior: 'smooth' });
-            }
+        if (scrollParent) {
+          const scrollParentRect = scrollParent.getBoundingClientRect();
+          const targetTop = rect.top - scrollParentRect.top + scrollParent.scrollTop;
+          const offset = isBelowView ? -scrollParentRect.height + rect.height + 100 : -100;
+
+          scrollParent.scrollTo({
+            top: Math.max(0, targetTop + offset),
+            behavior: 'smooth'
           });
-        });
-      } else {
-        clearHighlight();
+        } else {
+          const temp = document.createElement('span');
+          range.insertNode(temp);
+          temp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          temp.remove();
+        }
       }
-    }, [highlightRange, value]);
-
-    useEffect(() => {
-      if (!highlightRange || !onHighlightDismiss) return;
-
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          onHighlightDismiss();
-        }
-      };
-
-      const handleClickOutside = (_e: MouseEvent) => {
-        if (!editorRef.current) return;
-
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) {
-          const selectionRange = selection.getRangeAt(0);
-          if (selectionRange.collapsed) {
-            const clickOffset = getCursorOffset(editorRef.current);
-            if (clickOffset < highlightRange.start || clickOffset > highlightRange.end) {
-              onHighlightDismiss();
-            }
-          }
-        }
-      };
-
-      document.addEventListener('keydown', handleKeyDown);
-      document.addEventListener('click', handleClickOutside);
-
-      return () => {
-        document.removeEventListener('keydown', handleKeyDown);
-        document.removeEventListener('click', handleClickOutside);
-      };
-    }, [highlightRange, onHighlightDismiss]);
+    }, []);
 
     const handleInput = useCallback(() => {
       if (!editorRef.current) return;
@@ -271,7 +201,11 @@ export const ContentEditableEditor = forwardRef<ContentEditableEditorRef, Conten
       isInternalChange.current = true;
       lastValueRef.current = newValue;
       onChange(newValue);
-    }, [onChange]);
+
+      requestAnimationFrame(() => {
+        scrollCursorIntoView();
+      });
+    }, [onChange, scrollCursorIntoView]);
 
     const handlePaste = useCallback((e: React.ClipboardEvent) => {
       e.preventDefault();

@@ -17,7 +17,12 @@ interface UseChatReturn extends ChatState {
   retryMessage: (messageId: string) => Promise<void>;
   clearMessages: () => void;
   toggleThinkingExpanded: (messageId: string) => void;
+  loadMoreMessages: () => Promise<void>;
+  hasMoreMessages: boolean;
+  isLoadingMore: boolean;
 }
+
+const MESSAGES_PAGE_SIZE = 50;
 
 export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOptions): UseChatReturn {
   const [state, setState] = useState<ChatState>({
@@ -28,6 +33,9 @@ export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOpt
   });
 
   const [aiSettings, setAiSettings] = useState<{ apiKey: string; model: OpenAIModel } | null>(null);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [totalMessageCount, setTotalMessageCount] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const titleGeneratedRef = useRef<Set<string>>(new Set());
 
@@ -50,16 +58,26 @@ export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOpt
         isThinking: false,
         error: null,
       });
+      setHasMoreMessages(false);
+      setTotalMessageCount(0);
       return;
     }
 
     const loadMessages = async () => {
       try {
-        const messages = await chatMessagesService.getMessages(chatId);
+        // Get total count
+        const count = await chatMessagesService.getMessageCount(chatId);
+        setTotalMessageCount(count);
+
+        // Load most recent messages
+        const messages = await chatMessagesService.getMessages(chatId, MESSAGES_PAGE_SIZE);
         setState(prev => ({
           ...prev,
           messages,
         }));
+
+        // Check if there are more messages to load
+        setHasMoreMessages(count > MESSAGES_PAGE_SIZE);
       } catch (error) {
         console.error('Failed to load messages:', error);
       }
@@ -67,6 +85,32 @@ export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOpt
 
     loadMessages();
   }, [chatId]);
+
+  const loadMoreMessages = useCallback(async () => {
+    if (!chatId || isLoadingMore || !hasMoreMessages) return;
+
+    setIsLoadingMore(true);
+    try {
+      const currentCount = state.messages.length;
+      const olderMessages = await chatMessagesService.getMessages(
+        chatId,
+        MESSAGES_PAGE_SIZE,
+        currentCount
+      );
+
+      setState(prev => ({
+        ...prev,
+        messages: [...olderMessages, ...prev.messages],
+      }));
+
+      // Update hasMore based on total count
+      setHasMoreMessages(currentCount + olderMessages.length < totalMessageCount);
+    } catch (error) {
+      console.error('Failed to load more messages:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [chatId, isLoadingMore, hasMoreMessages, state.messages.length, totalMessageCount]);
 
   const generateTitleIfNeeded = useCallback(async (currentChatId: string, messages: ChatMessage[]) => {
     if (!aiSettings?.apiKey || titleGeneratedRef.current.has(currentChatId)) return;
@@ -340,5 +384,8 @@ export function useChat({ chatId, onTitleGenerated, onMessageAdded }: UseChatOpt
     retryMessage,
     clearMessages,
     toggleThinkingExpanded,
+    loadMoreMessages,
+    hasMoreMessages,
+    isLoadingMore,
   };
 }

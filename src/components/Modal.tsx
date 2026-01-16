@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useEscapeKey } from '../hooks/useKeyPress';
 import '../styles/modal.css';
 
 interface ModalProps {
@@ -12,18 +13,17 @@ interface ModalProps {
 export default function Modal({ isOpen, onClose, children, size = 'md' }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
+  useEscapeKey(() => {
+    if (isOpen) onClose();
+  }, { ignoreInputFields: false });
+
   useEffect(() => {
     if (!isOpen) return;
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
 
     const handleClickOutside = (e: MouseEvent) => {
       if (modalRef.current === e.target) onClose();
     };
 
-    document.addEventListener('keydown', handleEscape);
     document.addEventListener('mousedown', handleClickOutside);
 
     const focusableElements = modalRef.current?.querySelectorAll(
@@ -34,7 +34,6 @@ export default function Modal({ isOpen, onClose, children, size = 'md' }: ModalP
     }
 
     return () => {
-      document.removeEventListener('keydown', handleEscape);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen, onClose]);

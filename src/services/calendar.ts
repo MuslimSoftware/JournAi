@@ -35,7 +35,7 @@ export async function getMonthIndicators(year: number, month: number): Promise<M
 
 export async function getDayData(date: string): Promise<DayData> {
   const [entryRows, todos, stickyNotes] = await Promise.all([
-    select<EntryRow>('SELECT id, date, content FROM entries WHERE date = $1 LIMIT 1', [date]),
+    select<EntryRow>('SELECT id, date, content FROM entries WHERE date = $1 ORDER BY created_at DESC LIMIT 1', [date]),
     getTodosByDateRange(date, date),
     getStickyNotesByDateRange(date, date),
   ]);
