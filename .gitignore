@@ -40,5 +40,8 @@ Thumbs.db
 *.sln
 *.sw?
 
+# Claude Code
+.mcp.json
+
 # Bun
 bun.lockb
