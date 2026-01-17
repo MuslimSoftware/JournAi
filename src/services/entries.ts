@@ -138,3 +138,37 @@ export async function getEntriesByDateRange(
     );
     return rows.map(rowToEntry);
 }
+
+/**
+ * Get all entries that have not been processed yet (processed_at is null)
+ */
+export async function getUnprocessedEntries(): Promise<JournalEntry[]> {
+    const rows = await select<EntryRow>(
+        `SELECT id, date, content, created_at, processed_at, content_hash FROM entries
+         WHERE processed_at IS NULL
+         ORDER BY date DESC, created_at DESC`
+    );
+    return rows.map(rowToEntry);
+}
+
+/**
+ * Mark an entry as processed with the current timestamp and content hash
+ */
+export async function markEntryAsProcessed(id: string, contentHash: string): Promise<void> {
+    const timestamp = getTimestamp();
+    await execute(
+        'UPDATE entries SET processed_at = $1, content_hash = $2 WHERE id = $3',
+        [timestamp, contentHash, id]
+    );
+}
+
+/**
+ * Clear the processed status of an entry (set processed_at and content_hash to null)
+ * Used when an entry is modified and needs re-analysis
+ */
+export async function clearEntryProcessedStatus(id: string): Promise<void> {
+    await execute(
+        'UPDATE entries SET processed_at = NULL, content_hash = NULL WHERE id = $1',
+        [id]
+    );
+}

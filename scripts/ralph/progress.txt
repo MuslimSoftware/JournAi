@@ -12,8 +12,15 @@ Features completed:
   - Updated packages/core types and services to match
   - TypeScript compiles without errors
 
+- [2026-01-17] Feature 2: "System can identify unprocessed entries"
+  - Added getUnprocessedEntries() function to src/services/entries.ts
+  - Added markEntryAsProcessed(id, contentHash) function to src/services/entries.ts
+  - Added clearEntryProcessedStatus(id) function to src/services/entries.ts
+  - These functions enable querying entries where processed_at IS NULL
+  - TypeScript compiles without errors
+
 Current task:
-- Completed first iteration
+- Completed second iteration
 
 Notes:
 - This file tracks progress across Ralph iterations
