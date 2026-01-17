@@ -21,8 +21,8 @@ import type {
 export async function saveInsights(insights: JournalInsight[]): Promise<void> {
   for (const insight of insights) {
     await execute(
-      `INSERT INTO journal_insights (id, entry_id, entry_date, insight_type, content, metadata, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO journal_insights (id, entry_id, entry_date, insight_type, content, metadata, created_at, source_text, source_start, source_end)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         insight.id,
         insight.entryId,
@@ -31,6 +31,9 @@ export async function saveInsights(insights: JournalInsight[]): Promise<void> {
         insight.content,
         insight.metadata ? JSON.stringify(insight.metadata) : null,
         insight.createdAt,
+        insight.sourceText ?? null,
+        insight.sourceStart ?? null,
+        insight.sourceEnd ?? null,
       ]
     );
   }

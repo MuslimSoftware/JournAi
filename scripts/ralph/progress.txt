@@ -19,8 +19,21 @@ Features completed:
   - These functions enable querying entries where processed_at IS NULL
   - TypeScript compiles without errors
 
+- [2026-01-17] Feature 3: "System can process a single entry and generate insights"
+  - Created src/services/entryAnalysis.ts with AI-powered entry analysis
+  - analyzeEntry(entry): Uses OpenAI GPT-4o-mini to extract emotions and people from entry text
+  - processEntry(entry): Full processing workflow - delete old insights, analyze, save new insights, mark as processed
+  - generateContentHash(content): Hash function for detecting entry modifications
+  - hasEntryBeenModified(entry): Checks if entry content has changed since last analysis
+  - Updated saveInsights() in analytics.ts to include source_text, source_start, source_end fields
+  - AI extracts emotions with: emotion name, intensity (1-10), trigger, sentiment, source location
+  - AI extracts people with: name, relationship, sentiment, context, source location
+  - Source positions are validated and corrected to ensure accuracy
+  - Insights are saved with entry_id reference for navigation
+  - TypeScript compiles without errors
+
 Current task:
-- Completed second iteration
+- Completed third iteration
 
 Notes:
 - This file tracks progress across Ralph iterations
