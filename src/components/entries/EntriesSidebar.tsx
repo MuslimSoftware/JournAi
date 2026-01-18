@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { DayPicker } from 'react-day-picker';
-import { FiEdit2, FiCalendar, FiFeather } from 'react-icons/fi';
+import { FiEdit2, FiCalendar, FiFeather, FiCheck, FiClock, FiRefreshCw } from 'react-icons/fi';
 import { Text, IconButton, TrashButton } from '../themed';
 import { NestedSidebar } from '../shared';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
@@ -163,11 +163,46 @@ export default function EntriesSidebar({
     isNearEdge && 'near-edge',
   ].filter(Boolean).join(' ');
 
+  const getProcessingStatus = (entry: JournalEntry): 'analyzed' | 'unprocessed' | 'needs-reanalysis' => {
+    if (entry.processedAt) {
+      return 'analyzed';
+    }
+    if (entry.contentHash) {
+      return 'needs-reanalysis';
+    }
+    return 'unprocessed';
+  };
+
+  const renderStatusIndicator = (entry: JournalEntry) => {
+    const status = getProcessingStatus(entry);
+
+    if (status === 'analyzed') {
+      return (
+        <span className="entry-status-indicator entry-status-analyzed" title="Analyzed">
+          <FiCheck size={10} />
+        </span>
+      );
+    }
+    if (status === 'needs-reanalysis') {
+      return (
+        <span className="entry-status-indicator entry-status-needs-reanalysis" title="Needs re-analysis">
+          <FiRefreshCw size={10} />
+        </span>
+      );
+    }
+    return (
+      <span className="entry-status-indicator entry-status-unprocessed" title="Unprocessed">
+        <FiClock size={10} />
+      </span>
+    );
+  };
+
   const renderEntryItem = (entry: JournalEntry) => (
     <>
       <div className="entry-list-item-content">
         <div className="entry-list-item-date">
           <Text variant="muted">{formatEntryDate(entry.date)}</Text>
+          {renderStatusIndicator(entry)}
         </div>
         <div className="entry-list-item-preview">
           <Text variant="secondary">{entry.preview}</Text>

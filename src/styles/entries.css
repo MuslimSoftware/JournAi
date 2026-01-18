@@ -241,6 +241,34 @@
   font-size: 0.6875rem;
   line-height: 16px;
   letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.entry-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.entry-status-analyzed {
+  background-color: var(--text-accent);
+  color: var(--bg-primary);
+}
+
+.entry-status-unprocessed {
+  background-color: var(--bg-subtle);
+  color: var(--text-muted);
+}
+
+.entry-status-needs-reanalysis {
+  background-color: var(--text-warning, #f59e0b);
+  color: var(--bg-primary);
 }
 
 .entry-list-item-preview {

@@ -11,7 +11,7 @@ import SwipeableListItem from './SwipeableListItem';
 import MobileEntryEditor from './MobileEntryEditor';
 import BottomSheet from './BottomSheet';
 import { SkeletonEntryList } from './Skeleton';
-import { FiPlus, FiSearch, FiX } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiX, FiCheck, FiClock, FiRefreshCw } from 'react-icons/fi';
 import { groupEntriesByDate } from '../../utils/dateGrouping';
 import { formatEntryDate } from '../../utils/date';
 import type { JournalEntry } from '../../types/entry';
@@ -113,6 +113,40 @@ export default function MobileEntries() {
     setIsSearching(false);
     setSearchQuery('');
   }, []);
+
+  const getProcessingStatus = (entry: JournalEntry): 'analyzed' | 'unprocessed' | 'needs-reanalysis' => {
+    if (entry.processedAt) {
+      return 'analyzed';
+    }
+    if (entry.contentHash) {
+      return 'needs-reanalysis';
+    }
+    return 'unprocessed';
+  };
+
+  const renderStatusIndicator = (entry: JournalEntry) => {
+    const status = getProcessingStatus(entry);
+
+    if (status === 'analyzed') {
+      return (
+        <span className="mobile-entry-status mobile-entry-status-analyzed" title="Analyzed">
+          <FiCheck size={10} />
+        </span>
+      );
+    }
+    if (status === 'needs-reanalysis') {
+      return (
+        <span className="mobile-entry-status mobile-entry-status-needs-reanalysis" title="Needs re-analysis">
+          <FiRefreshCw size={10} />
+        </span>
+      );
+    }
+    return (
+      <span className="mobile-entry-status mobile-entry-status-unprocessed" title="Unprocessed">
+        <FiClock size={10} />
+      </span>
+    );
+  };
 
   const filteredEntries = searchQuery.trim()
     ? entries.filter(e => e.content.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -275,12 +309,15 @@ export default function MobileEntries() {
                         onTouchEnd={() => setPressedEntryId(null)}
                         onTouchCancel={() => setPressedEntryId(null)}
                       >
-                        <span
-                          className="mobile-entry-date"
-                          style={{ color: theme.colors.text.muted }}
-                        >
-                          {formatEntryDate(entry.date)}
-                        </span>
+                        <div className="mobile-entry-date-row">
+                          <span
+                            className="mobile-entry-date"
+                            style={{ color: theme.colors.text.muted }}
+                          >
+                            {formatEntryDate(entry.date)}
+                          </span>
+                          {renderStatusIndicator(entry)}
+                        </div>
                         <span
                           className="mobile-entry-preview"
                           style={{ color: theme.colors.text.primary }}

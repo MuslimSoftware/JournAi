@@ -175,7 +175,7 @@
         "Relaunch app",
         "Verify status changes to 'Analyzed' after re-processing"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
