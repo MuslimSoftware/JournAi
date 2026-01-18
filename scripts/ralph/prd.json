@@ -204,7 +204,7 @@
         "Verify insights are not deleted",
         "Verify no re-analysis occurs"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

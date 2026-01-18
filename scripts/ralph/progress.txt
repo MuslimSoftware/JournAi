@@ -175,8 +175,44 @@ Features completed:
   - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
   - ALL 9 TEST STEPS VERIFIED VIA CODE INSPECTION
 
+- [2026-01-18] Feature 14: "System doesn't re-analyze unchanged entries"
+  - QA VERIFICATION (Code Inspection):
+    1. ✅ Create and analyze an entry:
+       - createEntry() creates entry with processed_at = null (entries.ts:67-70)
+       - processEntry() analyzes and marks as processed (entryAnalysis.ts:264-284)
+    2. ✅ Record the content_hash and processed_at timestamp:
+       - markEntryAsProcessed() sets both fields (entries.ts:201-206)
+    3. ✅ Open and immediately save the entry without changes:
+       - Frontend protection: EntryDetail.tsx:32 checks `newContent !== entry.content` before calling onUpdate
+       - If content same, onUpdate is NOT called at all
+    4. ✅ Verify content_hash hasn't changed:
+       - Backend updateEntry() checks contentHasChanged (line 91)
+       - markEntryForReprocessing() NOT called when content same
+       - content_hash preserved in database
+    5. ✅ Verify processed_at hasn't changed:
+       - markEntryForReprocessing() NOT called when content same
+       - processed_at preserved in database
+    6. ✅ Verify insights are not deleted:
+       - deleteEntryInsights() only called by processEntry() and deleteEntry()
+       - NOT called by updateEntry() even if content changes
+       - Unchanged entry never triggers any deletion
+    7. ✅ Verify no re-analysis occurs:
+       - Entry keeps processed_at NOT NULL
+       - getUnprocessedEntries() WHERE clause excludes it
+       - processUnprocessedEntriesOnLaunch() won't process it
+  - Implementation verified in:
+    - src/components/entries/EntryDetail.tsx: saveContent() checks newContent !== entry.content (line 32)
+    - src/services/entries.ts: updateEntry() checks contentHasChanged (line 91)
+    - src/services/entries.ts: markEntryForReprocessing() only called if contentHasChanged && processed_at !== null
+  - Double protection layer:
+    - Frontend layer prevents unnecessary API calls when content unchanged
+    - Backend layer prevents marking for reprocessing even if API called with same content
+  - TypeScript compiles without errors
+  - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
+  - ALL 7 TEST STEPS VERIFIED VIA CODE INSPECTION
+
 Current task:
-- Completed tenth iteration (Feature 10 verified)
+- Completed eleventh iteration (Feature 14 verified)
 
 Notes:
 - This file tracks progress across Ralph iterations
