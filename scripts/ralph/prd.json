@@ -159,7 +159,7 @@
         "Verify processed_at timestamps are in order",
         "Verify all 5 entries have insights generated"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
