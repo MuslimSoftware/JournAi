@@ -41,6 +41,11 @@
   border-top: 1px solid var(--border-secondary);
 }
 
+.settings-section-divider {
+  margin: var(--settings-spacing-2xl) 0;
+  border-top: 1px solid var(--border-secondary);
+}
+
 .settings-stat-box {
   display: flex;
   flex-direction: column;

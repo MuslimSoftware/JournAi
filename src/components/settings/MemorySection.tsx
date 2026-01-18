@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
-import { IoCheckmarkCircle, IoAlertCircle, IoSync, IoSparkles, IoTrash } from 'react-icons/io5';
+import { IoCheckmarkCircle, IoAlertCircle, IoSync, IoSparkles, IoTrash, IoAnalytics } from 'react-icons/io5';
 import { Text, Button } from '../themed';
 import Modal from '../Modal';
 import '../../styles/settings.css';
 import '../../styles/themed.css';
 import { getEmbeddingStats, embedAllEntries, clearAllEmbeddings, type EmbeddingStats } from '../../services/embeddings';
+import { getProcessingStats, type ProcessingStats } from '../../services/entries';
+import { processUnprocessedEntriesOnLaunch, type ProcessingProgress } from '../../services/entryAnalysis';
 import { getApiKey } from '../../lib/secureStorage';
 
 export default function MemorySection() {
+  // Embedding stats state
   const [stats, setStats] = useState<EmbeddingStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -16,6 +19,14 @@ export default function MemorySection() {
   const [error, setError] = useState<string | null>(null);
   const [clearingEmbeddings, setClearingEmbeddings] = useState(false);
   const [confirmingClearEmbeddings, setConfirmingClearEmbeddings] = useState(false);
+
+  // Analysis/Processing stats state
+  const [processingStats, setProcessingStats] = useState<ProcessingStats | null>(null);
+  const [processingStatsLoading, setProcessingStatsLoading] = useState(true);
+  const [analysisProcessing, setAnalysisProcessing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState<ProcessingProgress | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<{ success: number; failed: number } | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const loadStats = useCallback(async () => {
     try {
@@ -29,9 +40,22 @@ export default function MemorySection() {
     }
   }, []);
 
+  const loadProcessingStats = useCallback(async () => {
+    try {
+      setProcessingStatsLoading(true);
+      const stats = await getProcessingStats();
+      setProcessingStats(stats);
+    } catch {
+      setAnalysisError('Failed to load processing stats');
+    } finally {
+      setProcessingStatsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadStats();
-  }, [loadStats]);
+    loadProcessingStats();
+  }, [loadStats, loadProcessingStats]);
 
   const handleEmbedAll = async () => {
     const apiKey = getApiKey();
@@ -83,6 +107,41 @@ export default function MemorySection() {
     }
   };
 
+  const handleProcessAll = async () => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      setAnalysisError('Please configure your OpenAI API key first');
+      return;
+    }
+
+    setAnalysisProcessing(true);
+    setAnalysisProgress(null);
+    setAnalysisResult(null);
+    setAnalysisError(null);
+
+    try {
+      const result = await processUnprocessedEntriesOnLaunch((progress) => {
+        setAnalysisProgress(progress);
+      });
+
+      setAnalysisResult({
+        success: result.processed,
+        failed: result.errors.length,
+      });
+
+      if (result.errors.length > 0) {
+        console.error('Analysis errors:', result.errors);
+      }
+
+      await loadProcessingStats();
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : 'Failed to process entries');
+    } finally {
+      setAnalysisProcessing(false);
+      setAnalysisProgress(null);
+    }
+  };
+
   const embeddedPercentage = stats && stats.totalEntries > 0
     ? Math.round((stats.entriesWithEmbeddings / stats.totalEntries) * 100)
     : 0;
@@ -90,6 +149,15 @@ export default function MemorySection() {
   const unembeddedCount = stats ? stats.totalEntries - stats.entriesWithEmbeddings : 0;
 
   const progressWidth = progress ? `${(progress.current / progress.total) * 100}%` : '0%';
+
+  // Analysis stats
+  const processedPercentage = processingStats && processingStats.totalEntries > 0
+    ? Math.round((processingStats.processedEntries / processingStats.totalEntries) * 100)
+    : 0;
+
+  const analysisProgressWidth = analysisProgress && analysisProgress.total > 0
+    ? `${(analysisProgress.processed / analysisProgress.total) * 100}%`
+    : '0%';
 
   return (
     <div>
@@ -212,6 +280,103 @@ export default function MemorySection() {
           {unembeddedCount > 0
             ? `${unembeddedCount} entries are not yet embedded. Click the button to process them.`
             : 'All entries are embedded. New entries will be embedded automatically when saved.'}
+        </p>
+      </div>
+
+      {/* Entry Analysis Section */}
+      <div className="settings-section-divider" />
+
+      <Text as="h3" variant="primary" className="settings-section__title">
+        Entry Analysis
+      </Text>
+
+      <div className="settings-section">
+        <Text variant="secondary" className="settings-section__description">
+          AI analyzes your entries to extract emotions, people, and other insights for the Insights page.
+        </Text>
+      </div>
+
+      {processingStatsLoading ? (
+        <div className="settings-stat-box">
+          <Text variant="muted" className="settings-section__description">Loading stats...</Text>
+        </div>
+      ) : processingStats ? (
+        <div className="settings-stat-box">
+          <div className="settings-stat-row">
+            <span className="settings-stat-label">Processed Entries</span>
+            <span className="settings-stat-value">
+              {processingStats.processedEntries} ({processedPercentage}%)
+            </span>
+          </div>
+          {processingStats.unprocessedEntries > 0 && (
+            <div className="settings-stat-row">
+              <span className="settings-stat-label settings-stat-label--warning">
+                Unprocessed Entries
+              </span>
+              <span className="settings-stat-value settings-stat-value--warning">
+                {processingStats.unprocessedEntries}
+              </span>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      <div className="settings-section">
+        <div className="settings-button-row">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleProcessAll}
+            disabled={analysisProcessing || (processingStats?.unprocessedEntries ?? 0) === 0}
+            className="settings-button-content"
+          >
+            {analysisProcessing ? (
+              <>
+                <IoSync size={14} className="spin" /> Processing...
+              </>
+            ) : (
+              <>
+                <IoAnalytics size={14} /> Process All Unprocessed
+              </>
+            )}
+          </Button>
+        </div>
+
+        {analysisProcessing && analysisProgress && (
+          <div>
+            <div className="settings-progress-container">
+              <div className="settings-progress-bar" style={{ width: analysisProgressWidth }} />
+            </div>
+            <Text variant="muted" className="settings-progress-text">
+              Analyzing {analysisProgress.processed} of {analysisProgress.total} entries...
+            </Text>
+          </div>
+        )}
+
+        {analysisResult && (
+          <div className={`settings-status ${analysisResult.failed === 0 ? 'settings-status--success' : 'settings-status--warning'}`}>
+            <span className="settings-status__icon">
+              {analysisResult.failed === 0 ? <IoCheckmarkCircle size={14} /> : <IoAlertCircle size={14} />}
+            </span>
+            {analysisResult.failed === 0
+              ? `Successfully analyzed ${analysisResult.success} entries`
+              : `${analysisResult.success} analyzed, ${analysisResult.failed} failed`}
+          </div>
+        )}
+
+        {analysisError && (
+          <div className="settings-status settings-status--error">
+            <span className="settings-status__icon">
+              <IoAlertCircle size={14} />
+            </span>
+            {analysisError}
+          </div>
+        )}
+
+        <p className="settings-hint">
+          {(processingStats?.unprocessedEntries ?? 0) > 0
+            ? `${processingStats?.unprocessedEntries} entries have not been analyzed yet. Click the button to process them.`
+            : 'All entries have been analyzed. New entries will be analyzed automatically when the app restarts.'}
         </p>
       </div>
 

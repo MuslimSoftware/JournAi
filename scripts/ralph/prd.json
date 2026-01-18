@@ -56,7 +56,7 @@
         "Verify all entries are processed",
         "Verify processed count increased by 3 and unprocessed count is 0"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

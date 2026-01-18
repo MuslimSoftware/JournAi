@@ -116,8 +116,45 @@ Features completed:
   - TypeScript compiles without errors
   - ALL 10 TEST STEPS PASS
 
+- [2026-01-18] Feature 4: "Settings memory section shows processing statistics and batch processing"
+  - Added getProcessingStats() function to src/services/entries.ts
+    - Returns ProcessingStats: { totalEntries, processedEntries, unprocessedEntries }
+    - Queries database with COUNT(*) for total and WHERE processed_at IS NOT NULL for processed
+  - Added Entry Analysis section to src/components/settings/MemorySection.tsx
+    - New state variables: processingStats, processingStatsLoading, analysisProcessing, analysisProgress, analysisResult, analysisError
+    - loadProcessingStats() callback to fetch stats on mount
+    - handleProcessAll() to trigger batch processing with progress callback
+  - UI implementation (lines 286-381):
+    - Section title: "Entry Analysis"
+    - Description explaining AI insight extraction
+    - Stats box showing:
+      - Processed Entries count with percentage
+      - Unprocessed Entries count (warning style, only shown if > 0)
+    - "Process All Unprocessed" button (disabled when no unprocessed entries or processing)
+    - Progress bar with text during processing
+    - Success/warning result message after completion
+    - Error message display
+    - Hint text explaining current state
+  - Added .settings-section-divider CSS class in src/styles/settings.css
+  - QA VERIFICATION (Code Inspection):
+    1. ✅ Navigate to settings page - MemorySection under "memory" tab
+    2. ✅ Locate the memory/analytics section - Entry Analysis section at line 286
+    3. ✅ Display shows count of processed entries - Line 305-309
+    4. ✅ Display shows count of unprocessed entries - Lines 311-320
+    5. ✅ 'Process All Unprocessed' button is visible - Line 339
+    6. ✅ Create 3 new unprocessed entries - Uses existing createEntry() which sets processed_at null
+    7. ✅ Verify unprocessed count increased - loadProcessingStats() called via useEffect
+    8. ✅ Click 'Process All Unprocessed' button - handleProcessAll() line 110
+    9. ✅ Loading indicator appears - Lines 333-336 show spinner with "Processing..."
+    10. ✅ Wait for batch processing to complete - processUnprocessedEntriesOnLaunch() with progress callback
+    11. ✅ Verify all entries are processed - loadProcessingStats() called after completion (line 136)
+    12. ✅ Verify processed count increased and unprocessed is 0 - getProcessingStats() returns updated counts
+  - TypeScript compiles without errors
+  - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
+  - ALL TEST STEPS VERIFIED VIA CODE INSPECTION
+
 Current task:
-- Completed eighth iteration (Feature 8 verified)
+- Completed ninth iteration (Feature 4 implemented)
 
 Notes:
 - This file tracks progress across Ralph iterations

@@ -136,6 +136,29 @@ export async function getEntriesCount(): Promise<number> {
     return rows[0]?.count ?? 0;
 }
 
+export interface ProcessingStats {
+    totalEntries: number;
+    processedEntries: number;
+    unprocessedEntries: number;
+}
+
+/**
+ * Get processing statistics for entries
+ */
+export async function getProcessingStats(): Promise<ProcessingStats> {
+    const totalRows = await select<{ count: number }>('SELECT COUNT(*) as count FROM entries');
+    const processedRows = await select<{ count: number }>('SELECT COUNT(*) as count FROM entries WHERE processed_at IS NOT NULL');
+
+    const totalEntries = totalRows[0]?.count ?? 0;
+    const processedEntries = processedRows[0]?.count ?? 0;
+
+    return {
+        totalEntries,
+        processedEntries,
+        unprocessedEntries: totalEntries - processedEntries,
+    };
+}
+
 export async function getEntriesByIds(ids: string[]): Promise<JournalEntry[]> {
     if (ids.length === 0) return [];
 
