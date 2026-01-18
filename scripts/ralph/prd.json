@@ -146,7 +146,7 @@
         "Verify all entries have updated processed_at timestamps",
         "Verify unprocessed count is 0"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

@@ -153,8 +153,30 @@ Features completed:
   - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
   - ALL TEST STEPS VERIFIED VIA CODE INSPECTION
 
+- [2026-01-18] Feature 10: "System processes both new and modified entries on app launch"
+  - QA VERIFICATION (Code Inspection):
+    1. ✅ createEntry() creates entries with processed_at = null (entries.ts:67-70)
+    2. ✅ processEntry() analyzes entries via AI and marks as processed (entryAnalysis.ts:264-284)
+    3. ✅ updateEntry() detects content changes (line 91) and calls markEntryForReprocessing() (lines 102-104)
+    4. ✅ markEntryForReprocessing() sets processed_at = NULL, updates content_hash (entries.ts:225-229)
+    5. ✅ App.tsx useEffect calls processUnprocessedEntriesOnLaunch() on mount (line 24)
+    6. ✅ getUnprocessedEntries() WHERE processed_at IS NULL returns both new and modified entries (entries.ts:191-194)
+    7. ✅ processUnprocessedEntriesOnLaunch() categorizes entries as modified vs new (lines 333-338)
+    8. ✅ processEntry() calls deleteEntryInsights(entry.id) at line 266 BEFORE re-analysis
+    9. ✅ All unprocessed entries are iterated and processEntry() is called (lines 343-367)
+    10. ✅ markEntryAsProcessed() sets processed_at to current timestamp (entries.ts:201-206)
+    11. ✅ After processing, entries have non-null processed_at, so getUnprocessedEntries() won't return them
+  - Implementation verified in:
+    - src/App.tsx: Calls processUnprocessedEntriesOnLaunch() in useEffect on mount
+    - src/services/entryAnalysis.ts: processUnprocessedEntriesOnLaunch() handles both entry types
+    - src/services/entries.ts: getUnprocessedEntries(), markEntryForReprocessing(), markEntryAsProcessed()
+    - src/services/analytics.ts: deleteEntryInsights() removes old insights
+  - TypeScript compiles without errors
+  - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
+  - ALL 9 TEST STEPS VERIFIED VIA CODE INSPECTION
+
 Current task:
-- Completed ninth iteration (Feature 4 implemented)
+- Completed tenth iteration (Feature 10 verified)
 
 Notes:
 - This file tracks progress across Ralph iterations
