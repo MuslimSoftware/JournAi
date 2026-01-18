@@ -243,6 +243,10 @@
   gap: var(--insights-spacing-5xl);
 }
 
+.insights-columns--three {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
 .insights-columns--mobile {
   grid-template-columns: 1fr;
 }
@@ -404,6 +408,91 @@
   font-weight: 600;
   text-transform: capitalize;
   flex-shrink: 0;
+}
+
+.insights-sentiment-badge--small {
+  font-size: var(--insights-font-xs);
+  padding: var(--insights-spacing-xs) var(--insights-spacing-sm);
+}
+
+/* Event card styles */
+.insights-event-card {
+  padding: var(--insights-spacing-xl);
+  border-radius: var(--insights-card-radius);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: var(--insights-spacing-lg);
+  min-height: 52px;
+}
+
+.insights-event-card--selected {
+  border-color: var(--text-primary);
+}
+
+.insights-event-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--insights-spacing-md);
+}
+
+.insights-event-card__name {
+  font-size: var(--insights-font-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: capitalize;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.insights-event-card__count {
+  font-size: var(--insights-font-sm);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.insights-event-card__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--insights-spacing-sm);
+  flex-wrap: wrap;
+}
+
+.insights-category-badge {
+  font-size: var(--insights-font-sm);
+  padding: var(--insights-spacing-xs) var(--insights-spacing-md);
+  border-radius: var(--insights-spacing-sm);
+  font-weight: 600;
+  text-transform: capitalize;
+  flex-shrink: 0;
+}
+
+.insights-category-badge--small {
+  font-size: var(--insights-font-xs);
+  padding: var(--insights-spacing-xs) var(--insights-spacing-sm);
+}
+
+/* Event occurrence card styles */
+.insights-occurrence-card--event {
+  padding: 14px;
+  gap: var(--insights-spacing-lg);
+}
+
+.insights-occurrence-card__header--event {
+  margin-bottom: var(--insights-spacing-sm);
+}
+
+.insights-occurrence-card__badges {
+  display: flex;
+  gap: var(--insights-spacing-sm);
+  flex-wrap: wrap;
 }
 
 .insights-empty-message {

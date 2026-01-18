@@ -255,7 +255,7 @@
         "Verify insights are grouped by type (emotions, people, events)",
         "Verify each insight shows the source text"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

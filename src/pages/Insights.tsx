@@ -10,6 +10,7 @@ import {
   getAggregatedInsights,
   getRawEmotionInsights,
   getRawPersonInsights,
+  getRawEventInsights,
 } from '../services/analytics';
 import { parseLocalDate } from '../utils/date';
 import { hapticSelection } from '../hooks/useHaptics';
@@ -167,6 +168,17 @@ function getIntensityBarClass(sentiment: 'positive' | 'negative' | 'neutral', is
 
 type AggregatedEmotion = { emotion: string; avgIntensity: number; count: number; triggers: string[]; sentiment: 'positive' | 'negative' | 'neutral' };
 type AggregatedPerson = { name: string; relationship?: string; sentiment: string; mentions: number; recentContext?: string };
+type AggregatedEvent = { event: string; category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other'; count: number; sentiment: 'positive' | 'negative' | 'neutral'; recentLocation?: string };
+
+const EVENT_CATEGORY_COLORS: Record<string, string> = {
+  activity: '#3b82f6',
+  social: '#8b5cf6',
+  work: '#6366f1',
+  travel: '#06b6d4',
+  health: '#10b981',
+  entertainment: '#f59e0b',
+  other: '#6b7280',
+};
 
 function filterEmotionsBySentiment(emotions: AggregatedEmotion[] | undefined, filter: SentimentFilter) {
   if (!emotions || filter === 'all') return emotions;
@@ -181,6 +193,12 @@ function filterPeopleBySentiment(people: AggregatedPerson[] | undefined, filter:
   return people.filter(p => p.sentiment === filter);
 }
 
+function filterEventsBySentiment(events: AggregatedEvent[] | undefined, filter: SentimentFilter) {
+  if (!events || filter === 'all') return events;
+  if (filter === 'mixed') return events.filter(e => e.sentiment === 'neutral');
+  return events.filter(e => e.sentiment === filter);
+}
+
 export default function Insights() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -190,8 +208,10 @@ export default function Insights() {
     aggregated,
     rawEmotions,
     rawPeople,
+    rawEvents,
     selectedEmotion,
     selectedPerson,
+    selectedEvent,
     selectedOccurrenceIndex,
     timeFilter,
     sentimentFilter,
@@ -199,8 +219,10 @@ export default function Insights() {
     setAggregated,
     setRawEmotions,
     setRawPeople,
+    setRawEvents,
     setSelectedEmotion,
     setSelectedPerson,
+    setSelectedEvent,
     setSelectedOccurrenceIndex,
     setTimeFilter,
     setSentimentFilter,
@@ -243,14 +265,16 @@ export default function Insights() {
       setError(null);
       try {
         const range = getDateRange(timeFilter);
-        const [agg, emotions, people] = await Promise.all([
+        const [agg, emotions, people, events] = await Promise.all([
           getAggregatedInsights(range?.start, range?.end),
           getRawEmotionInsights(RAW_INSIGHTS_QUERY_LIMIT, range?.start, range?.end),
           getRawPersonInsights(RAW_INSIGHTS_QUERY_LIMIT, range?.start, range?.end),
+          getRawEventInsights(RAW_INSIGHTS_QUERY_LIMIT, range?.start, range?.end),
         ]);
         setAggregated(agg);
         setRawEmotions(emotions);
         setRawPeople(people);
+        setRawEvents(events);
         setDataLoaded(true);
         lastLoadedFilter.current = timeFilter;
       } catch (err) {
@@ -261,7 +285,7 @@ export default function Insights() {
     };
 
     loadData();
-  }, [timeFilter, reloadTrigger, setAggregated, setRawEmotions, setRawPeople, setDataLoaded]);
+  }, [timeFilter, reloadTrigger, setAggregated, setRawEmotions, setRawPeople, setRawEvents, setDataLoaded]);
 
   if (loading) {
     return (
@@ -283,6 +307,7 @@ export default function Insights() {
 
   const filteredEmotions = filterEmotionsBySentiment(aggregated?.emotions, sentimentFilter);
   const filteredPeople = filterPeopleBySentiment(aggregated?.people, sentimentFilter);
+  const filteredEvents = filterEventsBySentiment(aggregated?.events, sentimentFilter);
 
   const filteredEmotionEntries = selectedEmotion
     ? rawEmotions.filter(e => e.emotion.toLowerCase() === selectedEmotion.toLowerCase())
@@ -290,6 +315,10 @@ export default function Insights() {
 
   const filteredPeopleEntries = selectedPerson
     ? rawPeople.filter(p => p.name.toLowerCase() === selectedPerson.toLowerCase())
+    : [];
+
+  const filteredEventEntries = selectedEvent
+    ? rawEvents.filter(e => e.event.toLowerCase() === selectedEvent.toLowerCase())
     : [];
 
   const renderEmotionsColumn = () => (
@@ -306,6 +335,7 @@ export default function Insights() {
                 if (isMobile) hapticSelection();
                 setSelectedEmotion(isSelected ? null : e.emotion);
                 setSelectedPerson(null);
+                setSelectedEvent(null);
                 setSelectedOccurrenceIndex(null);
               }}
             >
@@ -346,6 +376,7 @@ export default function Insights() {
                 if (isMobile) hapticSelection();
                 setSelectedPerson(isSelected ? null : p.name);
                 setSelectedEmotion(null);
+                setSelectedEvent(null);
                 setSelectedOccurrenceIndex(null);
               }}
             >
@@ -372,6 +403,60 @@ export default function Insights() {
         })}
         {(!filteredPeople || filteredPeople.length === 0) && (
           <Text variant="muted" className="insights-empty-message">No people found</Text>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderEventsColumn = () => (
+    <div>
+      <Text className="insights-section-title">Events</Text>
+      <div className="insights-card-grid">
+        {filteredEvents?.map((ev, i) => {
+          const isSelected = selectedEvent?.toLowerCase() === ev.event.toLowerCase();
+          const categoryColor = EVENT_CATEGORY_COLORS[ev.category] || EVENT_CATEGORY_COLORS.other;
+          const sentimentColor = getSentimentColor(ev.sentiment);
+          return (
+            <div
+              key={i}
+              className={`insights-event-card insight-aggregate-card${isSelected ? ' insights-event-card--selected' : ''}`}
+              onClick={() => {
+                if (isMobile) hapticSelection();
+                setSelectedEvent(isSelected ? null : ev.event);
+                setSelectedEmotion(null);
+                setSelectedPerson(null);
+                setSelectedOccurrenceIndex(null);
+              }}
+            >
+              <div className="insights-event-card__header">
+                <span className="insights-event-card__name">{ev.event}</span>
+                <span className="insights-event-card__count">{ev.count}x</span>
+              </div>
+              <div className="insights-event-card__footer">
+                <span
+                  className="insights-category-badge"
+                  style={{
+                    backgroundColor: `${categoryColor}18`,
+                    color: categoryColor,
+                  }}
+                >
+                  {ev.category}
+                </span>
+                <span
+                  className="insights-sentiment-badge insights-sentiment-badge--small"
+                  style={{
+                    backgroundColor: `${sentimentColor}18`,
+                    color: sentimentColor,
+                  }}
+                >
+                  {ev.sentiment}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+        {(!filteredEvents || filteredEvents.length === 0) && (
+          <Text variant="muted" className="insights-empty-message">No events found</Text>
         )}
       </div>
     </div>
@@ -531,6 +616,92 @@ export default function Insights() {
       );
     }
 
+    if (selectedEvent && filteredEventEntries.length > 0) {
+      const groupedByYear = groupByYear(filteredEventEntries);
+      const years = Array.from(groupedByYear.keys());
+      const currentYear = new Date().getFullYear();
+      let globalIndex = 0;
+
+      return (
+        <div className="insights-detail-section">
+          <Text className="insights-detail-section__title">
+            {selectedEvent} occurrences ({filteredEventEntries.length})
+          </Text>
+          <div className="insights-year-groups">
+            {years.map((year) => {
+              const yearEntries = groupedByYear.get(year)!;
+              const startIndex = globalIndex;
+              globalIndex += yearEntries.length;
+
+              return (
+                <div key={year}>
+                  <div className="insights-year-header">
+                    <span className="insights-year-header__title">
+                      {year === currentYear ? 'This Year' : year}
+                    </span>
+                    <span className="insights-year-header__count">
+                      {yearEntries.length} {yearEntries.length === 1 ? 'occurrence' : 'occurrences'}
+                    </span>
+                    <div className="insights-year-header__line" />
+                  </div>
+                  <div className={`insights-detail-grid ${isMobile ? 'insights-detail-grid--mobile' : 'insights-detail-grid--desktop'}`}>
+                    {yearEntries.map((ev, i) => {
+                      const idx = startIndex + i;
+                      const isSelected = selectedOccurrenceIndex === idx && selectedEvent;
+                      const categoryColor = EVENT_CATEGORY_COLORS[ev.category] || EVENT_CATEGORY_COLORS.other;
+                      const sentimentColor = getSentimentColor(ev.sentiment);
+                      return (
+                        <div
+                          key={`${ev.entryId}-${idx}`}
+                          className={`insights-occurrence-card insights-occurrence-card--event insight-detail-card${isSelected ? ' insights-occurrence-card--selected selected' : ''}`}
+                          onClick={() => {
+                            if (isMobile) hapticSelection();
+                            setSelectedOccurrenceIndex(idx);
+                            navigateToEntry(ev.entryId);
+                            navigate('/entries');
+                          }}
+                        >
+                          <div className="insights-occurrence-card__header insights-occurrence-card__header--event">
+                            <span className="insights-occurrence-card__date">
+                              {formatDateWithoutYear(ev.entryDate)}
+                            </span>
+                            <div className="insights-occurrence-card__badges">
+                              <span
+                                className="insights-category-badge insights-category-badge--small"
+                                style={{
+                                  backgroundColor: `${categoryColor}18`,
+                                  color: categoryColor,
+                                }}
+                              >
+                                {ev.category}
+                              </span>
+                              <span
+                                className="insights-sentiment-badge insights-sentiment-badge--small"
+                                style={{
+                                  backgroundColor: `${sentimentColor}18`,
+                                  color: sentimentColor,
+                                }}
+                              >
+                                {ev.sentiment}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="insights-occurrence-card__content">
+                            {ev.location || (ev.participants?.length ? `with ${ev.participants.join(', ')}` : 'No details')}
+                          </div>
+                          <span className="insight-detail-card-tip">Go to occurrence →</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -604,9 +775,10 @@ export default function Insights() {
           })}
         </div>
       </div>
-      <div className={`insights-columns${isMobile ? ' insights-columns--mobile' : ''}`}>
+      <div className={`insights-columns insights-columns--three${isMobile ? ' insights-columns--mobile' : ''}`}>
         {renderEmotionsColumn()}
         {renderPeopleColumn()}
+        {renderEventsColumn()}
       </div>
       {renderDetailSection()}
     </div>
