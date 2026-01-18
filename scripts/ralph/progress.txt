@@ -56,8 +56,26 @@ Features completed:
   - TypeScript compiles without errors
   - ALL TEST STEPS PASS
 
+- [2026-01-18] Feature 7: "System detects when an entry has been modified"
+  - QA VERIFICATION (Code Inspection):
+    1. ✅ updateEntry() detects content changes by comparing old vs new content
+    2. ✅ When content changes, generateContentHash() calculates new hash
+    3. ✅ markEntryForReprocessing() updates content_hash with new value
+    4. ✅ markEntryForReprocessing() sets processed_at to NULL
+    5. ✅ Entry appears in getUnprocessedEntries() query (processed_at IS NULL)
+    6. ✅ updateEntry() does NOT call deleteEntryInsights() - insights preserved
+    7. ✅ Only processEntry() and deleteEntry() call deleteEntryInsights()
+  - Implementation details:
+    - Added import for generateContentHash from entryAnalysis.ts
+    - updateEntry() now fetches current entry to compare content
+    - New markEntryForReprocessing(id, newContentHash) function added
+    - Content comparison: currentEntry.content !== updates.content
+    - Only triggers on previously processed entries (processed_at !== null)
+  - TypeScript compiles without errors
+  - ALL 8 TEST STEPS PASS
+
 Current task:
-- Completed fifth iteration (Features 5 and 6 verified)
+- Completed sixth iteration (Feature 7 verified)
 
 Notes:
 - This file tracks progress across Ralph iterations

@@ -97,7 +97,7 @@
         "Verify processed_at is reset to null (marking entry as needing re-processing)",
         "Verify insights are NOT deleted yet (wait for app launch)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

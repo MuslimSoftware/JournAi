@@ -4,6 +4,7 @@ import { generateId, generatePreview } from '../utils/generators';
 import { select, execute, selectPaginated } from '../lib/db';
 import { deleteEntryEmbeddings } from './embeddings';
 import { deleteEntryInsights } from './analytics';
+import { generateContentHash } from './entryAnalysis';
 
 interface EntryRow {
     id: string;
@@ -78,10 +79,30 @@ export async function updateEntry(
     const timestamp = getTimestamp();
 
     if (updates.content !== undefined) {
+        // First, get the current entry to check if content has actually changed
+        const currentRows = await select<EntryRow>(
+            'SELECT id, date, content, created_at, processed_at, content_hash FROM entries WHERE id = $1',
+            [id]
+        );
+
+        if (currentRows.length === 0) return null;
+
+        const currentEntry = currentRows[0];
+        const contentHasChanged = currentEntry.content !== updates.content;
+
+        // Update the content
         await execute(
             'UPDATE entries SET content = $1, updated_at = $2, last_content_update = $2 WHERE id = $3',
             [updates.content, timestamp, id]
         );
+
+        // If content changed and entry was previously processed, mark for re-processing
+        // by resetting processed_at to null and updating content_hash to the new hash.
+        // Insights are NOT deleted here (they will be deleted on app launch when re-analysis occurs)
+        if (contentHasChanged && currentEntry.processed_at !== null) {
+            const newContentHash = generateContentHash(updates.content);
+            await markEntryForReprocessing(id, newContentHash);
+        }
     }
 
     if (updates.date !== undefined) {
@@ -170,5 +191,17 @@ export async function clearEntryProcessedStatus(id: string): Promise<void> {
     await execute(
         'UPDATE entries SET processed_at = NULL, content_hash = NULL WHERE id = $1',
         [id]
+    );
+}
+
+/**
+ * Mark an entry for re-processing by updating content_hash and resetting processed_at to null.
+ * This is called when entry content is modified - the new hash is stored but processed_at
+ * is cleared to indicate the entry needs re-analysis. Insights are NOT deleted here.
+ */
+export async function markEntryForReprocessing(id: string, newContentHash: string): Promise<void> {
+    await execute(
+        'UPDATE entries SET processed_at = NULL, content_hash = $1 WHERE id = $2',
+        [newContentHash, id]
     );
 }
