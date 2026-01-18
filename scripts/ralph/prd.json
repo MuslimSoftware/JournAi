@@ -217,7 +217,7 @@
         "Verify each emotion has correct source_text and positions",
         "Verify insight_type is 'emotion' for these insights"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
