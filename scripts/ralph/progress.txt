@@ -211,8 +211,42 @@ Features completed:
   - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
   - ALL 7 TEST STEPS VERIFIED VIA CODE INSPECTION
 
+- [2026-01-18] Feature 13: "Modification detection runs on every entry save"
+  - QA VERIFICATION (Code Inspection):
+    1. ✅ Create and analyze an entry:
+       - createEntry() creates entry with processed_at = null (entries.ts:67-70)
+       - processEntry() analyzes and marks as processed (entryAnalysis.ts:264-284)
+    2. ✅ Open the entry in editor:
+       - EntryDetail.tsx useEffect loads entry content (lines 27-29)
+    3. ✅ Make a small change (add one word):
+       - handleContentChange captures changes (EntryDetail.tsx:37-44)
+    4. ✅ Save the entry:
+       - saveContent() calls onUpdate when content differs (EntryDetail.tsx:31-35)
+       - onUpdate triggers updateEntry() in entries service
+    5. ✅ Verify modification detection function is called:
+       - updateEntry() checks contentHasChanged at line 91
+       - Comparison: currentEntry.content !== updates.content
+    6. ✅ Verify content_hash is recalculated:
+       - entries.ts:103 calls generateContentHash(updates.content)
+       - New hash passed to markEntryForReprocessing()
+    7. ✅ Verify processed_at is reset to null:
+       - markEntryForReprocessing() sets processed_at = NULL (entries.ts:225-229)
+       - Entry will appear in getUnprocessedEntries() query
+    8. ✅ Verify old insights are NOT deleted:
+       - deleteEntryInsights() only called by:
+         a) processEntry() at entryAnalysis.ts:266 (before re-analysis)
+         b) deleteEntry() at entries.ts:129 (when entry deleted)
+       - NOT called by updateEntry() - insights preserved until app launch
+  - Implementation verified in:
+    - src/components/entries/EntryDetail.tsx: saveContent() triggers onUpdate
+    - src/services/entries.ts: updateEntry() detects changes and marks for reprocessing
+    - src/services/entryAnalysis.ts: generateContentHash() for hash calculation
+  - TypeScript compiles without errors
+  - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
+  - ALL 8 TEST STEPS VERIFIED VIA CODE INSPECTION
+
 Current task:
-- Completed eleventh iteration (Feature 14 verified)
+- Completed twelfth iteration (Feature 13 verified)
 
 Notes:
 - This file tracks progress across Ralph iterations

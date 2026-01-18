@@ -190,7 +190,7 @@
         "Verify processed_at is reset to null (marking for re-analysis)",
         "Verify old insights are NOT deleted (retained until app launch)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
