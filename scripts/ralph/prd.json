@@ -1,0 +1,321 @@
+{
+  "features": [
+    {
+      "category": "functional",
+      "description": "System tracks processing status for each entry",
+      "steps": [
+        "Open the database schema",
+        "Verify entries table has a 'processed_at' timestamp field",
+        "Verify entries table has a 'content_hash' field for detecting modifications",
+        "Create a new entry",
+        "Verify the entry has null processed_at by default",
+        "Verify content_hash is null or empty for new entries"
+      ],
+      "passes": true
+    },
+    {
+      "category": "functional",
+      "description": "System can identify unprocessed entries",
+      "steps": [
+        "Create 3 new entries",
+        "Query the database for entries where processed_at is null",
+        "Verify all 3 new entries are returned",
+        "Manually mark 1 entry as processed",
+        "Query again for unprocessed entries",
+        "Verify only 2 entries are returned"
+      ],
+      "passes": true
+    },
+    {
+      "category": "functional",
+      "description": "System can process a single entry and generate insights",
+      "steps": [
+        "Create an entry with meaningful content (emotions, people, events)",
+        "Trigger the analysis function for this entry",
+        "Verify insights are generated and stored in database",
+        "Verify each insight has a reference to the source entry ID",
+        "Verify each insight has source_text field with the original text",
+        "Verify each insight has source_start and source_end position fields"
+      ],
+      "passes": true
+    },
+    {
+      "category": "functional",
+      "description": "Settings memory section shows processing statistics and batch processing",
+      "steps": [
+        "Navigate to settings page",
+        "Locate the memory/analytics section",
+        "Verify display shows count of processed entries",
+        "Verify display shows count of unprocessed entries",
+        "Verify 'Process All Unprocessed' button is visible",
+        "Create 3 new unprocessed entries",
+        "Return to settings and verify unprocessed count increased by 3",
+        "Click 'Process All Unprocessed' button",
+        "Verify loading indicator appears",
+        "Wait for batch processing to complete",
+        "Verify all entries are processed",
+        "Verify processed count increased by 3 and unprocessed count is 0"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Insights are stored with source text location metadata",
+      "steps": [
+        "Open the insights database schema",
+        "Verify insights table has 'entry_id' foreign key field",
+        "Verify insights table has 'source_text' field",
+        "Verify insights table has 'source_start' integer field",
+        "Verify insights table has 'source_end' integer field",
+        "Verify insights table has 'insight_type' field (emotion/person/event/etc)"
+      ],
+      "passes": true
+    },
+    {
+      "category": "functional",
+      "description": "System marks entries as processed after analysis",
+      "steps": [
+        "Create a new entry",
+        "Verify processed_at is null",
+        "Run analysis on the entry",
+        "Verify processed_at is set to current timestamp",
+        "Verify content_hash is set to hash of entry content",
+        "Verify entry no longer appears in unprocessed entries query"
+      ],
+      "passes": true
+    },
+    {
+      "category": "functional",
+      "description": "System detects when an entry has been modified",
+      "steps": [
+        "Create and process an entry",
+        "Record the content_hash value",
+        "Modify the entry content",
+        "Save the entry",
+        "Verify the content_hash is recalculated",
+        "Verify content_hash has changed from original",
+        "Verify processed_at is reset to null (marking entry as needing re-processing)",
+        "Verify insights are NOT deleted yet (wait for app launch)"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "System processes modified entries on app launch",
+      "steps": [
+        "Create and analyze 2 entries with insights",
+        "Modify the first entry content (changing content_hash)",
+        "Close and relaunch the app",
+        "Verify app detects the modified entry (hash mismatch)",
+        "Verify old insights for modified entry are deleted",
+        "Verify entry is re-analyzed automatically",
+        "Verify new insights are generated based on new content",
+        "Verify processed_at is updated to new timestamp",
+        "Verify content_hash is updated to match current content",
+        "Verify second entry (unmodified) is not re-analyzed"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "System processes unprocessed entries on app launch",
+      "steps": [
+        "Create 3 new entries through the UI",
+        "Verify entries are saved but not yet analyzed",
+        "Close and relaunch the app",
+        "Verify app detects all 3 unprocessed entries",
+        "Verify all 3 entries are analyzed automatically",
+        "Verify insights are generated for all entries",
+        "Verify processed_at timestamps are set",
+        "Verify content_hash values are set",
+        "Verify entries no longer appear in unprocessed query"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "System processes both new and modified entries on app launch",
+      "steps": [
+        "Create and analyze 2 entries",
+        "Modify the first entry",
+        "Create 2 new unprocessed entries",
+        "Close and relaunch the app",
+        "Verify app processes all entries needing attention (1 modified + 2 new)",
+        "Verify old insights for modified entry are deleted before re-analysis",
+        "Verify all 3 entries are analyzed",
+        "Verify all entries have updated processed_at timestamps",
+        "Verify unprocessed count is 0"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "System tracks processing queue for multiple entries",
+      "steps": [
+        "Create 5 new entries rapidly",
+        "Verify all 5 are added to processing queue",
+        "Trigger batch processing",
+        "Verify entries are processed one by one",
+        "Verify processed_at timestamps are in order",
+        "Verify all 5 entries have insights generated"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "User can see processing status for entries",
+      "steps": [
+        "Navigate to entries page",
+        "Create a new entry",
+        "Verify entry shows 'Unprocessed' or empty indicator",
+        "Launch app processing (or wait for app restart)",
+        "Verify indicator changes to 'Analyzed' or shows insight count",
+        "Modify an analyzed entry",
+        "Verify status changes to 'Needs re-analysis' or similar",
+        "Relaunch app",
+        "Verify status changes to 'Analyzed' after re-processing"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Modification detection runs on every entry save",
+      "steps": [
+        "Create and analyze an entry",
+        "Open the entry in editor",
+        "Make a small change (add one word)",
+        "Save the entry",
+        "Verify modification detection function is called",
+        "Verify content_hash is recalculated",
+        "Verify processed_at is reset to null (marking for re-analysis)",
+        "Verify old insights are NOT deleted (retained until app launch)"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "System doesn't re-analyze unchanged entries",
+      "steps": [
+        "Create and analyze an entry",
+        "Record the content_hash and processed_at timestamp",
+        "Open and immediately save the entry without changes",
+        "Verify content_hash hasn't changed",
+        "Verify processed_at hasn't changed",
+        "Verify insights are not deleted",
+        "Verify no re-analysis occurs"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Analysis service extracts emotions from entry text",
+      "steps": [
+        "Create an entry: 'Today I felt really happy and excited about my new job!'",
+        "Run analysis",
+        "Verify insights include emotion: 'happy'",
+        "Verify insights include emotion: 'excited'",
+        "Verify each emotion has correct source_text and positions",
+        "Verify insight_type is 'emotion' for these insights"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Analysis service extracts people from entry text",
+      "steps": [
+        "Create an entry: 'Had lunch with Sarah and called Mom in the evening.'",
+        "Run analysis",
+        "Verify insights include person: 'Sarah'",
+        "Verify insights include person: 'Mom'",
+        "Verify each person has correct source_text and positions",
+        "Verify insight_type is 'person' for these insights"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Analysis service extracts events/activities from entry text",
+      "steps": [
+        "Create an entry: 'Went hiking in the mountains and had dinner at a new restaurant.'",
+        "Run analysis",
+        "Verify insights include event/activity: 'hiking'",
+        "Verify insights include event/activity: 'dinner'",
+        "Verify each event has correct source_text and positions",
+        "Verify insight_type is 'event' or 'activity' for these insights"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Insights page displays all generated insights grouped appropriately (UI already implemented, verify it works with real data)",
+      "steps": [
+        "Create and analyze 3 entries with various content",
+        "Navigate to insights page",
+        "Verify insights are displayed in the existing UI",
+        "Verify insights are grouped by type (emotions, people, events)",
+        "Verify each insight shows the source text"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "User can filter insights by type (UI already implemented, verify it works with real data)",
+      "steps": [
+        "Navigate to insights page with mixed insight types",
+        "Verify filter UI is present",
+        "Click 'Emotions' filter",
+        "Verify only emotion insights are shown",
+        "Click 'People' filter",
+        "Verify only person insights are shown",
+        "Click 'All' filter",
+        "Verify all insights are shown again"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "User can see which entries have been analyzed",
+      "steps": [
+        "Navigate to entries page",
+        "Create 3 entries",
+        "Analyze 2 of them",
+        "Verify analyzed entries show indicator (checkmark, badge, etc.)",
+        "Verify unanalyzed entry shows different state",
+        "Hover over/click indicator",
+        "Verify shows count of insights generated or 'Not yet analyzed'"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "System provides feedback during analysis processing",
+      "steps": [
+        "Create a new entry",
+        "Trigger analysis",
+        "Verify loading indicator appears",
+        "Verify status text shows 'Analyzing entry...' or similar",
+        "Wait for completion",
+        "Verify success indicator appears",
+        "Verify status text shows 'Analysis complete' or insight count",
+        "Verify loading indicator disappears"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "System handles analysis errors gracefully",
+      "steps": [
+        "Create an entry",
+        "Simulate API failure (disconnect network or mock error)",
+        "Trigger analysis",
+        "Verify error message is shown to user",
+        "Verify entry remains in unprocessed state",
+        "Restore connection",
+        "Retry analysis",
+        "Verify analysis succeeds on retry",
+        "Verify insights are generated"
+      ],
+      "passes": false
+    }
+  ]
+}

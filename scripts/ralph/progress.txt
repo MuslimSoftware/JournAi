@@ -32,8 +32,32 @@ Features completed:
   - Insights are saved with entry_id reference for navigation
   - TypeScript compiles without errors
 
+- [2026-01-18] Feature 5: "Insights are stored with source text location metadata"
+  - QA VERIFICATION (Code Inspection):
+    1. ✅ Database schema verified in src-tauri/src/lib.rs
+    2. ✅ entry_id foreign key field - Present in Migration 11: FOREIGN KEY (entry_id) REFERENCES entries(id)
+    3. ✅ source_text TEXT field - Added in Migration 17
+    4. ✅ source_start INTEGER field - Added in Migration 17
+    5. ✅ source_end INTEGER field - Added in Migration 17
+    6. ✅ insight_type TEXT NOT NULL field - Present in Migration 11
+  - TypeScript types verified in src/types/analytics.ts (JournalInsight interface)
+  - saveInsights() in analytics.ts saves all source location fields
+  - TypeScript compiles without errors
+  - ALL TEST STEPS PASS
+
+- [2026-01-18] Feature 6: "System marks entries as processed after analysis"
+  - QA VERIFICATION (Code Inspection):
+    1. ✅ createEntry() does not set processed_at (new entries have null)
+    2. ✅ processEntry() calls markEntryAsProcessed(entry.id, contentHash)
+    3. ✅ markEntryAsProcessed() sets processed_at to current timestamp
+    4. ✅ markEntryAsProcessed() sets content_hash from generateContentHash()
+    5. ✅ getUnprocessedEntries() has WHERE processed_at IS NULL
+  - Full workflow verified in src/services/entryAnalysis.ts:257-277
+  - TypeScript compiles without errors
+  - ALL TEST STEPS PASS
+
 Current task:
-- Completed third iteration
+- Completed fifth iteration (Features 5 and 6 verified)
 
 Notes:
 - This file tracks progress across Ralph iterations
