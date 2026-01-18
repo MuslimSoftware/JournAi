@@ -297,7 +297,9 @@ export function hasEntryBeenModified(entry: JournalEntry): boolean {
 /**
  * Process all unprocessed entries on app launch.
  * This is called once when the app starts to analyze any entries
- * that haven't been processed yet.
+ * that haven't been processed yet. It handles both:
+ * - New entries (never processed, no content_hash)
+ * - Modified entries (have content_hash but were marked for reprocessing)
  *
  * @param onProgress - Optional callback to receive progress updates
  * @returns Processing results including any errors
@@ -318,7 +320,7 @@ export async function processUnprocessedEntriesOnLaunch(
     return progress;
   }
 
-  // Get all unprocessed entries
+  // Get all unprocessed entries (includes both new and modified entries)
   const unprocessedEntries = await getUnprocessedEntries();
   progress.total = unprocessedEntries.length;
 
@@ -327,7 +329,14 @@ export async function processUnprocessedEntriesOnLaunch(
     return progress;
   }
 
-  console.log(`[EntryAnalysis] Found ${unprocessedEntries.length} unprocessed entries on launch`);
+  // Categorize entries: modified (have content_hash) vs new (no content_hash)
+  const modifiedEntries = unprocessedEntries.filter(e => e.contentHash !== null && e.contentHash !== undefined);
+  const newEntries = unprocessedEntries.filter(e => e.contentHash === null || e.contentHash === undefined);
+
+  console.log(`[EntryAnalysis] Found ${unprocessedEntries.length} entries to process on launch:`);
+  console.log(`[EntryAnalysis]   - ${modifiedEntries.length} modified entries (will delete old insights and re-analyze)`);
+  console.log(`[EntryAnalysis]   - ${newEntries.length} new entries (first-time analysis)`);
+
   onProgress?.(progress);
 
   // Process entries one by one
@@ -343,9 +352,10 @@ export async function processUnprocessedEntriesOnLaunch(
         continue;
       }
 
+      const isModified = entry.contentHash !== null && entry.contentHash !== undefined;
       await processEntry(entry);
       progress.processed++;
-      console.log(`[EntryAnalysis] Processed entry ${entry.id} (${progress.processed}/${progress.total})`);
+      console.log(`[EntryAnalysis] Processed ${isModified ? 'modified' : 'new'} entry ${entry.id} (${progress.processed}/${progress.total})`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[EntryAnalysis] Failed to process entry ${entry.id}:`, errorMessage);

@@ -114,7 +114,7 @@
         "Verify content_hash is updated to match current content",
         "Verify second entry (unmodified) is not re-analyzed"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

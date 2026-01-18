@@ -19,6 +19,7 @@
     {
       "identifier": "fs:scope",
       "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }]
-    }
+    },
+    "mcp-bridge:default"
   ]
 }
