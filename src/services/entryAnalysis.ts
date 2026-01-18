@@ -1,5 +1,5 @@
 import type { JournalEntry } from '../types/entry';
-import type { JournalInsight, InsightType, EmotionMetadata, PersonMetadata, RelationshipSentiment } from '../types/analytics';
+import type { JournalInsight, InsightType, EmotionMetadata, PersonMetadata, EventMetadata, RelationshipSentiment } from '../types/analytics';
 import { saveInsights, deleteEntryInsights } from './analytics';
 import { markEntryAsProcessed, getUnprocessedEntries } from './entries';
 import { getApiKey } from '../lib/secureStorage';
@@ -36,12 +36,26 @@ interface ExtractedPerson {
   sourceEnd: number;
 }
 
+type EventCategory = 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
+
+interface ExtractedEvent {
+  event: string;
+  category: EventCategory;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  location?: string;
+  participants?: string[];
+  sourceText: string;
+  sourceStart: number;
+  sourceEnd: number;
+}
+
 interface AnalysisResult {
   emotions: ExtractedEmotion[];
   people: ExtractedPerson[];
+  events: ExtractedEvent[];
 }
 
-const ANALYSIS_PROMPT = `You are an expert at analyzing journal entries to extract meaningful insights about emotions and people mentioned.
+const ANALYSIS_PROMPT = `You are an expert at analyzing journal entries to extract meaningful insights about emotions, people, and events/activities mentioned.
 
 Analyze the following journal entry and extract:
 
@@ -63,17 +77,29 @@ Analyze the following journal entry and extract:
    - sourceStart: The character index where sourceText begins (0-indexed)
    - sourceEnd: The character index where sourceText ends (exclusive)
 
+3. **Events/Activities**: Identify activities, events, or things the author did. For each event, provide:
+   - event: A short descriptive name for the activity (e.g., "hiking", "dinner", "meeting", "workout", "movie night")
+   - category: One of "activity", "social", "work", "travel", "health", "entertainment", or "other"
+   - sentiment: The author's sentiment about this event - "positive", "negative", or "neutral"
+   - location: Where the event took place (optional, only if mentioned)
+   - participants: Array of people who participated (optional, only if mentioned)
+   - sourceText: The exact text from the entry that describes this event
+   - sourceStart: The character index where sourceText begins (0-indexed)
+   - sourceEnd: The character index where sourceText ends (exclusive)
+
 IMPORTANT:
 - sourceStart and sourceEnd must be accurate character positions in the original text
 - sourceText must be an exact substring of the entry content
 - Only extract emotions that are clearly expressed, not implied
 - Only extract people who are explicitly mentioned
-- If no emotions or people are found, return empty arrays
+- Only extract events that are explicitly described activities or occurrences
+- If no emotions, people, or events are found, return empty arrays
 
 Respond with a JSON object in this exact format:
 {
   "emotions": [...],
-  "people": [...]
+  "people": [...],
+  "events": [...]
 }`;
 
 /**
@@ -143,6 +169,7 @@ export async function analyzeEntry(entry: JournalEntry): Promise<JournalInsight[
   // Validate and fix source positions
   const validatedEmotions = validateSourcePositions(analysisResult.emotions || [], entry.content);
   const validatedPeople = validateSourcePositions(analysisResult.people || [], entry.content);
+  const validatedEvents = validateSourcePositions(analysisResult.events || [], entry.content);
 
   // Convert to JournalInsight format
   const insights: JournalInsight[] = [];
@@ -197,6 +224,33 @@ export async function analyzeEntry(entry: JournalEntry): Promise<JournalInsight[
       sourceText: person.sourceText,
       sourceStart: person.sourceStart,
       sourceEnd: person.sourceEnd,
+    });
+  }
+
+  for (const event of validatedEvents) {
+    const metadata: EventMetadata = {
+      category: event.category,
+      sentiment: event.sentiment,
+      location: event.location,
+      participants: event.participants,
+      source: {
+        start: event.sourceStart,
+        end: event.sourceEnd,
+        quote: event.sourceText,
+      },
+    };
+
+    insights.push({
+      id: generateId(),
+      entryId: entry.id,
+      entryDate: entry.date,
+      insightType: 'event' as InsightType,
+      content: event.event.toLowerCase(),
+      metadata,
+      createdAt: timestamp,
+      sourceText: event.sourceText,
+      sourceStart: event.sourceStart,
+      sourceEnd: event.sourceEnd,
     });
   }
 

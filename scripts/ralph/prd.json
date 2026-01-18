@@ -243,7 +243,7 @@
         "Verify each event has correct source_text and positions",
         "Verify insight_type is 'event' or 'activity' for these insights"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

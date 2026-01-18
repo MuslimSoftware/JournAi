@@ -1,4 +1,4 @@
-export type InsightType = 'emotion' | 'person';
+export type InsightType = 'emotion' | 'person' | 'event';
 
 export type RelationshipSentiment = 'positive' | 'negative' | 'neutral' | 'tense' | 'mixed';
 
@@ -22,13 +22,21 @@ export interface PersonMetadata {
   source?: SourceRange;
 }
 
+export interface EventMetadata {
+  category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
+  sentiment: 'positive' | 'negative' | 'neutral';
+  location?: string;
+  participants?: string[];
+  source?: SourceRange;
+}
+
 export interface JournalInsight {
   id: string;
   entryId: string;
   entryDate: string;
   insightType: InsightType;
   content: string;
-  metadata?: EmotionMetadata | PersonMetadata;
+  metadata?: EmotionMetadata | PersonMetadata | EventMetadata;
   createdAt: string;
   sourceText?: string | null;
   sourceStart?: number | null;
@@ -50,11 +58,18 @@ export interface AggregatedInsights {
     mentions: number;
     recentContext?: string;
   }>;
+  events: Array<{
+    event: string;
+    category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
+    count: number;
+    sentiment: 'positive' | 'negative' | 'neutral';
+    recentLocation?: string;
+  }>;
 }
 
 export type SentimentFilter = 'all' | 'positive' | 'negative';
 
-export type InsightTab = 'emotions' | 'people';
+export type InsightTab = 'emotions' | 'people' | 'events';
 
 export interface TimeGroupedInsight {
   emotion: string;
@@ -71,6 +86,17 @@ export interface TimeGroupedPerson {
   relationship?: string;
   sentiment: RelationshipSentiment;
   context?: string;
+  entryId: string;
+  entryDate: string;
+  source?: SourceRange;
+}
+
+export interface TimeGroupedEvent {
+  event: string;
+  category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
+  sentiment: 'positive' | 'negative' | 'neutral';
+  location?: string;
+  participants?: string[];
   entryId: string;
   entryDate: string;
   source?: SourceRange;

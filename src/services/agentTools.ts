@@ -412,22 +412,39 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
     limit,
   });
 
-  return insights.map(insight => ({
-    type: insight.type,
-    ...(insight.type === 'person' ? {
-      name: insight.name,
-      relationship: insight.relationship,
+  return insights.map(insight => {
+    const base = {
+      type: insight.type,
       sentiment: insight.sentiment,
-      context: insight.context,
-    } : {
-      emotion: insight.emotion,
-      intensity: insight.intensity,
-      trigger: insight.trigger,
-      sentiment: insight.sentiment,
-    }),
-    ...(includeEntryIds && { entryId: insight.entryId }),
-    entryDate: insight.entryDate,
-  }));
+      ...(includeEntryIds && { entryId: insight.entryId }),
+      entryDate: insight.entryDate,
+    };
+
+    if (insight.type === 'person') {
+      return {
+        ...base,
+        name: insight.name,
+        relationship: insight.relationship,
+        context: insight.context,
+      };
+    } else if (insight.type === 'emotion') {
+      return {
+        ...base,
+        emotion: insight.emotion,
+        intensity: insight.intensity,
+        trigger: insight.trigger,
+      };
+    } else {
+      // insight.type === 'event'
+      return {
+        ...base,
+        event: insight.event,
+        category: insight.category,
+        location: insight.location,
+        participants: insight.participants,
+      };
+    }
+  });
 }
 
 async function executeQueryEntries(args: QueryEntriesArgs): Promise<unknown> {
