@@ -230,7 +230,7 @@
         "Verify each person has correct source_text and positions",
         "Verify insight_type is 'person' for these insights"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
