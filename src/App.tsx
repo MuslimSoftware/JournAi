@@ -8,6 +8,7 @@ import Entries from "./pages/Entries";
 import Chat from "./pages/Chat";
 import Insights from "./pages/Insights";
 import { startBackgroundEmbedding, stopBackgroundEmbedding } from "./services/embeddings";
+import { processUnprocessedEntriesOnLaunch } from "./services/entryAnalysis";
 import "./App.css";
 import "./styles/layout.css";
 import "./styles/mobile.css";
@@ -18,6 +19,12 @@ function App() {
 
   useEffect(() => {
     startBackgroundEmbedding();
+
+    // Process any unprocessed entries on app launch
+    processUnprocessedEntriesOnLaunch().catch((error) => {
+      console.error('[App] Failed to process unprocessed entries on launch:', error);
+    });
+
     return () => stopBackgroundEmbedding();
   }, []);
 

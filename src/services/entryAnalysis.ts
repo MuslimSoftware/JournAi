@@ -1,10 +1,17 @@
 import type { JournalEntry } from '../types/entry';
 import type { JournalInsight, InsightType, EmotionMetadata, PersonMetadata, RelationshipSentiment } from '../types/analytics';
 import { saveInsights, deleteEntryInsights } from './analytics';
-import { markEntryAsProcessed } from './entries';
+import { markEntryAsProcessed, getUnprocessedEntries } from './entries';
 import { getApiKey } from '../lib/secureStorage';
 import { generateId } from '../utils/generators';
 import { getTimestamp } from '../utils/date';
+
+export interface ProcessingProgress {
+  total: number;
+  processed: number;
+  currentEntry?: string;
+  errors: Array<{ entryId: string; error: string }>;
+}
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const ANALYSIS_MODEL = 'gpt-4o-mini';
@@ -285,4 +292,73 @@ export function hasEntryBeenModified(entry: JournalEntry): boolean {
   }
   const currentHash = generateContentHash(entry.content);
   return currentHash !== entry.contentHash;
+}
+
+/**
+ * Process all unprocessed entries on app launch.
+ * This is called once when the app starts to analyze any entries
+ * that haven't been processed yet.
+ *
+ * @param onProgress - Optional callback to receive progress updates
+ * @returns Processing results including any errors
+ */
+export async function processUnprocessedEntriesOnLaunch(
+  onProgress?: (progress: ProcessingProgress) => void
+): Promise<ProcessingProgress> {
+  const progress: ProcessingProgress = {
+    total: 0,
+    processed: 0,
+    errors: [],
+  };
+
+  // Check if API key is configured
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    console.log('[EntryAnalysis] Skipping launch processing - no API key configured');
+    return progress;
+  }
+
+  // Get all unprocessed entries
+  const unprocessedEntries = await getUnprocessedEntries();
+  progress.total = unprocessedEntries.length;
+
+  if (unprocessedEntries.length === 0) {
+    console.log('[EntryAnalysis] No unprocessed entries found on launch');
+    return progress;
+  }
+
+  console.log(`[EntryAnalysis] Found ${unprocessedEntries.length} unprocessed entries on launch`);
+  onProgress?.(progress);
+
+  // Process entries one by one
+  for (const entry of unprocessedEntries) {
+    progress.currentEntry = entry.id;
+    onProgress?.(progress);
+
+    try {
+      // Skip empty entries
+      if (!entry.content || entry.content.trim().length === 0) {
+        console.log(`[EntryAnalysis] Skipping empty entry ${entry.id}`);
+        progress.processed++;
+        continue;
+      }
+
+      await processEntry(entry);
+      progress.processed++;
+      console.log(`[EntryAnalysis] Processed entry ${entry.id} (${progress.processed}/${progress.total})`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[EntryAnalysis] Failed to process entry ${entry.id}:`, errorMessage);
+      progress.errors.push({ entryId: entry.id, error: errorMessage });
+      // Continue processing other entries even if one fails
+    }
+
+    onProgress?.(progress);
+  }
+
+  progress.currentEntry = undefined;
+  onProgress?.(progress);
+
+  console.log(`[EntryAnalysis] Launch processing complete: ${progress.processed} processed, ${progress.errors.length} errors`);
+  return progress;
 }

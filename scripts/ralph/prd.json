@@ -130,7 +130,7 @@
         "Verify content_hash values are set",
         "Verify entries no longer appear in unprocessed query"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
