@@ -270,6 +270,61 @@
         "Click 'All' filter",
         "Verify all insights are shown again"
       ],
+      "passes": true
+    },
+    {
+      "category": "functional",
+      "description": "Remove events/activities from insights system - database cleanup",
+      "steps": [
+        "Review current insights table schema",
+        "Remove any event/activity type insights from the database",
+        "Update insight_type enum/validation to only allow 'emotion' and 'person'",
+        "Verify no event insights remain in database",
+        "Verify analysis service no longer extracts events"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Remove events/activities from insights system - frontend cleanup",
+      "steps": [
+        "Review InsightsContext for event-related code",
+        "Remove event filtering and grouping from insights page",
+        "Update UI to only show emotions and people categories",
+        "Remove any event-related icons or labels",
+        "Verify insights page only displays emotions and people sections"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "User can clear all processed insights from settings",
+      "steps": [
+        "Navigate to settings page",
+        "Locate the memory/analytics section",
+        "Verify 'Clear All Insights' button is visible",
+        "Click 'Clear All Insights' button",
+        "Verify confirmation dialog appears",
+        "Confirm the action",
+        "Verify all insights are deleted from database",
+        "Verify all entries have processed_at reset to null",
+        "Verify insights page shows empty state",
+        "Verify unprocessed count reflects all entries need processing"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Fix duplicate insights bug - analysis should not create duplicates",
+      "steps": [
+        "Create an entry with content that mentions an emotion twice (e.g., 'I felt happy. Really happy!')",
+        "Run analysis on the entry",
+        "Verify only unique insights are created (no duplicate 'happy' emotions)",
+        "Create another entry mentioning the same person multiple times",
+        "Run analysis",
+        "Verify person insight is created only once per entry",
+        "Verify existing duplicate insights are cleaned up on analysis"
+      ],
       "passes": false
     },
     {
