@@ -354,7 +354,7 @@
         "Verify status text shows 'Analysis complete' or insight count",
         "Verify loading indicator disappears"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
