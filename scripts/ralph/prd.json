@@ -325,7 +325,7 @@
         "Verify person insight is created only once per entry",
         "Verify existing duplicate insights are cleaned up on analysis"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

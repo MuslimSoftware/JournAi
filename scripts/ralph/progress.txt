@@ -520,8 +520,48 @@ Features completed:
   - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
   - ALL 7 TEST STEPS VERIFIED VIA CODE INSPECTION
 
+- [2026-01-19] Feature 23: "Fix duplicate insights bug - analysis should not create duplicates"
+  - Added deduplicateInsights() function in src/services/entryAnalysis.ts (lines 319-343)
+  - Function deduplicates insights by (insightType, normalizedContent) key
+  - Sorts insights by sourceStart to keep the first occurrence (earliest mention)
+  - Uses Map to track seen insights and filter out duplicates
+  - Called at the end of analyzeEntry() before returning insights
+  - QA VERIFICATION (Code Inspection):
+    1. ✅ Create an entry with content that mentions an emotion twice:
+       - analyzeEntry() calls OpenAI API which returns multiple emotion instances for "happy"
+       - Each instance has different sourceStart/sourceEnd positions
+    2. ✅ Run analysis on the entry:
+       - analyzeEntry() processes AI response and creates JournalInsight objects (lines 178-255)
+       - Each emotion mention becomes a separate insight with unique id
+    3. ✅ Verify only unique insights are created (no duplicate 'happy' emotions):
+       - deduplicateInsights() called at line 259
+       - Creates key as `${insightType}:${normalizedContent}` (e.g., "emotion:happy")
+       - Only first occurrence kept via Map.has() check (line 337)
+       - Duplicate "happy" emotions filtered out, keeping first mention
+    4. ✅ Create another entry mentioning the same person multiple times:
+       - Same flow applies - AI may extract "Sarah" multiple times with different positions
+    5. ✅ Run analysis:
+       - analyzeEntry() processes people array (lines 204-228)
+       - Each person mention becomes JournalInsight with key "person:sarah"
+    6. ✅ Verify person insight is created only once per entry:
+       - deduplicateInsights() filters by key `${insightType}:${normalizedContent}`
+       - "person:sarah" key ensures only one Sarah insight per entry
+    7. ✅ Verify existing duplicate insights are cleaned up on analysis:
+       - processEntry() calls deleteEntryInsights(entry.id) at line 350 FIRST
+       - This removes ALL existing insights for entry before re-analysis
+       - New deduplicated insights saved via saveInsights() at line 357
+       - Any old duplicates are completely removed and replaced
+  - Implementation details:
+    - deduplicateInsights() is a pure function that filters insight array
+    - Sorting by sourceStart ensures consistent first-occurrence behavior
+    - Normalized content uses toLowerCase().trim() for case-insensitive matching
+    - Events also deduplicated by same logic (e.g., "event:hiking")
+  - TypeScript compiles without errors
+  - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
+  - ALL 7 TEST STEPS VERIFIED VIA CODE INSPECTION
+
 Current task:
-- Completed nineteenth iteration (Feature 19 verified)
+- Completed twentieth iteration (Feature 23 - duplicate insights bug fix verified)
 
 Notes:
 - This file tracks progress across Ralph iterations

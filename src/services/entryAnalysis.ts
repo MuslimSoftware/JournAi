@@ -254,7 +254,11 @@ export async function analyzeEntry(entry: JournalEntry): Promise<JournalInsight[
     });
   }
 
-  return insights;
+  // Deduplicate insights by (insightType, normalizedContent) within this entry
+  // Keep the first occurrence (earliest source position) for each unique insight
+  const deduplicatedInsights = deduplicateInsights(insights);
+
+  return deduplicatedInsights;
 }
 
 /**
@@ -310,6 +314,32 @@ function validateSourcePositions<T extends { sourceText: string; sourceStart: nu
       sourceEnd: Math.min(100, content.length),
     };
   });
+}
+
+/**
+ * Deduplicate insights by (insightType, normalizedContent).
+ * Keeps the first occurrence (earliest source position) for each unique insight.
+ * This prevents duplicate entries when the same emotion/person/event is mentioned
+ * multiple times in a single journal entry.
+ */
+function deduplicateInsights(insights: JournalInsight[]): JournalInsight[] {
+  const seen = new Map<string, JournalInsight>();
+
+  // Sort by source position to ensure we keep the first occurrence
+  const sorted = [...insights].sort((a, b) => (a.sourceStart ?? 0) - (b.sourceStart ?? 0));
+
+  for (const insight of sorted) {
+    // Create a unique key from insightType + normalized content
+    const normalizedContent = insight.content.toLowerCase().trim();
+    const key = `${insight.insightType}:${normalizedContent}`;
+
+    // Only keep the first occurrence
+    if (!seen.has(key)) {
+      seen.set(key, insight);
+    }
+  }
+
+  return Array.from(seen.values());
 }
 
 /**
