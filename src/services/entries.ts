@@ -228,3 +228,11 @@ export async function markEntryForReprocessing(id: string, newContentHash: strin
         [newContentHash, id]
     );
 }
+
+/**
+ * Clear the processed status for ALL entries (set processed_at and content_hash to null).
+ * Used when clearing all insights from settings - entries will need to be re-analyzed.
+ */
+export async function clearAllProcessedStatus(): Promise<void> {
+    await execute('UPDATE entries SET processed_at = NULL, content_hash = NULL');
+}

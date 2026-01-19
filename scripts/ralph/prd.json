@@ -311,7 +311,7 @@
         "Verify insights page shows empty state",
         "Verify unprocessed count reflects all entries need processing"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

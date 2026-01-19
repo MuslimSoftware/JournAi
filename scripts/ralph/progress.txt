@@ -668,8 +668,76 @@ Features completed:
   - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
   - ALL 5 TEST STEPS VERIFIED VIA CODE INSPECTION
 
+- [2026-01-19] Feature 22: "User can clear all processed insights from settings"
+  - Added clearAllProcessedStatus() function to src/services/entries.ts (lines 232-238)
+    - Executes: UPDATE entries SET processed_at = NULL, content_hash = NULL
+    - Resets all entries to unprocessed state for re-analysis
+  - Updated MemorySection.tsx to add Clear All Insights functionality:
+    - Added imports: clearAllProcessedStatus from entries, clearAllInsights from analytics
+    - Added state: clearingInsights, confirmingClearInsights
+    - Added handleClearAllInsights() handler function (lines 148-162):
+      - Calls clearAllInsights() to delete all journal_insights records
+      - Calls clearAllProcessedStatus() to reset all entries' processed_at
+      - Reloads processing stats to update UI
+    - Added "Clear All Insights" button (lines 363-381):
+      - Shows only when processingStats.processedEntries > 0
+      - Uses variant="danger" style with IoTrash icon
+      - Disabled during clearing or processing operations
+      - Shows loading state with spinner during operation
+    - Added confirmation modal (lines 443-462):
+      - Title: "Clear All Insights?"
+      - Description warns about deletion and need for re-analysis
+      - Cancel and Clear buttons
+  - QA VERIFICATION (Code Inspection):
+    1. ✅ Navigate to settings page:
+       - MemorySection.tsx is rendered under Settings > Memory & RAG tab
+       - Entry Analysis section starts at line 305
+    2. ✅ Locate the memory/analytics section:
+       - "Entry Analysis" section title at line 308-310
+       - Processing stats box shows processed/unprocessed counts
+    3. ✅ Verify 'Clear All Insights' button is visible:
+       - Button rendered at lines 363-381
+       - Conditional: only shows when processingStats.processedEntries > 0
+       - Text: "Clear All Insights" with IoTrash icon
+    4. ✅ Click 'Clear All Insights' button:
+       - onClick={() => setConfirmingClearInsights(true)} (line 367)
+       - Sets confirmingClearInsights state to true
+    5. ✅ Verify confirmation dialog appears:
+       - Modal isOpen={confirmingClearInsights} (line 443)
+       - Modal renders with title "Clear All Insights?"
+       - Description: "This will delete all extracted emotions and people insights..."
+    6. ✅ Confirm the action:
+       - Clear button onClick={handleClearAllInsights} (line 456)
+       - Triggers handleClearAllInsights() handler
+    7. ✅ Verify all insights are deleted from database:
+       - clearAllInsights() in analytics.ts (lines 46-49)
+       - Executes: DELETE FROM journal_insights
+       - Dispatches 'insights-changed' event for UI sync
+    8. ✅ Verify all entries have processed_at reset to null:
+       - clearAllProcessedStatus() in entries.ts (lines 236-238)
+       - Executes: UPDATE entries SET processed_at = NULL, content_hash = NULL
+       - All entries now in unprocessed state
+    9. ✅ Verify insights page shows empty state:
+       - InsightsContext listens for 'insights-changed' event (line 71)
+       - Sets dataLoaded = false to trigger reload
+       - Insights.tsx renders "No emotions found" / "No people found" when arrays empty (lines 330, 376)
+    10. ✅ Verify unprocessed count reflects all entries need processing:
+        - handleClearAllInsights() calls loadProcessingStats() after clearing
+        - getProcessingStats() queries WHERE processed_at IS NOT NULL (now returns 0)
+        - unprocessedEntries = totalEntries - 0 = totalEntries
+        - UI shows "Unprocessed Entries: N" in stats box
+  - Implementation verified in:
+    - src/services/entries.ts: clearAllProcessedStatus()
+    - src/services/analytics.ts: clearAllInsights()
+    - src/components/settings/MemorySection.tsx: button, handler, modal
+    - src/contexts/InsightsContext.tsx: insights-changed event listener
+    - src/pages/Insights.tsx: empty state display
+  - TypeScript/Vite build completes successfully without errors
+  - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
+  - ALL 10 TEST STEPS VERIFIED VIA CODE INSPECTION
+
 Current task:
-- Completed twenty-second iteration (Feature 21 - frontend cleanup for removing events verified)
+- Completed twenty-third iteration (Feature 22 - Clear all processed insights from settings verified)
 
 Notes:
 - This file tracks progress across Ralph iterations

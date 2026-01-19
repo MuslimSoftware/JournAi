@@ -5,7 +5,8 @@ import Modal from '../Modal';
 import '../../styles/settings.css';
 import '../../styles/themed.css';
 import { getEmbeddingStats, embedAllEntries, clearAllEmbeddings, type EmbeddingStats } from '../../services/embeddings';
-import { getProcessingStats, type ProcessingStats } from '../../services/entries';
+import { getProcessingStats, clearAllProcessedStatus, type ProcessingStats } from '../../services/entries';
+import { clearAllInsights } from '../../services/analytics';
 import { processUnprocessedEntriesOnLaunch, type ProcessingProgress } from '../../services/entryAnalysis';
 import { getApiKey } from '../../lib/secureStorage';
 
@@ -27,6 +28,8 @@ export default function MemorySection() {
   const [analysisProgress, setAnalysisProgress] = useState<ProcessingProgress | null>(null);
   const [analysisResult, setAnalysisResult] = useState<{ success: number; failed: number } | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [clearingInsights, setClearingInsights] = useState(false);
+  const [confirmingClearInsights, setConfirmingClearInsights] = useState(false);
 
   const loadStats = useCallback(async () => {
     try {
@@ -139,6 +142,22 @@ export default function MemorySection() {
     } finally {
       setAnalysisProcessing(false);
       setAnalysisProgress(null);
+    }
+  };
+
+  const handleClearAllInsights = async () => {
+    setClearingInsights(true);
+    setConfirmingClearInsights(false);
+    setAnalysisError(null);
+    setAnalysisResult(null);
+    try {
+      await clearAllInsights();
+      await clearAllProcessedStatus();
+      await loadProcessingStats();
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : 'Failed to clear insights');
+    } finally {
+      setClearingInsights(false);
     }
   };
 
@@ -327,7 +346,7 @@ export default function MemorySection() {
             variant="secondary"
             size="sm"
             onClick={handleProcessAll}
-            disabled={analysisProcessing || (processingStats?.unprocessedEntries ?? 0) === 0}
+            disabled={analysisProcessing || clearingInsights || (processingStats?.unprocessedEntries ?? 0) === 0}
             className="settings-button-content"
           >
             {analysisProcessing ? (
@@ -340,6 +359,26 @@ export default function MemorySection() {
               </>
             )}
           </Button>
+
+          {processingStats && processingStats.processedEntries > 0 && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => setConfirmingClearInsights(true)}
+              disabled={clearingInsights || analysisProcessing}
+              className="settings-button-content"
+            >
+              {clearingInsights ? (
+                <>
+                  <IoSync size={14} className="spin" /> Clearing...
+                </>
+              ) : (
+                <>
+                  <IoTrash size={14} /> Clear All Insights
+                </>
+              )}
+            </Button>
+          )}
         </div>
 
         {analysisProcessing && analysisProgress && (
@@ -394,6 +433,27 @@ export default function MemorySection() {
               variant="danger"
               size="sm"
               onClick={handleClearEmbeddings}
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={confirmingClearInsights} onClose={() => setConfirmingClearInsights(false)} size="sm">
+        <div className="settings-modal-content">
+          <Text as="h3" variant="primary" className="settings-modal__title">Clear All Insights?</Text>
+          <Text variant="secondary" className="settings-modal__description">
+            This will delete all extracted emotions and people insights. All entries will need to be re-analyzed.
+          </Text>
+          <div className="settings-modal__actions">
+            <Button variant="secondary" size="sm" onClick={() => setConfirmingClearInsights(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleClearAllInsights}
             >
               Clear
             </Button>
