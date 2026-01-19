@@ -15,7 +15,6 @@ import type {
   RelationshipSentiment,
   TimeGroupedInsight,
   TimeGroupedPerson,
-  TimeGroupedEvent,
   SourceRange,
 } from '../types/analytics';
 
@@ -47,13 +46,6 @@ export async function deleteEntryInsights(entryId: string): Promise<void> {
 export async function clearAllInsights(): Promise<void> {
   await execute('DELETE FROM journal_insights');
   window.dispatchEvent(new CustomEvent('insights-changed'));
-}
-
-export async function deleteEventInsights(): Promise<number> {
-  // Delete all event-type insights from the database (legacy cleanup)
-  const result = await execute("DELETE FROM journal_insights WHERE insight_type = 'event'");
-  window.dispatchEvent(new CustomEvent('insights-changed'));
-  return result.rowsAffected ?? 0;
 }
 
 export async function getInsightsByType(
@@ -153,8 +145,7 @@ export async function getAggregatedInsights(startDate?: string, endDate?: string
     .sort((a, b) => b.mentions - a.mentions)
     .slice(0, MAX_AGGREGATED_ITEMS);
 
-  // Events are no longer extracted - return empty array for backward compatibility
-  return { emotions, people, events: [] };
+  return { emotions, people };
 }
 
 export interface EmotionOccurrence {
@@ -289,15 +280,6 @@ export async function getRawPersonInsights(limit: number = DEFAULT_RAW_INSIGHTS_
       source: meta?.source,
     };
   });
-}
-
-/**
- * @deprecated Events are no longer extracted. This function returns an empty array.
- * Will be removed in Feature 21 when frontend event support is removed.
- */
-export async function getRawEventInsights(): Promise<TimeGroupedEvent[]> {
-  // Events are no longer extracted - return empty array for backward compatibility
-  return [];
 }
 
 export interface FilteredInsightsOptions {

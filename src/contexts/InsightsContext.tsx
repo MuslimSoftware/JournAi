@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import type { AggregatedInsights, TimeGroupedInsight, TimeGroupedPerson, TimeGroupedEvent } from '../types/analytics';
+import type { AggregatedInsights, TimeGroupedInsight, TimeGroupedPerson } from '../types/analytics';
 
 export type TimeFilter =
   | 'last7' | 'last30' | 'last90'
@@ -10,7 +10,7 @@ export type TimeFilter =
 
 export type SentimentFilter = 'all' | 'positive' | 'negative' | 'mixed';
 
-export type InsightTypeFilter = 'all' | 'emotions' | 'people' | 'events';
+export type InsightTypeFilter = 'all' | 'emotions' | 'people';
 
 const DEFAULT_TIME_FILTER: TimeFilter = 'last30';
 const DEFAULT_SENTIMENT_FILTER: SentimentFilter = 'all';
@@ -20,10 +20,8 @@ interface InsightsState {
   aggregated: AggregatedInsights | null;
   rawEmotions: TimeGroupedInsight[];
   rawPeople: TimeGroupedPerson[];
-  rawEvents: TimeGroupedEvent[];
   selectedEmotion: string | null;
   selectedPerson: string | null;
-  selectedEvent: string | null;
   selectedOccurrenceIndex: number | null;
   timeFilter: TimeFilter;
   sentimentFilter: SentimentFilter;
@@ -35,10 +33,8 @@ interface InsightsContextType extends InsightsState {
   setAggregated: (data: AggregatedInsights | null) => void;
   setRawEmotions: (data: TimeGroupedInsight[]) => void;
   setRawPeople: (data: TimeGroupedPerson[]) => void;
-  setRawEvents: (data: TimeGroupedEvent[]) => void;
   setSelectedEmotion: (emotion: string | null) => void;
   setSelectedPerson: (person: string | null) => void;
-  setSelectedEvent: (event: string | null) => void;
   setSelectedOccurrenceIndex: (index: number | null) => void;
   setTimeFilter: (filter: TimeFilter) => void;
   setSentimentFilter: (filter: SentimentFilter) => void;
@@ -53,10 +49,8 @@ export function InsightsProvider({ children }: { children: ReactNode }) {
   const [aggregated, setAggregated] = useState<AggregatedInsights | null>(null);
   const [rawEmotions, setRawEmotions] = useState<TimeGroupedInsight[]>([]);
   const [rawPeople, setRawPeople] = useState<TimeGroupedPerson[]>([]);
-  const [rawEvents, setRawEvents] = useState<TimeGroupedEvent[]>([]);
   const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null);
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState<number | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>(DEFAULT_TIME_FILTER);
   const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>(DEFAULT_SENTIMENT_FILTER);
@@ -66,7 +60,6 @@ export function InsightsProvider({ children }: { children: ReactNode }) {
   const resetSelections = () => {
     setSelectedEmotion(null);
     setSelectedPerson(null);
-    setSelectedEvent(null);
     setSelectedOccurrenceIndex(null);
   };
 
@@ -88,10 +81,8 @@ export function InsightsProvider({ children }: { children: ReactNode }) {
         aggregated,
         rawEmotions,
         rawPeople,
-        rawEvents,
         selectedEmotion,
         selectedPerson,
-        selectedEvent,
         selectedOccurrenceIndex,
         timeFilter,
         sentimentFilter,
@@ -100,10 +91,8 @@ export function InsightsProvider({ children }: { children: ReactNode }) {
         setAggregated,
         setRawEmotions,
         setRawPeople,
-        setRawEvents,
         setSelectedEmotion,
         setSelectedPerson,
-        setSelectedEvent,
         setSelectedOccurrenceIndex,
         setTimeFilter,
         setSentimentFilter,

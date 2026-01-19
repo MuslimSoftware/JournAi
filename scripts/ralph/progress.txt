@@ -599,8 +599,77 @@ Features completed:
   - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
   - ALL 5 TEST STEPS VERIFIED VIA CODE INSPECTION
 
+- [2026-01-19] Feature 21: "Remove events/activities from insights system - frontend cleanup"
+  - Removed event-related code from InsightsContext.tsx:
+    - Removed TimeGroupedEvent import
+    - Removed 'events' from InsightTypeFilter type (now 'all' | 'emotions' | 'people')
+    - Removed rawEvents state and setRawEvents setter
+    - Removed selectedEvent state and setSelectedEvent setter
+    - Removed setSelectedEvent(null) from resetSelections()
+    - Removed all event-related entries from context value provider
+  - Removed event-related code from Insights.tsx:
+    - Removed getRawEventInsights import
+    - Removed AggregatedEvent type definition
+    - Removed EVENT_CATEGORY_COLORS constant
+    - Removed filterEventsBySentiment() function
+    - Removed rawEvents, selectedEvent, setRawEvents, setSelectedEvent from useInsights destructuring
+    - Removed getRawEventInsights() call from Promise.all data fetching
+    - Removed setRawEvents(events) call
+    - Removed filteredEvents and filteredEventEntries computed values
+    - Removed setSelectedEvent(null) from emotion and people card click handlers
+    - Removed renderEventsColumn() function (entire function)
+    - Removed event detail section from renderDetailSection()
+    - Removed 'events' option from typeOptions array
+    - Removed showEvents variable and its usage in visibleColumnCount calculation
+    - Removed insights-columns--three class option (now only --one and --two)
+    - Removed {showEvents && renderEventsColumn()} render call
+  - Removed event-related CSS from insights.css:
+    - Removed .insights-event-card and related styles
+    - Removed .insights-event-card--selected
+    - Removed .insights-event-card__header, __name, __count, __footer
+    - Removed .insights-category-badge and .insights-category-badge--small
+    - Removed .insights-occurrence-card--event and __header--event
+    - Removed .insights-occurrence-card__badges
+  - Removed deprecated event types from analytics.ts (types):
+    - Removed deprecated events property from AggregatedInsights interface
+    - Removed EventMetadata interface
+    - Removed TimeGroupedEvent interface
+  - Removed deprecated event functions from analytics.ts (service):
+    - Removed TimeGroupedEvent import
+    - Removed deleteEventInsights() function
+    - Removed getRawEventInsights() function
+    - Removed events: [] from getAggregatedInsights() return value
+  - QA VERIFICATION (Code Inspection):
+    1. ✅ Review InsightsContext for event-related code:
+       - InsightsContext.tsx no longer imports TimeGroupedEvent
+       - InsightTypeFilter = 'all' | 'emotions' | 'people' (no 'events')
+       - No rawEvents state, no selectedEvent state
+       - No setRawEvents, no setSelectedEvent functions
+    2. ✅ Remove event filtering and grouping from insights page:
+       - Insights.tsx no longer imports getRawEventInsights
+       - No filterEventsBySentiment function
+       - No filteredEvents or filteredEventEntries computed values
+       - useInsights() destructuring has no event-related properties
+    3. ✅ Update UI to only show emotions and people categories:
+       - typeOptions array: [all, emotions, people] (no events)
+       - showEmotions and showPeople only (no showEvents)
+       - visibleColumnCount = [showEmotions, showPeople].filter(Boolean).length
+       - columnClass only uses --one or --two (no --three)
+    4. ✅ Remove any event-related icons or labels:
+       - renderEventsColumn() function completely removed
+       - Event detail section in renderDetailSection() completely removed
+       - EVENT_CATEGORY_COLORS constant removed
+       - No category badges or event-specific styling in render
+    5. ✅ Verify insights page only displays emotions and people sections:
+       - Only {showEmotions && renderEmotionsColumn()} and {showPeople && renderPeopleColumn()} rendered
+       - No event column rendering
+       - insights.css has no .insights-event-card or .insights-category-badge styles
+  - TypeScript/Vite build completes successfully without errors
+  - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
+  - ALL 5 TEST STEPS VERIFIED VIA CODE INSPECTION
+
 Current task:
-- Completed twenty-first iteration (Feature 20 - database cleanup for removing events verified)
+- Completed twenty-second iteration (Feature 21 - frontend cleanup for removing events verified)
 
 Notes:
 - This file tracks progress across Ralph iterations

@@ -50,14 +50,6 @@ export interface AggregatedInsights {
     mentions: number;
     recentContext?: string;
   }>;
-  /** @deprecated Events are no longer extracted. Always returns empty array. Will be removed in Feature 21. */
-  events?: Array<{
-    event: string;
-    category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
-    count: number;
-    sentiment: 'positive' | 'negative' | 'neutral';
-    recentLocation?: string;
-  }>;
 }
 
 export type SentimentFilter = 'all' | 'positive' | 'negative';
@@ -79,29 +71,6 @@ export interface TimeGroupedPerson {
   relationship?: string;
   sentiment: RelationshipSentiment;
   context?: string;
-  entryId: string;
-  entryDate: string;
-  source?: SourceRange;
-}
-
-// DEPRECATED: Event types are being removed. These remain for backward compatibility
-// until frontend cleanup is complete (Feature 21).
-/** @deprecated Events are no longer extracted. Will be removed in Feature 21. */
-export interface EventMetadata {
-  category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
-  sentiment: 'positive' | 'negative' | 'neutral';
-  location?: string;
-  participants?: string[];
-  source?: SourceRange;
-}
-
-/** @deprecated Events are no longer extracted. Will be removed in Feature 21. */
-export interface TimeGroupedEvent {
-  event: string;
-  category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
-  sentiment: 'positive' | 'negative' | 'neutral';
-  location?: string;
-  participants?: string[];
   entryId: string;
   entryDate: string;
   source?: SourceRange;

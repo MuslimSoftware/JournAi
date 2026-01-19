@@ -294,7 +294,7 @@
         "Remove any event-related icons or labels",
         "Verify insights page only displays emotions and people sections"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
