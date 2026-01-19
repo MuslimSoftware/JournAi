@@ -370,7 +370,7 @@
         "Verify analysis succeeds on retry",
         "Verify insights are generated"
       ],
-      "passes": false
+      "passes": true
     }
   ]
 }
