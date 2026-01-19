@@ -316,6 +316,15 @@ html.keyboard-open .mobile-fab {
   color: var(--bg-primary);
 }
 
+.mobile-entry-status-clickable {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.mobile-entry-status-clickable:active {
+  transform: scale(0.9);
+}
+
 .mobile-entry-preview {
   font-size: 1rem;
   overflow: hidden;

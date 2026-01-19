@@ -43,6 +43,34 @@ export async function deleteEntryInsights(entryId: string): Promise<void> {
   await execute('DELETE FROM journal_insights WHERE entry_id = $1', [entryId]);
 }
 
+export interface EntryInsightCount {
+  total: number;
+  emotions: number;
+  people: number;
+}
+
+export async function getInsightCountForEntry(entryId: string): Promise<EntryInsightCount> {
+  const rows = await select<{ insight_type: string; count: number }>(
+    `SELECT insight_type, COUNT(*) as count
+     FROM journal_insights
+     WHERE entry_id = $1
+     GROUP BY insight_type`,
+    [entryId]
+  );
+
+  const counts: EntryInsightCount = { total: 0, emotions: 0, people: 0 };
+  for (const row of rows) {
+    if (row.insight_type === 'emotion') {
+      counts.emotions = row.count;
+    } else if (row.insight_type === 'person') {
+      counts.people = row.count;
+    }
+    counts.total += row.count;
+  }
+
+  return counts;
+}
+
 export async function clearAllInsights(): Promise<void> {
   await execute('DELETE FROM journal_insights');
   window.dispatchEvent(new CustomEvent('insights-changed'));

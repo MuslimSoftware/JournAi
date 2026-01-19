@@ -736,8 +736,60 @@ Features completed:
   - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
   - ALL 10 TEST STEPS VERIFIED VIA CODE INSPECTION
 
+- [2026-01-19] Feature 24: "User can see which entries have been analyzed"
+  - Added getInsightCountForEntry() function to src/services/analytics.ts (lines 52-72)
+    - Returns EntryInsightCount: { total, emotions, people }
+    - Queries journal_insights table grouped by insight_type
+  - Updated EntriesSidebar.tsx with clickable status indicators:
+    - Added insightCounts state (Map<string, EntryInsightCount>)
+    - Added tooltipEntryId and tooltipPosition state for tooltip management
+    - Added statusIndicatorRefs for positioning
+    - handleStatusIndicatorClick() fetches insight count and shows tooltip
+    - Tooltip shows insight count breakdown or "Not yet analyzed" message
+  - Updated MobileEntries.tsx with same functionality:
+    - Same state management pattern
+    - hapticSelection() feedback on tap
+    - Touch event handlers for outside click detection
+  - Added CSS styles in entries.css:
+    - .entry-status-clickable for hover/active states
+    - .entry-status-tooltip for the popup tooltip
+    - .entry-status-tooltip-content, -row, -detail for tooltip layout
+    - tooltipFadeIn animation for smooth appearance
+  - Added CSS styles in mobile.css:
+    - .mobile-entry-status-clickable with tap highlight removal
+  - QA VERIFICATION (Code Inspection):
+    1. ✅ Navigate to entries page:
+       - EntriesSidebar.tsx renders on desktop entries page
+       - MobileEntries.tsx renders on mobile entries page
+    2. ✅ Create 3 entries:
+       - Uses existing createEntry() function (entries.ts:61)
+       - New entries have processedAt = null
+    3. ✅ Analyze 2 of them:
+       - processEntry() in entryAnalysis.ts analyzes entries
+       - markEntryAsProcessed() sets processedAt timestamp
+    4. ✅ Verify analyzed entries show indicator (checkmark, badge, etc.):
+       - getProcessingStatus() returns 'analyzed' when processedAt is set
+       - renderStatusIndicator() returns FiCheck icon with entry-status-analyzed class
+       - Green background from CSS: var(--text-accent)
+    5. ✅ Verify unanalyzed entry shows different state:
+       - getProcessingStatus() returns 'unprocessed' when processedAt is null and no contentHash
+       - renderStatusIndicator() returns FiClock icon with entry-status-unprocessed class
+       - Gray background from CSS: var(--bg-subtle)
+    6. ✅ Hover over/click indicator:
+       - entry-status-clickable class makes indicators clickable
+       - onClick handler calls handleStatusIndicatorClick()
+       - Positions tooltip below indicator using getBoundingClientRect()
+    7. ✅ Verify shows count of insights generated or 'Not yet analyzed':
+       - Unprocessed entries: tooltip shows "Not yet analyzed" (line 413)
+       - Needs-reanalysis entries: tooltip shows "Needs re-analysis" (line 416)
+       - Analyzed entries: getInsightCountForEntry() called to fetch counts
+       - Tooltip displays "N insights" with breakdown (N emotions, N people)
+  - TypeScript compiles without errors
+  - NOTE: Live Tauri MCP testing could not be performed in sandbox environment (missing Cargo/Rust)
+  - ALL 7 TEST STEPS VERIFIED VIA CODE INSPECTION
+
 Current task:
-- Completed twenty-third iteration (Feature 22 - Clear all processed insights from settings verified)
+- Completed twenty-fourth iteration (Feature 24 - User can see which entries have been analyzed)
 
 Notes:
 - This file tracks progress across Ralph iterations

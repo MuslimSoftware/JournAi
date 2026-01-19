@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { DayPicker } from 'react-day-picker';
 import { format, parseISO } from 'date-fns';
 import { IoRefresh } from 'react-icons/io5';
@@ -14,6 +15,7 @@ import { SkeletonEntryList } from './Skeleton';
 import { FiPlus, FiSearch, FiX, FiCheck, FiClock, FiRefreshCw } from 'react-icons/fi';
 import { groupEntriesByDate } from '../../utils/dateGrouping';
 import { formatEntryDate } from '../../utils/date';
+import { getInsightCountForEntry, EntryInsightCount } from '../../services/analytics';
 import type { JournalEntry } from '../../types/entry';
 import '../../styles/mobile.css';
 import 'react-day-picker/style.css';
@@ -29,7 +31,11 @@ export default function MobileEntries() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingDateEntry, setEditingDateEntry] = useState<JournalEntry | null>(null);
   const [pressedEntryId, setPressedEntryId] = useState<string | null>(null);
+  const [insightCounts, setInsightCounts] = useState<Map<string, EntryInsightCount>>(new Map());
+  const [tooltipEntryId, setTooltipEntryId] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const statusIndicatorRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
 
   const {
     entries,
@@ -124,25 +130,86 @@ export default function MobileEntries() {
     return 'unprocessed';
   };
 
+  const handleStatusIndicatorClick = async (e: React.MouseEvent | React.TouchEvent, entry: JournalEntry) => {
+    e.stopPropagation();
+    hapticSelection();
+    const indicatorRef = statusIndicatorRefs.current.get(entry.id);
+    if (indicatorRef) {
+      const rect = indicatorRef.getBoundingClientRect();
+      setTooltipPosition({
+        top: rect.bottom + 4,
+        left: Math.max(10, rect.left - 40),
+      });
+    }
+
+    if (tooltipEntryId === entry.id) {
+      setTooltipEntryId(null);
+      return;
+    }
+
+    setTooltipEntryId(entry.id);
+
+    if (!insightCounts.has(entry.id) && entry.processedAt) {
+      const count = await getInsightCountForEntry(entry.id);
+      setInsightCounts(prev => new Map(prev).set(entry.id, count));
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement;
+      if (tooltipEntryId && !target.closest('.entry-status-tooltip') && !target.closest('.mobile-entry-status')) {
+        setTooltipEntryId(null);
+      }
+    };
+    if (tooltipEntryId) {
+      document.addEventListener('touchstart', handleClickOutside as EventListener);
+      document.addEventListener('mousedown', handleClickOutside as EventListener);
+      return () => {
+        document.removeEventListener('touchstart', handleClickOutside as EventListener);
+        document.removeEventListener('mousedown', handleClickOutside as EventListener);
+      };
+    }
+  }, [tooltipEntryId]);
+
   const renderStatusIndicator = (entry: JournalEntry) => {
     const status = getProcessingStatus(entry);
 
+    const handleRef = (el: HTMLSpanElement | null) => {
+      if (el) statusIndicatorRefs.current.set(entry.id, el);
+    };
+
     if (status === 'analyzed') {
       return (
-        <span className="mobile-entry-status mobile-entry-status-analyzed" title="Analyzed">
+        <span
+          ref={handleRef}
+          className="mobile-entry-status mobile-entry-status-analyzed mobile-entry-status-clickable"
+          title="Click to see insights"
+          onClick={(e) => handleStatusIndicatorClick(e, entry)}
+        >
           <FiCheck size={10} />
         </span>
       );
     }
     if (status === 'needs-reanalysis') {
       return (
-        <span className="mobile-entry-status mobile-entry-status-needs-reanalysis" title="Needs re-analysis">
+        <span
+          ref={handleRef}
+          className="mobile-entry-status mobile-entry-status-needs-reanalysis mobile-entry-status-clickable"
+          title="Needs re-analysis"
+          onClick={(e) => handleStatusIndicatorClick(e, entry)}
+        >
           <FiRefreshCw size={10} />
         </span>
       );
     }
     return (
-      <span className="mobile-entry-status mobile-entry-status-unprocessed" title="Unprocessed">
+      <span
+        ref={handleRef}
+        className="mobile-entry-status mobile-entry-status-unprocessed mobile-entry-status-clickable"
+        title="Not yet analyzed"
+        onClick={(e) => handleStatusIndicatorClick(e, entry)}
+      >
         <FiClock size={10} />
       </span>
     );
@@ -366,6 +433,52 @@ export default function MobileEntries() {
           />
         </div>
       </BottomSheet>
+
+      {tooltipEntryId && createPortal(
+        <div
+          className="entry-status-tooltip"
+          style={{
+            position: 'fixed',
+            top: `${tooltipPosition.top}px`,
+            left: `${tooltipPosition.left}px`,
+          }}
+        >
+          {(() => {
+            const entry = entries.find(e => e.id === tooltipEntryId);
+            if (!entry) return null;
+            const status = getProcessingStatus(entry);
+            const counts = insightCounts.get(entry.id);
+
+            if (status === 'unprocessed') {
+              return <span>Not yet analyzed</span>;
+            }
+            if (status === 'needs-reanalysis') {
+              return <span>Needs re-analysis</span>;
+            }
+            if (counts) {
+              return (
+                <div className="entry-status-tooltip-content">
+                  <div className="entry-status-tooltip-row">
+                    <span>{counts.total} insight{counts.total !== 1 ? 's' : ''}</span>
+                  </div>
+                  {counts.emotions > 0 && (
+                    <div className="entry-status-tooltip-detail">
+                      {counts.emotions} emotion{counts.emotions !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                  {counts.people > 0 && (
+                    <div className="entry-status-tooltip-detail">
+                      {counts.people} {counts.people !== 1 ? 'people' : 'person'}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return <span>Loading...</span>;
+          })()}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

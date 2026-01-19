@@ -271,6 +271,59 @@
   color: var(--bg-primary);
 }
 
+.entry-status-clickable {
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.entry-status-clickable:hover {
+  transform: scale(1.15);
+}
+
+.entry-status-clickable:active {
+  transform: scale(0.95);
+}
+
+.entry-status-tooltip {
+  z-index: 10000;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  min-width: 100px;
+  animation: tooltipFadeIn 0.15s ease;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.entry-status-tooltip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.entry-status-tooltip-row {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.entry-status-tooltip-detail {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 .entry-list-item-preview {
   font-size: 0.875rem;
   line-height: 20px;

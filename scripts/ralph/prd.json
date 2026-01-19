@@ -339,7 +339,7 @@
         "Hover over/click indicator",
         "Verify shows count of insights generated or 'Not yet analyzed'"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
