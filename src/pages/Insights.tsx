@@ -4,7 +4,7 @@ import { IoSettingsOutline } from 'react-icons/io5';
 import { Container, Text, Spinner } from '../components/themed';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { useSettings } from '../contexts/SettingsContext';
-import { useInsights, TimeFilter, SentimentFilter } from '../contexts/InsightsContext';
+import { useInsights, TimeFilter, SentimentFilter, InsightTypeFilter } from '../contexts/InsightsContext';
 import { useEntryNavigation } from '../contexts/EntryNavigationContext';
 import {
   getAggregatedInsights,
@@ -215,6 +215,7 @@ export default function Insights() {
     selectedOccurrenceIndex,
     timeFilter,
     sentimentFilter,
+    typeFilter,
     dataLoaded,
     setAggregated,
     setRawEmotions,
@@ -226,6 +227,7 @@ export default function Insights() {
     setSelectedOccurrenceIndex,
     setTimeFilter,
     setSentimentFilter,
+    setTypeFilter,
     setDataLoaded,
     resetSelections,
   } = useInsights();
@@ -269,7 +271,7 @@ export default function Insights() {
           getAggregatedInsights(range?.start, range?.end),
           getRawEmotionInsights(RAW_INSIGHTS_QUERY_LIMIT, range?.start, range?.end),
           getRawPersonInsights(RAW_INSIGHTS_QUERY_LIMIT, range?.start, range?.end),
-          getRawEventInsights(RAW_INSIGHTS_QUERY_LIMIT, range?.start, range?.end),
+          getRawEventInsights(), // Events are no longer extracted - returns empty array
         ]);
         setAggregated(agg);
         setRawEmotions(emotions);
@@ -712,6 +714,23 @@ export default function Insights() {
     { value: 'mixed', label: 'Mixed', color: SENTIMENT_COLORS.mixed },
   ];
 
+  const typeOptions: { value: InsightTypeFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'emotions', label: 'Emotions' },
+    { value: 'people', label: 'People' },
+    { value: 'events', label: 'Events' },
+  ];
+
+  const showEmotions = typeFilter === 'all' || typeFilter === 'emotions';
+  const showPeople = typeFilter === 'all' || typeFilter === 'people';
+  const showEvents = typeFilter === 'all' || typeFilter === 'events';
+
+  // Determine the grid column class based on how many columns are shown
+  const visibleColumnCount = [showEmotions, showPeople, showEvents].filter(Boolean).length;
+  const columnClass = visibleColumnCount === 3 ? 'insights-columns--three' :
+                      visibleColumnCount === 2 ? 'insights-columns--two' :
+                      'insights-columns--one';
+
   const content = (
     <div className={`insights-content${isMobile ? ' insights-content--mobile' : ''}`}>
       <div className="insights-filters">
@@ -774,11 +793,29 @@ export default function Insights() {
             );
           })}
         </div>
+        <div className="insights-type-filters">
+          {typeOptions.map((opt) => {
+            const isActive = typeFilter === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  if (isMobile) hapticSelection();
+                  setTypeFilter(opt.value);
+                  resetSelections();
+                }}
+                className={`insights-type-button${isMobile ? ' insights-type-button--mobile' : ''}${isActive ? ' insights-type-button--active' : ''}`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <div className={`insights-columns insights-columns--three${isMobile ? ' insights-columns--mobile' : ''}`}>
-        {renderEmotionsColumn()}
-        {renderPeopleColumn()}
-        {renderEventsColumn()}
+      <div className={`insights-columns ${columnClass}${isMobile ? ' insights-columns--mobile' : ''}`}>
+        {showEmotions && renderEmotionsColumn()}
+        {showPeople && renderPeopleColumn()}
+        {showEvents && renderEventsColumn()}
       </div>
       {renderDetailSection()}
     </div>

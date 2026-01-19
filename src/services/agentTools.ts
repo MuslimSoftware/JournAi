@@ -427,21 +427,13 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
         relationship: insight.relationship,
         context: insight.context,
       };
-    } else if (insight.type === 'emotion') {
+    } else {
+      // insight.type === 'emotion'
       return {
         ...base,
         emotion: insight.emotion,
         intensity: insight.intensity,
         trigger: insight.trigger,
-      };
-    } else {
-      // insight.type === 'event'
-      return {
-        ...base,
-        event: insight.event,
-        category: insight.category,
-        location: insight.location,
-        participants: insight.participants,
       };
     }
   });

@@ -12,7 +12,6 @@ import type {
   AggregatedInsights,
   EmotionMetadata,
   PersonMetadata,
-  EventMetadata,
   RelationshipSentiment,
   TimeGroupedInsight,
   TimeGroupedPerson,
@@ -48,6 +47,13 @@ export async function deleteEntryInsights(entryId: string): Promise<void> {
 export async function clearAllInsights(): Promise<void> {
   await execute('DELETE FROM journal_insights');
   window.dispatchEvent(new CustomEvent('insights-changed'));
+}
+
+export async function deleteEventInsights(): Promise<number> {
+  // Delete all event-type insights from the database (legacy cleanup)
+  const result = await execute("DELETE FROM journal_insights WHERE insight_type = 'event'");
+  window.dispatchEvent(new CustomEvent('insights-changed'));
+  return result.rowsAffected ?? 0;
 }
 
 export async function getInsightsByType(
@@ -147,43 +153,8 @@ export async function getAggregatedInsights(startDate?: string, endDate?: string
     .sort((a, b) => b.mentions - a.mentions)
     .slice(0, MAX_AGGREGATED_ITEMS);
 
-  const eventsRaw = await select<{ content: string; metadata: string; entry_date: string }>(
-    `SELECT content, metadata, entry_date
-     FROM journal_insights WHERE insight_type = 'event'${dateFilter}
-     ORDER BY entry_date DESC`,
-    dateParams
-  );
-
-  type EventCategory = 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
-  const eventMap = new Map<string, { count: number; category: EventCategory; sentiment: string; recentLocation?: string }>();
-  for (const ev of eventsRaw) {
-    const key = ev.content.toLowerCase();
-    const meta: EventMetadata | null = ev.metadata ? JSON.parse(ev.metadata) : null;
-    if (!eventMap.has(key)) {
-      eventMap.set(key, {
-        count: 1,
-        category: meta?.category || 'other',
-        sentiment: meta?.sentiment || 'neutral',
-        recentLocation: meta?.location,
-      });
-    } else {
-      const existing = eventMap.get(key)!;
-      existing.count++;
-    }
-  }
-
-  const events = Array.from(eventMap.entries())
-    .map(([event, data]) => ({
-      event,
-      category: data.category,
-      count: data.count,
-      sentiment: data.sentiment as 'positive' | 'negative' | 'neutral',
-      recentLocation: data.recentLocation,
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, MAX_AGGREGATED_ITEMS);
-
-  return { emotions, people, events };
+  // Events are no longer extracted - return empty array for backward compatibility
+  return { emotions, people, events: [] };
 }
 
 export interface EmotionOccurrence {
@@ -320,78 +291,17 @@ export async function getRawPersonInsights(limit: number = DEFAULT_RAW_INSIGHTS_
   });
 }
 
-export interface EventOccurrence {
-  entryId: string;
-  entryDate: string;
-  category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
-  sentiment: 'positive' | 'negative' | 'neutral';
-  location?: string;
-  participants?: string[];
-  source?: SourceRange;
-}
-
-export async function getEventOccurrences(event: string): Promise<EventOccurrence[]> {
-  const rows = await select<{
-    entry_id: string;
-    entry_date: string;
-    metadata: string;
-  }>(
-    `SELECT entry_id, entry_date, metadata
-     FROM journal_insights
-     WHERE insight_type = 'event' AND LOWER(content) = LOWER($1)
-     ORDER BY entry_date DESC`,
-    [event]
-  );
-
-  return rows.map(r => {
-    const meta: EventMetadata | null = r.metadata ? JSON.parse(r.metadata) : null;
-    return {
-      entryId: r.entry_id,
-      entryDate: r.entry_date,
-      category: meta?.category || 'other',
-      sentiment: meta?.sentiment || 'neutral',
-      location: meta?.location,
-      participants: meta?.participants,
-      source: meta?.source,
-    };
-  });
-}
-
-export async function getRawEventInsights(limit: number = DEFAULT_RAW_INSIGHTS_LIMIT, startDate?: string, endDate?: string): Promise<TimeGroupedEvent[]> {
-  const dateFilter = startDate && endDate ? ' AND entry_date >= $2 AND entry_date <= $3' : '';
-  const params = startDate && endDate ? [limit, startDate, endDate] : [limit];
-
-  const rows = await select<{
-    content: string;
-    metadata: string;
-    entry_id: string;
-    entry_date: string;
-  }>(
-    `SELECT content, metadata, entry_id, entry_date
-     FROM journal_insights
-     WHERE insight_type = 'event'${dateFilter}
-     ORDER BY entry_date DESC
-     LIMIT $1`,
-    params
-  );
-
-  return rows.map(r => {
-    const meta: EventMetadata | null = r.metadata ? JSON.parse(r.metadata) : null;
-    return {
-      event: r.content,
-      category: meta?.category || 'other',
-      sentiment: meta?.sentiment || 'neutral',
-      location: meta?.location,
-      participants: meta?.participants,
-      entryId: r.entry_id,
-      entryDate: r.entry_date,
-      source: meta?.source,
-    };
-  });
+/**
+ * @deprecated Events are no longer extracted. This function returns an empty array.
+ * Will be removed in Feature 21 when frontend event support is removed.
+ */
+export async function getRawEventInsights(): Promise<TimeGroupedEvent[]> {
+  // Events are no longer extracted - return empty array for backward compatibility
+  return [];
 }
 
 export interface FilteredInsightsOptions {
-  type?: 'emotion' | 'person' | 'event';
+  type?: 'emotion' | 'person';
   name?: string;
   sentiment?: 'positive' | 'negative' | 'neutral' | 'tense' | 'mixed';
   limit?: number;
@@ -417,18 +327,7 @@ export interface FilteredPersonInsight {
   entryDate: string;
 }
 
-export interface FilteredEventInsight {
-  type: 'event';
-  event: string;
-  category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
-  sentiment: 'positive' | 'negative' | 'neutral';
-  location?: string;
-  participants?: string[];
-  entryId: string;
-  entryDate: string;
-}
-
-export type FilteredInsight = FilteredEmotionInsight | FilteredPersonInsight | FilteredEventInsight;
+export type FilteredInsight = FilteredEmotionInsight | FilteredPersonInsight;
 
 export async function getFilteredInsights(options: FilteredInsightsOptions = {}): Promise<FilteredInsight[]> {
   const { type, name, sentiment, limit = 20 } = options;
@@ -502,44 +401,6 @@ export async function getFilteredInsights(options: FilteredInsightsOptions = {})
         intensity: meta?.intensity || DEFAULT_INTENSITY,
         trigger: meta?.trigger,
         sentiment: meta?.sentiment || 'neutral',
-        entryId: r.entry_id,
-        entryDate: r.entry_date,
-      });
-    }
-  }
-
-  if (!type || type === 'event') {
-    let query = `SELECT content, metadata, entry_id, entry_date FROM journal_insights WHERE insight_type = 'event'`;
-    const params: (string | number)[] = [];
-
-    if (name) {
-      params.push(name.toLowerCase());
-      query += ` AND LOWER(content) LIKE '%' || $${params.length} || '%'`;
-    }
-
-    if (sentiment && (sentiment === 'positive' || sentiment === 'negative' || sentiment === 'neutral')) {
-      params.push(sentiment);
-      query += ` AND json_extract(metadata, '$.sentiment') = $${params.length}`;
-    }
-
-    query += ` ORDER BY entry_date DESC LIMIT ${limit}`;
-
-    const rows = await select<{
-      content: string;
-      metadata: string;
-      entry_id: string;
-      entry_date: string;
-    }>(query, params);
-
-    for (const r of rows) {
-      const meta: EventMetadata | null = r.metadata ? JSON.parse(r.metadata) : null;
-      results.push({
-        type: 'event',
-        event: r.content,
-        category: meta?.category || 'other',
-        sentiment: meta?.sentiment || 'neutral',
-        location: meta?.location,
-        participants: meta?.participants,
         entryId: r.entry_id,
         entryDate: r.entry_date,
       });

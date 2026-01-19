@@ -282,7 +282,7 @@
         "Verify no event insights remain in database",
         "Verify analysis service no longer extracts events"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

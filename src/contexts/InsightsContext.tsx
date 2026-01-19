@@ -10,8 +10,11 @@ export type TimeFilter =
 
 export type SentimentFilter = 'all' | 'positive' | 'negative' | 'mixed';
 
+export type InsightTypeFilter = 'all' | 'emotions' | 'people' | 'events';
+
 const DEFAULT_TIME_FILTER: TimeFilter = 'last30';
 const DEFAULT_SENTIMENT_FILTER: SentimentFilter = 'all';
+const DEFAULT_TYPE_FILTER: InsightTypeFilter = 'all';
 
 interface InsightsState {
   aggregated: AggregatedInsights | null;
@@ -24,6 +27,7 @@ interface InsightsState {
   selectedOccurrenceIndex: number | null;
   timeFilter: TimeFilter;
   sentimentFilter: SentimentFilter;
+  typeFilter: InsightTypeFilter;
   dataLoaded: boolean;
 }
 
@@ -38,6 +42,7 @@ interface InsightsContextType extends InsightsState {
   setSelectedOccurrenceIndex: (index: number | null) => void;
   setTimeFilter: (filter: TimeFilter) => void;
   setSentimentFilter: (filter: SentimentFilter) => void;
+  setTypeFilter: (filter: InsightTypeFilter) => void;
   setDataLoaded: (loaded: boolean) => void;
   resetSelections: () => void;
 }
@@ -55,6 +60,7 @@ export function InsightsProvider({ children }: { children: ReactNode }) {
   const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState<number | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>(DEFAULT_TIME_FILTER);
   const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>(DEFAULT_SENTIMENT_FILTER);
+  const [typeFilter, setTypeFilter] = useState<InsightTypeFilter>(DEFAULT_TYPE_FILTER);
   const [dataLoaded, setDataLoaded] = useState(false);
 
   const resetSelections = () => {
@@ -89,6 +95,7 @@ export function InsightsProvider({ children }: { children: ReactNode }) {
         selectedOccurrenceIndex,
         timeFilter,
         sentimentFilter,
+        typeFilter,
         dataLoaded,
         setAggregated,
         setRawEmotions,
@@ -100,6 +107,7 @@ export function InsightsProvider({ children }: { children: ReactNode }) {
         setSelectedOccurrenceIndex,
         setTimeFilter,
         setSentimentFilter,
+        setTypeFilter,
         setDataLoaded,
         resetSelections,
       }}

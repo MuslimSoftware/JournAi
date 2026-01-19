@@ -1,4 +1,4 @@
-export type InsightType = 'emotion' | 'person' | 'event';
+export type InsightType = 'emotion' | 'person';
 
 export type RelationshipSentiment = 'positive' | 'negative' | 'neutral' | 'tense' | 'mixed';
 
@@ -22,21 +22,13 @@ export interface PersonMetadata {
   source?: SourceRange;
 }
 
-export interface EventMetadata {
-  category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
-  sentiment: 'positive' | 'negative' | 'neutral';
-  location?: string;
-  participants?: string[];
-  source?: SourceRange;
-}
-
 export interface JournalInsight {
   id: string;
   entryId: string;
   entryDate: string;
   insightType: InsightType;
   content: string;
-  metadata?: EmotionMetadata | PersonMetadata | EventMetadata;
+  metadata?: EmotionMetadata | PersonMetadata;
   createdAt: string;
   sourceText?: string | null;
   sourceStart?: number | null;
@@ -58,7 +50,8 @@ export interface AggregatedInsights {
     mentions: number;
     recentContext?: string;
   }>;
-  events: Array<{
+  /** @deprecated Events are no longer extracted. Always returns empty array. Will be removed in Feature 21. */
+  events?: Array<{
     event: string;
     category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
     count: number;
@@ -69,7 +62,7 @@ export interface AggregatedInsights {
 
 export type SentimentFilter = 'all' | 'positive' | 'negative';
 
-export type InsightTab = 'emotions' | 'people' | 'events';
+export type InsightTab = 'emotions' | 'people';
 
 export interface TimeGroupedInsight {
   emotion: string;
@@ -91,6 +84,18 @@ export interface TimeGroupedPerson {
   source?: SourceRange;
 }
 
+// DEPRECATED: Event types are being removed. These remain for backward compatibility
+// until frontend cleanup is complete (Feature 21).
+/** @deprecated Events are no longer extracted. Will be removed in Feature 21. */
+export interface EventMetadata {
+  category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
+  sentiment: 'positive' | 'negative' | 'neutral';
+  location?: string;
+  participants?: string[];
+  source?: SourceRange;
+}
+
+/** @deprecated Events are no longer extracted. Will be removed in Feature 21. */
 export interface TimeGroupedEvent {
   event: string;
   category: 'activity' | 'social' | 'work' | 'travel' | 'health' | 'entertainment' | 'other';
@@ -101,3 +106,4 @@ export interface TimeGroupedEvent {
   entryDate: string;
   source?: SourceRange;
 }
+
