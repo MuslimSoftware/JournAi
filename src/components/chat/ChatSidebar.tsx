@@ -3,6 +3,7 @@ import { NestedSidebar } from '../shared';
 import { Chat } from '../../types/chatHistory';
 import { useSidebar } from '../../contexts/SidebarContext';
 import '../../styles/nested-sidebar.css';
+import '../../styles/chat.css';
 
 interface ChatSidebarProps {
   chats: Chat[];

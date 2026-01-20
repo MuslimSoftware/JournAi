@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { IoCheckmarkCircle, IoAlertCircle, IoSync, IoSparkles, IoTrash, IoAnalytics } from 'react-icons/io5';
 import { Text, Button } from '../themed';
 import Modal from '../Modal';
+import { useProcessing } from '../../contexts/ProcessingContext';
 import '../../styles/settings.css';
 import '../../styles/themed.css';
 import { getEmbeddingStats, embedAllEntries, clearAllEmbeddings, type EmbeddingStats } from '../../services/embeddings';
@@ -11,6 +12,8 @@ import { processUnprocessedEntriesOnLaunch, type ProcessingProgress } from '../.
 import { getApiKey } from '../../lib/secureStorage';
 
 export default function MemorySection() {
+  const { isProcessing: isBackgroundProcessing, progress: backgroundProgress, requestCancel } = useProcessing();
+
   // Embedding stats state
   const [stats, setStats] = useState<EmbeddingStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,6 +62,12 @@ export default function MemorySection() {
     loadStats();
     loadProcessingStats();
   }, [loadStats, loadProcessingStats]);
+
+  useEffect(() => {
+    if (!isBackgroundProcessing) {
+      loadProcessingStats();
+    }
+  }, [isBackgroundProcessing, loadProcessingStats]);
 
   const handleEmbedAll = async () => {
     const apiKey = getApiKey();
@@ -315,6 +324,20 @@ export default function MemorySection() {
         </Text>
       </div>
 
+      {isBackgroundProcessing && backgroundProgress && (
+        <div className="settings-status settings-status--info" style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="settings-status__icon">
+              <IoSync size={14} className="spin" />
+            </span>
+            Background processing: {backgroundProgress.processed} of {backgroundProgress.total} entries
+          </div>
+          <Button variant="secondary" size="sm" onClick={requestCancel}>
+            Cancel
+          </Button>
+        </div>
+      )}
+
       {processingStatsLoading ? (
         <div className="settings-stat-box">
           <Text variant="muted" className="settings-section__description">Loading stats...</Text>
@@ -346,7 +369,7 @@ export default function MemorySection() {
             variant="secondary"
             size="sm"
             onClick={handleProcessAll}
-            disabled={analysisProcessing || clearingInsights || (processingStats?.unprocessedEntries ?? 0) === 0}
+            disabled={analysisProcessing || clearingInsights || isBackgroundProcessing || (processingStats?.unprocessedEntries ?? 0) === 0}
             className="settings-button-content"
           >
             {analysisProcessing ? (
@@ -413,7 +436,9 @@ export default function MemorySection() {
         )}
 
         <p className="settings-hint">
-          {(processingStats?.unprocessedEntries ?? 0) > 0
+          {isBackgroundProcessing
+            ? 'Entries are being analyzed in the background...'
+            : (processingStats?.unprocessedEntries ?? 0) > 0
             ? `${processingStats?.unprocessedEntries} entries have not been analyzed yet. Click the button to process them.`
             : 'All entries have been analyzed. New entries will be analyzed automatically when the app restarts.'}
         </p>

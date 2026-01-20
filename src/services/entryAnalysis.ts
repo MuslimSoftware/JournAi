@@ -13,6 +13,33 @@ export interface ProcessingProgress {
   errors: Array<{ entryId: string; error: string }>;
 }
 
+const PROCESSING_LOCK_KEY = 'journai-entry-analysis-lock';
+const CANCEL_KEY = 'journai-cancel-processing';
+const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes max lock duration
+
+function acquireProcessingLock(): boolean {
+  const existing = sessionStorage.getItem(PROCESSING_LOCK_KEY);
+  if (existing) {
+    const lockTime = parseInt(existing, 10);
+    if (Date.now() - lockTime < LOCK_TIMEOUT_MS) {
+      return false;
+    }
+  }
+  sessionStorage.setItem(PROCESSING_LOCK_KEY, Date.now().toString());
+  return true;
+}
+
+function releaseProcessingLock(): void {
+  sessionStorage.removeItem(PROCESSING_LOCK_KEY);
+}
+
+export function isProcessingEntries(): boolean {
+  const existing = sessionStorage.getItem(PROCESSING_LOCK_KEY);
+  if (!existing) return false;
+  const lockTime = parseInt(existing, 10);
+  return Date.now() - lockTime < LOCK_TIMEOUT_MS;
+}
+
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const ANALYSIS_MODEL = 'gpt-4o-mini';
 
@@ -343,6 +370,22 @@ export async function processUnprocessedEntriesOnLaunch(
     errors: [],
   };
 
+  if (!acquireProcessingLock()) {
+    console.log('[EntryAnalysis] Skipping - processing already in progress');
+    return progress;
+  }
+
+  try {
+    return await processUnprocessedEntriesInternal(onProgress, progress);
+  } finally {
+    releaseProcessingLock();
+  }
+}
+
+async function processUnprocessedEntriesInternal(
+  onProgress: ((progress: ProcessingProgress) => void) | undefined,
+  progress: ProcessingProgress
+): Promise<ProcessingProgress> {
   // Check if API key is configured
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -367,12 +410,18 @@ export async function processUnprocessedEntriesOnLaunch(
   console.log(`[EntryAnalysis]   - ${modifiedEntries.length} modified entries (will delete old insights and re-analyze)`);
   console.log(`[EntryAnalysis]   - ${newEntries.length} new entries (first-time analysis)`);
 
-  onProgress?.(progress);
+  onProgress?.({ ...progress });
 
   // Process entries one by one
   for (const entry of unprocessedEntries) {
+    if (sessionStorage.getItem(CANCEL_KEY)) {
+      sessionStorage.removeItem(CANCEL_KEY);
+      console.log('[EntryAnalysis] Processing cancelled by user');
+      break;
+    }
+
     progress.currentEntry = entry.id;
-    onProgress?.(progress);
+    onProgress?.({ ...progress });
 
     try {
       // Skip empty entries
@@ -393,11 +442,11 @@ export async function processUnprocessedEntriesOnLaunch(
       // Continue processing other entries even if one fails
     }
 
-    onProgress?.(progress);
+    onProgress?.({ ...progress });
   }
 
   progress.currentEntry = undefined;
-  onProgress?.(progress);
+  onProgress?.({ ...progress });
 
   console.log(`[EntryAnalysis] Launch processing complete: ${progress.processed} processed, ${progress.errors.length} errors`);
   return progress;

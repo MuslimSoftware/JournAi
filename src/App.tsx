@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import MobileLayout from "./components/mobile/MobileLayout";
 import { useIsMobile } from "./hooks/useMediaQuery";
+import { useProcessing } from "./contexts/ProcessingContext";
 import Calendar from "./pages/Calendar";
 import Entries from "./pages/Entries";
 import Chat from "./pages/Chat";
@@ -16,17 +17,27 @@ import "./styles/mobile.css";
 function App() {
   const isMobile = useIsMobile();
   const LayoutComponent = isMobile ? MobileLayout : Layout;
+  const { startProcessing, updateProgress, finishProcessing } = useProcessing();
 
   useEffect(() => {
     startBackgroundEmbedding();
 
-    // Process any unprocessed entries on app launch
-    processUnprocessedEntriesOnLaunch().catch((error) => {
+    processUnprocessedEntriesOnLaunch((progress) => {
+      if (progress.total > 0) {
+        if (progress.processed === 0) {
+          startProcessing(progress.total);
+        }
+        updateProgress(progress);
+      }
+    }).then(() => {
+      finishProcessing();
+    }).catch((error) => {
       console.error('[App] Failed to process unprocessed entries on launch:', error);
+      finishProcessing();
     });
 
     return () => stopBackgroundEmbedding();
-  }, []);
+  }, [startProcessing, updateProgress, finishProcessing]);
 
   return (
     <Routes>

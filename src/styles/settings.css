@@ -146,6 +146,10 @@
   color: var(--status-error);
 }
 
+.settings-status--info {
+  color: var(--text-secondary);
+}
+
 .settings-status__icon {
   display: flex;
   align-items: center;

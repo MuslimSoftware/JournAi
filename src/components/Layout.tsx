@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
-import { IoCalendarOutline, IoCalendar, IoBookOutline, IoBook, IoChatbubbleOutline, IoChatbubble, IoSparklesOutline, IoSparkles } from "react-icons/io5";
+import { IoCalendarOutline, IoCalendar, IoBookOutline, IoBook, IoChatbubbleOutline, IoChatbubble, IoSparklesOutline, IoSparkles, IoSync, IoClose } from "react-icons/io5";
 import Sidebar from "./Sidebar";
 import SettingsModal from "./SettingsModal";
 import { SidebarProvider } from "../contexts/SidebarContext";
 import { FocusModeProvider, useFocusMode } from "../contexts/FocusModeContext";
+import { useProcessing } from "../contexts/ProcessingContext";
 
 const mainNavItems = [
   { path: "/calendar", label: "Calendar", icon: IoCalendarOutline, iconFilled: IoCalendar },
@@ -16,6 +17,7 @@ const mainNavItems = [
 function LayoutContent() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { isFocusMode } = useFocusMode();
+  const { isProcessing, progress, requestCancel } = useProcessing();
 
   return (
     <div className={`app-layout ${isFocusMode ? 'focus-mode-active' : ''}`}>
@@ -30,6 +32,19 @@ function LayoutContent() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
       />
+      {isProcessing && progress && (
+        <div className="processing-toast">
+          <IoSync className="spin" size={14} />
+          <span>Analyzing entries ({progress.processed}/{progress.total})</span>
+          <button
+            className="processing-toast-cancel"
+            onClick={requestCancel}
+            aria-label="Cancel processing"
+          >
+            <IoClose size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -129,6 +129,7 @@
 }
 
 .nested-sidebar-item:hover {
+  background-color: var(--bg-subtle);
 }
 
 .nested-sidebar-item.selected {
@@ -154,6 +155,14 @@
 .nested-sidebar-item:hover .nested-sidebar-item-actions {
   opacity: 1;
   pointer-events: auto;
+}
+
+.entries-sidebar .nested-sidebar-item:hover .nested-sidebar-item-actions {
+  background: none;
+}
+
+.chat-sidebar .nested-sidebar-item:hover .nested-sidebar-item-actions {
+  background: linear-gradient(to right, transparent, var(--interactive-active) 30%);
 }
 
 .nested-sidebar-item.selected .nested-sidebar-item-actions {

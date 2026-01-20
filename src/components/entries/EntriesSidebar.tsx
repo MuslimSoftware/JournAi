@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { DayPicker } from 'react-day-picker';
-import { FiEdit2, FiCalendar, FiFeather, FiCheck, FiClock, FiRefreshCw } from 'react-icons/fi';
+import { FiEdit2, FiCalendar, FiFeather } from 'react-icons/fi';
 import { Text, IconButton, TrashButton } from '../themed';
 import { NestedSidebar } from '../shared';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
@@ -13,7 +13,6 @@ import { ENTRIES_CONSTANTS } from '../../constants/entries';
 import EntriesToolbar, { TimeFilter } from './EntriesToolbar';
 import { DateRange } from 'react-day-picker';
 import { matchesTimeFilter } from '../../utils/timeFilters';
-import { getInsightCountForEntry, EntryInsightCount } from '../../services/analytics';
 import '../../styles/nested-sidebar.css';
 
 const {
@@ -63,10 +62,6 @@ export default function EntriesSidebar({
   const { state: entriesState, setScrollOffset } = useEntriesState();
   const [buttonHidden, setButtonHidden] = useState(false);
   const [isNearEdge, setIsNearEdge] = useState(false);
-  const [insightCounts, setInsightCounts] = useState<Map<string, EntryInsightCount>>(new Map());
-  const [tooltipEntryId, setTooltipEntryId] = useState<string | null>(null);
-  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
-  const statusIndicatorRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
 
   useEffect(() => {
     if (isFocusMode) {
@@ -168,102 +163,11 @@ export default function EntriesSidebar({
     isNearEdge && 'near-edge',
   ].filter(Boolean).join(' ');
 
-  const handleStatusIndicatorClick = async (e: React.MouseEvent, entry: JournalEntry) => {
-    e.stopPropagation();
-    const indicatorRef = statusIndicatorRefs.current.get(entry.id);
-    if (indicatorRef) {
-      const rect = indicatorRef.getBoundingClientRect();
-      setTooltipPosition({
-        top: rect.bottom + 4,
-        left: rect.left - 40,
-      });
-    }
-
-    if (tooltipEntryId === entry.id) {
-      setTooltipEntryId(null);
-      return;
-    }
-
-    setTooltipEntryId(entry.id);
-
-    if (!insightCounts.has(entry.id) && entry.processedAt) {
-      const count = await getInsightCountForEntry(entry.id);
-      setInsightCounts(prev => new Map(prev).set(entry.id, count));
-    }
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (tooltipEntryId && !target.closest('.entry-status-tooltip') && !target.closest('.entry-status-indicator')) {
-        setTooltipEntryId(null);
-      }
-    };
-    if (tooltipEntryId) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [tooltipEntryId]);
-
-  const getProcessingStatus = (entry: JournalEntry): 'analyzed' | 'unprocessed' | 'needs-reanalysis' => {
-    if (entry.processedAt) {
-      return 'analyzed';
-    }
-    if (entry.contentHash) {
-      return 'needs-reanalysis';
-    }
-    return 'unprocessed';
-  };
-
-  const renderStatusIndicator = (entry: JournalEntry) => {
-    const status = getProcessingStatus(entry);
-
-    const handleRef = (el: HTMLSpanElement | null) => {
-      if (el) statusIndicatorRefs.current.set(entry.id, el);
-    };
-
-    if (status === 'analyzed') {
-      return (
-        <span
-          ref={handleRef}
-          className="entry-status-indicator entry-status-analyzed entry-status-clickable"
-          title="Click to see insights"
-          onClick={(e) => handleStatusIndicatorClick(e, entry)}
-        >
-          <FiCheck size={10} />
-        </span>
-      );
-    }
-    if (status === 'needs-reanalysis') {
-      return (
-        <span
-          ref={handleRef}
-          className="entry-status-indicator entry-status-needs-reanalysis entry-status-clickable"
-          title="Needs re-analysis"
-          onClick={(e) => handleStatusIndicatorClick(e, entry)}
-        >
-          <FiRefreshCw size={10} />
-        </span>
-      );
-    }
-    return (
-      <span
-        ref={handleRef}
-        className="entry-status-indicator entry-status-unprocessed entry-status-clickable"
-        title="Not yet analyzed"
-        onClick={(e) => handleStatusIndicatorClick(e, entry)}
-      >
-        <FiClock size={10} />
-      </span>
-    );
-  };
-
   const renderEntryItem = (entry: JournalEntry) => (
     <>
       <div className="entry-list-item-content">
         <div className="entry-list-item-date">
           <Text variant="muted">{formatEntryDate(entry.date)}</Text>
-          {renderStatusIndicator(entry)}
         </div>
         <div className="entry-list-item-preview">
           <Text variant="secondary">{entry.preview}</Text>
@@ -390,52 +294,6 @@ export default function EntriesSidebar({
             fromYear={DATE_PICKER_FROM_YEAR}
             toYear={DATE_PICKER_TO_YEAR}
           />
-        </div>,
-        document.body
-      )}
-
-      {tooltipEntryId && createPortal(
-        <div
-          className="entry-status-tooltip"
-          style={{
-            position: 'fixed',
-            top: `${tooltipPosition.top}px`,
-            left: `${tooltipPosition.left}px`,
-          }}
-        >
-          {(() => {
-            const entry = entries.find(e => e.id === tooltipEntryId);
-            if (!entry) return null;
-            const status = getProcessingStatus(entry);
-            const counts = insightCounts.get(entry.id);
-
-            if (status === 'unprocessed') {
-              return <span>Not yet analyzed</span>;
-            }
-            if (status === 'needs-reanalysis') {
-              return <span>Needs re-analysis</span>;
-            }
-            if (counts) {
-              return (
-                <div className="entry-status-tooltip-content">
-                  <div className="entry-status-tooltip-row">
-                    <span>{counts.total} insight{counts.total !== 1 ? 's' : ''}</span>
-                  </div>
-                  {counts.emotions > 0 && (
-                    <div className="entry-status-tooltip-detail">
-                      {counts.emotions} emotion{counts.emotions !== 1 ? 's' : ''}
-                    </div>
-                  )}
-                  {counts.people > 0 && (
-                    <div className="entry-status-tooltip-detail">
-                      {counts.people} {counts.people !== 1 ? 'people' : 'person'}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-            return <span>Loading...</span>;
-          })()}
         </div>,
         document.body
       )}

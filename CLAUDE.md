@@ -284,3 +284,86 @@ useEscapeKey(() => closeModal(), {
 - Always set `preventDefault: true` for custom shortcuts to avoid browser conflicts
 - Conditional shortcuts: Check state inside the callback rather than conditionally mounting the hook
 - Document all shortcuts in the table above
+
+## Tauri MCP Tools
+
+The Tauri MCP server provides tools to interact with the running app for debugging and testing. Requires the app to be running with `bun run tauri dev`.
+
+### Connection
+
+```typescript
+// Start a session (connects to localhost:9223 by default)
+mcp__tauri__driver_session({ action: "start" })
+
+// Check status
+mcp__tauri__driver_session({ action: "status" })
+
+// Stop session
+mcp__tauri__driver_session({ action: "stop" })
+```
+
+### Available Tools
+
+| Tool                        | Purpose                                              |
+| --------------------------- | ---------------------------------------------------- |
+| `webview_screenshot`        | Capture screenshot of the app                        |
+| `webview_dom_snapshot`      | Get DOM structure (`type: "structure"` or `"accessibility"`) |
+| `webview_find_element`      | Find elements by CSS selector, xpath, or text        |
+| `webview_get_styles`        | Get computed CSS styles for elements                 |
+| `webview_interact`          | Click, scroll, swipe, focus on elements              |
+| `webview_keyboard`          | Type text or send key events                         |
+| `webview_execute_js`        | Execute JavaScript in the webview context            |
+| `webview_wait_for`          | Wait for elements, text, or IPC events               |
+| `read_logs`                 | Read console, Android, iOS, or system logs           |
+| `ipc_execute_command`       | Execute Tauri IPC commands (invoke Rust functions)   |
+| `ipc_monitor`               | Start/stop monitoring IPC traffic                    |
+| `ipc_get_captured`          | Get captured IPC traffic                             |
+| `ipc_emit_event`            | Emit Tauri events                                    |
+| `ipc_get_backend_state`     | Get app metadata and Tauri version                   |
+| `manage_window`             | List, get info, or resize windows                    |
+
+### Common Workflows
+
+**Inspect DOM structure:**
+```typescript
+mcp__tauri__webview_dom_snapshot({ type: "structure", selector: ".my-component" })
+```
+
+**Check computed styles:**
+```typescript
+mcp__tauri__webview_get_styles({
+  selector: ".my-element",
+  properties: ["background", "opacity", "color"]
+})
+```
+
+**Execute JavaScript to debug:**
+```typescript
+mcp__tauri__webview_execute_js({
+  script: "(() => { return getComputedStyle(document.querySelector('.my-element')).backgroundColor; })()"
+})
+```
+
+**Check CSS rules being applied:**
+```typescript
+mcp__tauri__webview_execute_js({
+  script: `(() => {
+    const rules = [];
+    for (const sheet of document.styleSheets) {
+      try {
+        for (const rule of sheet.cssRules) {
+          if (rule.selectorText?.includes('my-selector')) {
+            rules.push({ selector: rule.selectorText, cssText: rule.cssText });
+          }
+        }
+      } catch (e) {}
+    }
+    return rules;
+  })()`
+})
+```
+
+**Force reload to clear CSS cache:**
+```typescript
+mcp__tauri__webview_execute_js({ script: "location.reload(true)" })
+```
