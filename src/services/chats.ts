@@ -3,6 +3,7 @@ import type { OpenAIModel } from '../types/chat';
 import { getTimestamp } from '../utils/date';
 import { generateId, generatePreview } from '../utils/generators';
 import { select, execute, selectPaginated } from '../lib/db';
+import { TITLE_GENERATION_PROMPT } from '../ai/prompts';
 
 const CHAT_PREVIEW_LENGTH = 80;
 
@@ -112,8 +113,6 @@ export async function touchChat(id: string): Promise<void> {
     const timestamp = getTimestamp();
     await execute('UPDATE chats SET updated_at = $1 WHERE id = $2', [timestamp, id]);
 }
-
-const TITLE_GENERATION_PROMPT = `Generate a concise title (3-6 words) for this conversation. Return only the title, no quotes or explanation.`;
 
 export async function generateChatTitle(
     messages: { role: 'user' | 'assistant'; content: string }[],

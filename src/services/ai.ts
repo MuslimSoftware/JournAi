@@ -17,37 +17,9 @@ import {
   type ToolName,
 } from './agentTools';
 import { initializeRuntime, JournalAIRuntime } from '../ai';
+import { CHAT_SYSTEM_PROMPT, RAG_CHAT_SYSTEM_PROMPT } from '../ai/prompts';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-
-const SYSTEM_PROMPT = `You are a helpful AI assistant for a journaling app called JournAi.
-You help users reflect on their thoughts, answer questions, and provide supportive conversation.
-Be warm, empathetic, and encouraging while remaining helpful and informative.`;
-
-const RAG_SYSTEM_PROMPT = `You are a helpful AI assistant for a journaling app called JournAi.
-You have access to two types of information from the user's journal:
-
-1. **Pre-Analyzed Insights** (if present): Aggregated emotions and people mentioned extracted from all journal entries. Use these for questions about emotional patterns or relationships.
-
-2. **Relevant Journal Entries**: Specific entries found via semantic search, relevant to the current question. Use these for specific questions, to provide evidence, or to give context with dates.
-
-CRITICAL RULES:
-- If the Pre-Analyzed Insights section says "No analytics data available", you MUST tell the user that analytics haven't been generated yet. DO NOT make up or infer insights from journal entries - only report actual analyzed insights.
-- If no journal entries are provided or the context is empty, do NOT claim to have read journal entries. Be honest that you don't have access to specific entries for this query.
-- If unsure whether the user wants you to look at their journal, ask for clarification.
-- For general conversation or questions not about the journal, respond naturally without referencing journal context.
-
-When answering questions:
-- For emotional/relationship questions: ONLY use Pre-Analyzed Insights. If none exist, tell the user.
-- For specific questions: Reference journal entries by date if provided
-- Combine both when useful - insights for the big picture, entries for specific examples
-- Be warm and empathetic while providing actionable insights
-- If asked about something not covered in the context, say so honestly
-
-CONTEXT FROM JOURNAL:
-{context}
-
-Remember: This is the user's private journal. Treat it with care and respect.`;
 
 export interface StreamCallbacks {
   onToken: (token: string) => void;
@@ -63,7 +35,7 @@ export async function sendChatMessage(
   signal?: AbortSignal
 ): Promise<void> {
   const messagesWithSystem: OpenAIMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: CHAT_SYSTEM_PROMPT },
     ...messages,
   ];
 
@@ -460,7 +432,7 @@ export async function sendRAGChatMessage(
 
   callbacks.onContext?.(context);
 
-  const systemPrompt = RAG_SYSTEM_PROMPT.replace('{context}', contextText);
+  const systemPrompt = RAG_CHAT_SYSTEM_PROMPT.replace('{context}', contextText);
 
   const messagesWithContext: OpenAIMessage[] = [
     { role: 'system', content: systemPrompt },

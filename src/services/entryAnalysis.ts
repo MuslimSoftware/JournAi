@@ -5,6 +5,7 @@ import { markEntryAsProcessed, getUnprocessedEntries } from './entries';
 import { getApiKey } from '../lib/secureStorage';
 import { generateId } from '../utils/generators';
 import { getTimestamp } from '../utils/date';
+import { ENTRY_ANALYSIS_PROMPT } from '../ai/prompts';
 
 export interface ProcessingProgress {
   total: number;
@@ -68,41 +69,6 @@ interface AnalysisResult {
   people: ExtractedPerson[];
 }
 
-const ANALYSIS_PROMPT = `You are an expert at analyzing journal entries to extract meaningful insights about emotions and people mentioned.
-
-Analyze the following journal entry and extract:
-
-1. **Emotions**: Identify emotions expressed by the author. For each emotion, provide:
-   - emotion: The name of the emotion (e.g., "happy", "anxious", "excited", "frustrated")
-   - intensity: A number from 1-10 indicating how strongly the emotion is expressed
-   - trigger: What caused this emotion (optional, only if clearly stated)
-   - sentiment: Whether this is "positive", "negative", or "neutral"
-   - sourceText: The exact text from the entry that indicates this emotion
-   - sourceStart: The character index where sourceText begins (0-indexed)
-   - sourceEnd: The character index where sourceText ends (exclusive)
-
-2. **People**: Identify people mentioned by name or relationship. For each person, provide:
-   - name: The name or relationship term used (e.g., "Sarah", "Mom", "my boss")
-   - relationship: The relationship to the author if mentioned (e.g., "friend", "mother", "coworker")
-   - sentiment: The sentiment of the interaction - "positive", "negative", "neutral", "tense", or "mixed"
-   - context: Brief context about the interaction (optional)
-   - sourceText: The exact text from the entry that mentions this person
-   - sourceStart: The character index where sourceText begins (0-indexed)
-   - sourceEnd: The character index where sourceText ends (exclusive)
-
-IMPORTANT:
-- sourceStart and sourceEnd must be accurate character positions in the original text
-- sourceText must be an exact substring of the entry content
-- Only extract emotions that are clearly expressed, not implied
-- Only extract people who are explicitly mentioned
-- If no emotions or people are found, return empty arrays
-
-Respond with a JSON object in this exact format:
-{
-  "emotions": [...],
-  "people": [...]
-}`;
-
 /**
  * Generate a content hash for detecting entry modifications
  * Uses a simple but effective hash algorithm (djb2)
@@ -139,7 +105,7 @@ export async function analyzeEntry(entry: JournalEntry): Promise<JournalInsight[
     body: JSON.stringify({
       model: ANALYSIS_MODEL,
       messages: [
-        { role: 'system', content: ANALYSIS_PROMPT },
+        { role: 'system', content: ENTRY_ANALYSIS_PROMPT },
         { role: 'user', content: `Journal Entry:\n\n${entry.content}` },
       ],
       temperature: 0.3,

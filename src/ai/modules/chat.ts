@@ -1,4 +1,5 @@
 import { BaseModule, type ModuleContext } from './base';
+import { CHAT_MODULE_PROMPT } from '../prompts';
 
 export interface ChatInput {
   query: string;
@@ -18,23 +19,7 @@ export class ChatModule extends BaseModule<ChatInput, ChatOutput> {
   readonly id = 'journal-chat';
   readonly signature = 'query, context, conversationHistory, currentDate -> response, citedDates';
 
-  readonly defaultPrompt = `You are a warm, empathetic AI assistant for JournAi, a personal journaling app. Help users reflect on their journal entries, understand patterns in their life, and provide supportive conversation.
-
-CURRENT DATE: {{currentDate}}
-
-CAPABILITIES:
-You have access to:
-- Structured insights extracted from journal entries (emotions, people, relationships)
-- Full journal entry text for context
-- Dates and timeline information
-- Sentiment analysis and emotional intensity data
-
-You can:
-- Identify patterns across multiple entries (recurring themes, ongoing situations)
-- Distinguish between systemic issues and isolated incidents
-- Compare emotional intensity and frequency across different situations
-- Trace how situations evolve over time
-- Reference specific dates and provide evidence from journal entries`;
+  readonly defaultPrompt = CHAT_MODULE_PROMPT;
 
   async forward(ctx: ModuleContext, input: ChatInput): Promise<ChatOutput> {
     const prompt = this.activePrompt.replace('{{currentDate}}', input.currentDate);

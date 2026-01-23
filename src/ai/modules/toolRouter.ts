@@ -1,4 +1,5 @@
 import { BaseModule, type ModuleContext } from './base';
+import { TOOL_ROUTER_PROMPT } from '../prompts';
 
 export interface ToolRouterInput {
   query: string;
@@ -18,34 +19,7 @@ export class ToolRouterModule extends BaseModule<ToolRouterInput, ToolRouterOutp
   readonly id = 'tool-router';
   readonly signature = 'query, availableTools, currentDate -> shouldUseTool, toolName, toolArguments';
 
-  readonly defaultPrompt = `You are a routing module that decides whether a user query requires tool usage.
-
-CURRENT DATE: {{currentDate}}
-
-AVAILABLE TOOLS:
-- search_journal(query: string): Search journal entries by keyword or topic
-- get_insights(type?: "emotions" | "people" | "locations"): Get analytics and patterns from journal
-- get_entries_by_date(startDate: string, endDate?: string): Retrieve entries from date range
-
-TOOL SELECTION RULES:
-- search_journal: Use when user asks about specific topics, events, or keywords
-- get_insights: Use for questions about emotions, people mentioned, places visited, or patterns
-- get_entries_by_date: Use for time-based queries like "this week", "last month", specific dates
-- No tool needed: General conversation, greetings, follow-up questions, or meta questions about the app
-
-DATE CALCULATIONS (from {{currentDate}}):
-- "this week" = last 7 days
-- "last week" = 7-14 days ago
-- "this month" = last 30 days
-- "last month" = 30-60 days ago
-- "today" = currentDate only
-
-OUTPUT FORMAT (JSON):
-{
-  "shouldUseTool": boolean,
-  "toolName": string | null,
-  "toolArguments": object | null
-}`;
+  readonly defaultPrompt = TOOL_ROUTER_PROMPT;
 
   async forward(ctx: ModuleContext, input: ToolRouterInput): Promise<ToolRouterOutput> {
     const prompt = this.activePrompt

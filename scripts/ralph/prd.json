@@ -1,376 +1,184 @@
 {
   "features": [
     {
-      "category": "functional",
-      "description": "System tracks processing status for each entry",
-      "steps": [
-        "Open the database schema",
-        "Verify entries table has a 'processed_at' timestamp field",
-        "Verify entries table has a 'content_hash' field for detecting modifications",
-        "Create a new entry",
-        "Verify the entry has null processed_at by default",
-        "Verify content_hash is null or empty for new entries"
+      "category": "ui",
+      "description": "The processing toast notification that appears during entry analysis should hide the X (close) button by default and only reveal it when the user hovers over the toast. This creates a cleaner visual appearance and reduces visual clutter while still allowing users to dismiss the toast when needed.",
+      "technicalRequirements": [
+        "Add CSS hover state to the toast component",
+        "Set X button opacity to 0 by default",
+        "Transition opacity to 1 on toast hover",
+        "Use smooth transition animation (0.2s ease)",
+        "Ensure the X button remains clickable when visible"
       ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "System can identify unprocessed entries",
-      "steps": [
-        "Create 3 new entries",
-        "Query the database for entries where processed_at is null",
-        "Verify all 3 new entries are returned",
-        "Manually mark 1 entry as processed",
-        "Query again for unprocessed entries",
-        "Verify only 2 entries are returned"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "System can process a single entry and generate insights",
-      "steps": [
-        "Create an entry with meaningful content (emotions, people, events)",
-        "Trigger the analysis function for this entry",
-        "Verify insights are generated and stored in database",
-        "Verify each insight has a reference to the source entry ID",
-        "Verify each insight has source_text field with the original text",
-        "Verify each insight has source_start and source_end position fields"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "Settings memory section shows processing statistics and batch processing",
-      "steps": [
+      "qaSteps": [
         "Navigate to settings page",
-        "Locate the memory/analytics section",
-        "Verify display shows count of processed entries",
-        "Verify display shows count of unprocessed entries",
-        "Verify 'Process All Unprocessed' button is visible",
-        "Create 3 new unprocessed entries",
-        "Return to settings and verify unprocessed count increased by 3",
-        "Click 'Process All Unprocessed' button",
-        "Verify loading indicator appears",
-        "Wait for batch processing to complete",
-        "Verify all entries are processed",
-        "Verify processed count increased by 3 and unprocessed count is 0"
+        "Trigger entry processing to show the toast",
+        "Verify the toast appears",
+        "Verify the X (close) button is NOT visible by default",
+        "Hover over the toast",
+        "Verify the X button becomes visible on hover",
+        "Move mouse away from toast",
+        "Verify the X button hides again"
+      ],
+      "passes": false
+    },
+    {
+      "category": "ui",
+      "description": "When a user clicks the X button to cancel the processing toast, the toast should display a loading/cancelling state before dismissing. This provides feedback that the cancellation is being processed rather than the toast immediately disappearing, which could feel abrupt or leave users uncertain if the action was registered.",
+      "technicalRequirements": [
+        "Add a 'cancelling' state to the toast component",
+        "Show a spinner or loading indicator when cancelling",
+        "Update toast text to 'Cancelling...' during this state",
+        "Disable the X button while cancelling to prevent double-clicks",
+        "Dismiss the toast after cancellation completes with smooth exit animation"
+      ],
+      "qaSteps": [
+        "Navigate to settings page",
+        "Trigger entry processing to show the toast",
+        "Hover over the toast to reveal X button",
+        "Click the X button to cancel",
+        "Verify a loading indicator appears on the toast",
+        "Verify the toast displays 'Cancelling...' or similar text",
+        "Wait for cancellation to complete",
+        "Verify the toast smoothly dismisses after loading completes"
+      ],
+      "passes": false
+    },
+    {
+      "category": "architecture",
+      "description": "All AI prompts used throughout the application should be extracted and centralized into a single prompts file. This makes it easier to review, edit, and maintain prompts in one location rather than having them scattered across multiple service files. It also enables easier prompt versioning and A/B testing in the future.",
+      "technicalRequirements": [
+        "Create a new file at src/ai/prompts.ts",
+        "Export named constants for each prompt (e.g., CHAT_SYSTEM_PROMPT, INSIGHTS_ANALYSIS_PROMPT)",
+        "Move the chat system prompt from services/ai.ts",
+        "Move the insights analysis prompt from the analysis service",
+        "Update all imports to use the centralized prompts file",
+        "Use template literals or functions for prompts that need dynamic values",
+        "Add comments describing each prompt's purpose"
+      ],
+      "qaSteps": [
+        "Locate the new prompts file at src/ai/prompts.ts",
+        "Verify the file exports all AI prompts used in the application",
+        "Verify chat system prompt is defined in the prompts file",
+        "Verify insights analysis prompt is defined in the prompts file",
+        "Verify all prompt usages in the codebase import from this file",
+        "Search codebase for hardcoded prompts outside the prompts file",
+        "Verify no duplicate prompt definitions exist"
       ],
       "passes": true
     },
     {
       "category": "functional",
-      "description": "Insights are stored with source text location metadata",
-      "steps": [
-        "Open the insights database schema",
-        "Verify insights table has 'entry_id' foreign key field",
-        "Verify insights table has 'source_text' field",
-        "Verify insights table has 'source_start' integer field",
-        "Verify insights table has 'source_end' integer field",
-        "Verify insights table has 'insight_type' field (emotion/person/event/etc)"
+      "description": "The insights generated from journal entry analysis are currently too brief and lack context (e.g., 'external pressures from family and work'). Update the analysis prompt to instruct the LLM to generate richer, more detailed insight descriptions that provide meaningful context about the emotion or person mentioned.",
+      "technicalRequirements": [
+        "Update the insights analysis prompt to request more detailed descriptions",
+        "Instruct the LLM to include context about why the emotion/person is significant",
+        "Request the LLM to include relevant circumstances or triggers",
+        "Set minimum description length guidelines in the prompt (1-2 sentences)"
       ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "System marks entries as processed after analysis",
-      "steps": [
-        "Create a new entry",
-        "Verify processed_at is null",
-        "Run analysis on the entry",
-        "Verify processed_at is set to current timestamp",
-        "Verify content_hash is set to hash of entry content",
-        "Verify entry no longer appears in unprocessed entries query"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "System detects when an entry has been modified",
-      "steps": [
-        "Create and process an entry",
-        "Record the content_hash value",
-        "Modify the entry content",
-        "Save the entry",
-        "Verify the content_hash is recalculated",
-        "Verify content_hash has changed from original",
-        "Verify processed_at is reset to null (marking entry as needing re-processing)",
-        "Verify insights are NOT deleted yet (wait for app launch)"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "System processes modified entries on app launch",
-      "steps": [
-        "Create and analyze 2 entries with insights",
-        "Modify the first entry content (changing content_hash)",
-        "Close and relaunch the app",
-        "Verify app detects the modified entry (hash mismatch)",
-        "Verify old insights for modified entry are deleted",
-        "Verify entry is re-analyzed automatically",
-        "Verify new insights are generated based on new content",
-        "Verify processed_at is updated to new timestamp",
-        "Verify content_hash is updated to match current content",
-        "Verify second entry (unmodified) is not re-analyzed"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "System processes unprocessed entries on app launch",
-      "steps": [
-        "Create 3 new entries through the UI",
-        "Verify entries are saved but not yet analyzed",
-        "Close and relaunch the app",
-        "Verify app detects all 3 unprocessed entries",
-        "Verify all 3 entries are analyzed automatically",
-        "Verify insights are generated for all entries",
-        "Verify processed_at timestamps are set",
-        "Verify content_hash values are set",
-        "Verify entries no longer appear in unprocessed query"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "System processes both new and modified entries on app launch",
-      "steps": [
-        "Create and analyze 2 entries",
-        "Modify the first entry",
-        "Create 2 new unprocessed entries",
-        "Close and relaunch the app",
-        "Verify app processes all entries needing attention (1 modified + 2 new)",
-        "Verify old insights for modified entry are deleted before re-analysis",
-        "Verify all 3 entries are analyzed",
-        "Verify all entries have updated processed_at timestamps",
-        "Verify unprocessed count is 0"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "System tracks processing queue for multiple entries",
-      "steps": [
-        "Create 5 new entries rapidly",
-        "Verify all 5 are added to processing queue",
-        "Trigger batch processing",
-        "Verify entries are processed one by one",
-        "Verify processed_at timestamps are in order",
-        "Verify all 5 entries have insights generated"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "User can see processing status for entries",
-      "steps": [
-        "Navigate to entries page",
-        "Create a new entry",
-        "Verify entry shows 'Unprocessed' or empty indicator",
-        "Launch app processing (or wait for app restart)",
-        "Verify indicator changes to 'Analyzed' or shows insight count",
-        "Modify an analyzed entry",
-        "Verify status changes to 'Needs re-analysis' or similar",
-        "Relaunch app",
-        "Verify status changes to 'Analyzed' after re-processing"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "Modification detection runs on every entry save",
-      "steps": [
-        "Create and analyze an entry",
-        "Open the entry in editor",
-        "Make a small change (add one word)",
-        "Save the entry",
-        "Verify modification detection function is called",
-        "Verify content_hash is recalculated",
-        "Verify processed_at is reset to null (marking for re-analysis)",
-        "Verify old insights are NOT deleted (retained until app launch)"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "System doesn't re-analyze unchanged entries",
-      "steps": [
-        "Create and analyze an entry",
-        "Record the content_hash and processed_at timestamp",
-        "Open and immediately save the entry without changes",
-        "Verify content_hash hasn't changed",
-        "Verify processed_at hasn't changed",
-        "Verify insights are not deleted",
-        "Verify no re-analysis occurs"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "Analysis service extracts emotions from entry text",
-      "steps": [
-        "Create an entry: 'Today I felt really happy and excited about my new job!'",
-        "Run analysis",
-        "Verify insights include emotion: 'happy'",
-        "Verify insights include emotion: 'excited'",
-        "Verify each emotion has correct source_text and positions",
-        "Verify insight_type is 'emotion' for these insights"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "Analysis service extracts people from entry text",
-      "steps": [
-        "Create an entry: 'Had lunch with Sarah and called Mom in the evening.'",
-        "Run analysis",
-        "Verify insights include person: 'Sarah'",
-        "Verify insights include person: 'Mom'",
-        "Verify each person has correct source_text and positions",
-        "Verify insight_type is 'person' for these insights"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "Analysis service extracts events/activities from entry text",
-      "steps": [
-        "Create an entry: 'Went hiking in the mountains and had dinner at a new restaurant.'",
-        "Run analysis",
-        "Verify insights include event/activity: 'hiking'",
-        "Verify insights include event/activity: 'dinner'",
-        "Verify each event has correct source_text and positions",
-        "Verify insight_type is 'event' or 'activity' for these insights"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "Insights page displays all generated insights grouped appropriately (UI already implemented, verify it works with real data)",
-      "steps": [
-        "Create and analyze 3 entries with various content",
+      "qaSteps": [
+        "Create an entry with rich content about emotions and people",
+        "Trigger analysis on the entry",
         "Navigate to insights page",
-        "Verify insights are displayed in the existing UI",
-        "Verify insights are grouped by type (emotions, people, events)",
-        "Verify each insight shows the source text"
+        "Verify insights have more detailed descriptions than just a few words",
+        "Verify emotion insights include context about triggers or circumstances",
+        "Verify person insights include relationship context when mentioned",
+        "Verify insights are 1-2 sentences providing meaningful context"
       ],
-      "passes": true
+      "passes": false
     },
     {
-      "category": "functional",
-      "description": "User can filter insights by type (UI already implemented, verify it works with real data)",
-      "steps": [
-        "Navigate to insights page with mixed insight types",
-        "Verify filter UI is present",
-        "Click 'Emotions' filter",
-        "Verify only emotion insights are shown",
-        "Click 'People' filter",
-        "Verify only person insights are shown",
-        "Click 'All' filter",
-        "Verify all insights are shown again"
+      "category": "ui",
+      "description": "When typing in the entry text editor, if the content exceeds the visible area, the user currently has to manually scroll to see what they're typing. The editor should automatically scroll to keep the cursor and current typing position visible, providing a seamless writing experience without interruption.",
+      "technicalRequirements": [
+        "Detect cursor position changes in the ContentEditableEditor",
+        "Calculate if cursor is outside the visible viewport",
+        "Implement scrollIntoView or equivalent for the cursor position",
+        "Use smooth scrolling behavior for natural feel",
+        "Handle both typing and cursor movement (arrow keys, click)",
+        "Ensure scroll doesn't trigger on every keystroke, only when needed"
       ],
-      "passes": true
+      "qaSteps": [
+        "Navigate to entry editor",
+        "Start typing content that exceeds the visible area",
+        "Continue typing past the bottom of the visible text area",
+        "Verify the view automatically scrolls to keep cursor visible",
+        "Verify user does not need to manually scroll to see what they're typing",
+        "Type multiple lines rapidly",
+        "Verify scroll position keeps up with cursor position",
+        "Verify smooth scrolling behavior without jarring jumps"
+      ],
+      "passes": false
     },
     {
-      "category": "functional",
-      "description": "Remove events/activities from insights system - database cleanup",
-      "steps": [
-        "Review current insights table schema",
-        "Remove any event/activity type insights from the database",
-        "Update insight_type enum/validation to only allow 'emotion' and 'person'",
-        "Verify no event insights remain in database",
-        "Verify analysis service no longer extracts events"
+      "category": "ui",
+      "description": "The insights page currently has top and bottom margins that cause content to appear cut off when scrolling. The page should use padding instead of margins so that content smoothly scrolls off the edges of the screen without any visual clipping or harsh boundaries, creating a more polished scrolling experience.",
+      "technicalRequirements": [
+        "Replace margin with padding on the insights page container",
+        "Ensure the scrollable container extends to the viewport edges",
+        "Apply padding inside the scrollable area, not outside",
+        "Test scroll behavior at top and bottom boundaries",
+        "Maintain consistent spacing that works with the overall layout",
+        "Ensure fix works on both desktop and mobile layouts"
       ],
-      "passes": true
+      "qaSteps": [
+        "Navigate to insights page with enough content to scroll",
+        "Scroll down the page",
+        "Verify content is NOT cut off at the top as you scroll",
+        "Verify the page uses padding instead of margin for spacing",
+        "Verify content smoothly scrolls off the top of the screen",
+        "Verify content smoothly scrolls off the bottom of the screen",
+        "Scroll to the very top",
+        "Verify no visual clipping or harsh cutoff at boundaries"
+      ],
+      "passes": false
     },
     {
-      "category": "functional",
-      "description": "Remove events/activities from insights system - frontend cleanup",
-      "steps": [
-        "Review InsightsContext for event-related code",
-        "Remove event filtering and grouping from insights page",
-        "Update UI to only show emotions and people categories",
-        "Remove any event-related icons or labels",
-        "Verify insights page only displays emotions and people sections"
+      "category": "ui",
+      "description": "When filtering the insights page to show only emotions or only people, the grid cells currently expand to fill the available space. The grid should maintain consistent cell sizes regardless of the active filter, keeping the same visual appearance and layout whether showing all insights or a filtered subset.",
+      "technicalRequirements": [
+        "Set fixed or max-width on grid cells",
+        "Use CSS grid with fixed column sizing (e.g., minmax or fixed widths)",
+        "Prevent grid items from stretching with align-items or justify-items",
+        "Ensure grid template remains consistent across filter states",
+        "Test with varying amounts of content in each filter view"
       ],
-      "passes": true
+      "qaSteps": [
+        "Navigate to insights page with both emotions and people",
+        "Note the grid cell sizes when showing all insights",
+        "Click 'Emotions' filter to show only emotions",
+        "Verify grid cells remain the same size as before filtering",
+        "Verify cells do NOT expand to fill available space",
+        "Click 'People' filter to show only people",
+        "Verify grid cells remain the same consistent size",
+        "Click 'All' to show everything again",
+        "Verify grid returns to same layout"
+      ],
+      "passes": false
     },
     {
-      "category": "functional",
-      "description": "User can clear all processed insights from settings",
-      "steps": [
-        "Navigate to settings page",
-        "Locate the memory/analytics section",
-        "Verify 'Clear All Insights' button is visible",
-        "Click 'Clear All Insights' button",
-        "Verify confirmation dialog appears",
-        "Confirm the action",
-        "Verify all insights are deleted from database",
-        "Verify all entries have processed_at reset to null",
-        "Verify insights page shows empty state",
-        "Verify unprocessed count reflects all entries need processing"
+      "category": "ui",
+      "description": "The filter buttons (All, Emotions, People) on the insights page should have distinct background colors to help users quickly identify which filter type they're selecting. Each filter category should use a consistent color that reinforces the visual language of the app.",
+      "technicalRequirements": [
+        "Define background colors for each filter button in the theme",
+        "Apply distinct background color to the Emotions filter button",
+        "Apply different distinct background color to the People filter button",
+        "Ensure colors work in both light and dark themes",
+        "Use colors that are visible but not overwhelming",
+        "Ensure sufficient contrast for accessibility",
+        "Maintain visual consistency with overall app design"
       ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "Fix duplicate insights bug - analysis should not create duplicates",
-      "steps": [
-        "Create an entry with content that mentions an emotion twice (e.g., 'I felt happy. Really happy!')",
-        "Run analysis on the entry",
-        "Verify only unique insights are created (no duplicate 'happy' emotions)",
-        "Create another entry mentioning the same person multiple times",
-        "Run analysis",
-        "Verify person insight is created only once per entry",
-        "Verify existing duplicate insights are cleaned up on analysis"
+      "qaSteps": [
+        "Navigate to insights page",
+        "Verify the Emotions filter button has a distinct background color",
+        "Verify the People filter button has a different distinct background color",
+        "Verify the All filter button has appropriate styling",
+        "Verify the filter button colors are consistent with the app's theme",
+        "Toggle to dark mode if available",
+        "Verify filter button colors work well in dark mode",
+        "Verify the filter buttons look cohesive and intentional"
       ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "User can see which entries have been analyzed",
-      "steps": [
-        "Navigate to entries page",
-        "Create 3 entries",
-        "Analyze 2 of them",
-        "Verify analyzed entries show indicator (checkmark, badge, etc.)",
-        "Verify unanalyzed entry shows different state",
-        "Hover over/click indicator",
-        "Verify shows count of insights generated or 'Not yet analyzed'"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "System provides feedback during analysis processing",
-      "steps": [
-        "Create a new entry",
-        "Trigger analysis",
-        "Verify loading indicator appears",
-        "Verify status text shows 'Analyzing entry...' or similar",
-        "Wait for completion",
-        "Verify success indicator appears",
-        "Verify status text shows 'Analysis complete' or insight count",
-        "Verify loading indicator disappears"
-      ],
-      "passes": true
-    },
-    {
-      "category": "functional",
-      "description": "System handles analysis errors gracefully",
-      "steps": [
-        "Create an entry",
-        "Simulate API failure (disconnect network or mock error)",
-        "Trigger analysis",
-        "Verify error message is shown to user",
-        "Verify entry remains in unprocessed state",
-        "Restore connection",
-        "Retry analysis",
-        "Verify analysis succeeds on retry",
-        "Verify insights are generated"
-      ],
-      "passes": true
+      "passes": false
     }
   ]
 }
