@@ -17,7 +17,7 @@ import {
   type ToolName,
 } from './agentTools';
 import { initializeRuntime, JournalAIRuntime } from '../ai';
-import { CHAT_SYSTEM_PROMPT, RAG_CHAT_SYSTEM_PROMPT } from '../ai/prompts';
+import { CHAT_SYSTEM_PROMPT } from '../ai/prompts';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
@@ -35,7 +35,7 @@ export async function sendChatMessage(
   signal?: AbortSignal
 ): Promise<void> {
   const messagesWithSystem: OpenAIMessage[] = [
-    { role: 'system', content: CHAT_SYSTEM_PROMPT },
+    { role: 'system', content: CHAT_SYSTEM_PROMPT.replace('{context}', 'No journal context available.') },
     ...messages,
   ];
 
@@ -432,7 +432,7 @@ export async function sendRAGChatMessage(
 
   callbacks.onContext?.(context);
 
-  const systemPrompt = RAG_CHAT_SYSTEM_PROMPT.replace('{context}', contextText);
+  const systemPrompt = CHAT_SYSTEM_PROMPT.replace('{context}', contextText);
 
   const messagesWithContext: OpenAIMessage[] = [
     { role: 'system', content: systemPrompt },
