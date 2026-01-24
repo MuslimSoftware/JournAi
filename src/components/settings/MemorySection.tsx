@@ -8,11 +8,11 @@ import '../../styles/themed.css';
 import { getEmbeddingStats, embedAllEntries, clearAllEmbeddings, type EmbeddingStats } from '../../services/embeddings';
 import { getProcessingStats, clearAllProcessedStatus, type ProcessingStats } from '../../services/entries';
 import { clearAllInsights } from '../../services/analytics';
-import { processUnprocessedEntriesOnLaunch, type ProcessingProgress } from '../../services/entryAnalysis';
+import { processUnprocessedEntriesOnLaunch } from '../../services/entryAnalysis';
 import { getApiKey } from '../../lib/secureStorage';
 
 export default function MemorySection() {
-  const { isProcessing: isBackgroundProcessing, progress: backgroundProgress, requestCancel } = useProcessing();
+  const { isProcessing: isBackgroundProcessing, progress: backgroundProgress, requestCancel, startProcessing, updateProgress, finishProcessing } = useProcessing();
 
   // Embedding stats state
   const [stats, setStats] = useState<EmbeddingStats | null>(null);
@@ -27,8 +27,6 @@ export default function MemorySection() {
   // Analysis/Processing stats state
   const [processingStats, setProcessingStats] = useState<ProcessingStats | null>(null);
   const [processingStatsLoading, setProcessingStatsLoading] = useState(true);
-  const [analysisProcessing, setAnalysisProcessing] = useState(false);
-  const [analysisProgress, setAnalysisProgress] = useState<ProcessingProgress | null>(null);
   const [analysisResult, setAnalysisResult] = useState<{ success: number; failed: number } | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [clearingInsights, setClearingInsights] = useState(false);
@@ -126,14 +124,17 @@ export default function MemorySection() {
       return;
     }
 
-    setAnalysisProcessing(true);
-    setAnalysisProgress(null);
     setAnalysisResult(null);
     setAnalysisError(null);
 
     try {
       const result = await processUnprocessedEntriesOnLaunch((progress) => {
-        setAnalysisProgress(progress);
+        if (progress.total > 0) {
+          if (progress.processed === 0) {
+            startProcessing(progress.total);
+          }
+          updateProgress(progress);
+        }
       });
 
       setAnalysisResult({
@@ -149,8 +150,7 @@ export default function MemorySection() {
     } catch (err) {
       setAnalysisError(err instanceof Error ? err.message : 'Failed to process entries');
     } finally {
-      setAnalysisProcessing(false);
-      setAnalysisProgress(null);
+      finishProcessing();
     }
   };
 
@@ -182,10 +182,6 @@ export default function MemorySection() {
   const processedPercentage = processingStats && processingStats.totalEntries > 0
     ? Math.round((processingStats.processedEntries / processingStats.totalEntries) * 100)
     : 0;
-
-  const analysisProgressWidth = analysisProgress && analysisProgress.total > 0
-    ? `${(analysisProgress.processed / analysisProgress.total) * 100}%`
-    : '0%';
 
   return (
     <div>
@@ -330,7 +326,7 @@ export default function MemorySection() {
             <span className="settings-status__icon">
               <IoSync size={14} className="spin" />
             </span>
-            Background processing: {backgroundProgress.processed} of {backgroundProgress.total} entries
+            Processing: {backgroundProgress.processed} of {backgroundProgress.total} entries
           </div>
           <Button variant="secondary" size="sm" onClick={requestCancel}>
             Cancel
@@ -369,10 +365,10 @@ export default function MemorySection() {
             variant="secondary"
             size="sm"
             onClick={handleProcessAll}
-            disabled={analysisProcessing || clearingInsights || isBackgroundProcessing || (processingStats?.unprocessedEntries ?? 0) === 0}
+            disabled={clearingInsights || isBackgroundProcessing || (processingStats?.unprocessedEntries ?? 0) === 0}
             className="settings-button-content"
           >
-            {analysisProcessing ? (
+            {isBackgroundProcessing ? (
               <>
                 <IoSync size={14} className="spin" /> Processing...
               </>
@@ -388,7 +384,7 @@ export default function MemorySection() {
               variant="danger"
               size="sm"
               onClick={() => setConfirmingClearInsights(true)}
-              disabled={clearingInsights || analysisProcessing}
+              disabled={clearingInsights || isBackgroundProcessing}
               className="settings-button-content"
             >
               {clearingInsights ? (
@@ -403,17 +399,6 @@ export default function MemorySection() {
             </Button>
           )}
         </div>
-
-        {analysisProcessing && analysisProgress && (
-          <div>
-            <div className="settings-progress-container">
-              <div className="settings-progress-bar" style={{ width: analysisProgressWidth }} />
-            </div>
-            <Text variant="muted" className="settings-progress-text">
-              Analyzing {analysisProgress.processed} of {analysisProgress.total} entries...
-            </Text>
-          </div>
-        )}
 
         {analysisResult && (
           <div className={`settings-status ${analysisResult.failed === 0 ? 'settings-status--success' : 'settings-status--warning'}`}>
