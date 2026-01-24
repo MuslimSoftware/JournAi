@@ -663,11 +663,11 @@ export default function Insights() {
   }
 
   return (
-    <Container variant="primary" padding="lg" className="insights-page">
+    <div className="insights-page">
       <header className="insights-header">
         <Text as="h1" className="insights-header__title">Insights</Text>
       </header>
       {content}
-    </Container>
+    </div>
   );
 }
