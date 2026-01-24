@@ -420,7 +420,7 @@ export default function Insights() {
                           onClick={() => {
                             if (isMobile) hapticSelection();
                             setSelectedOccurrenceIndex(idx);
-                            navigateToEntry(e.entryId);
+                            navigateToEntry(e.entryId, e.source);
                             navigate('/entries');
                           }}
                         >
@@ -499,7 +499,7 @@ export default function Insights() {
                           onClick={() => {
                             if (isMobile) hapticSelection();
                             setSelectedOccurrenceIndex(idx);
-                            navigateToEntry(p.entryId);
+                            navigateToEntry(p.entryId, p.source);
                             navigate('/entries');
                           }}
                         >

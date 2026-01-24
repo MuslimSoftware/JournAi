@@ -7,12 +7,49 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useKeyboard } from '../../hooks/useKeyboard';
 import { useSwipeNavigation } from '../../hooks/useSwipeNavigation';
 import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
+import { useEntryNavigation } from '../../contexts/EntryNavigationContext';
 import { Text } from '../themed';
 import { ContentEditableEditor } from '../entries/ContentEditableEditor';
 import BottomSheet from './BottomSheet';
 import { ENTRIES_CONSTANTS, MOBILE_ENTRIES_CONSTANTS } from '../../constants/entries';
 import '../../styles/mobile.css';
+import '../../styles/entries.css';
 import 'react-day-picker/style.css';
+
+function findTextNodeAndOffset(
+  container: HTMLElement,
+  targetOffset: number
+): { node: Text; offset: number } | null {
+  const walker = document.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT
+  );
+  let currentOffset = 0;
+  let node = walker.nextNode();
+  let lastTextNode: Text | null = null;
+
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const textNode = node as Text;
+      const nodeLength = textNode.textContent?.length ?? 0;
+      if (currentOffset + nodeLength >= targetOffset) {
+        return { node: textNode, offset: targetOffset - currentOffset };
+      }
+      currentOffset += nodeLength;
+      lastTextNode = textNode;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as Element;
+      if (el.tagName === 'BR') {
+        currentOffset += 1;
+      } else if (el.tagName === 'DIV' && lastTextNode) {
+        currentOffset += 1;
+      }
+    }
+    node = walker.nextNode();
+  }
+
+  return null;
+}
 
 interface MobileEntryEditorProps {
   entry: JournalEntry;
@@ -29,12 +66,15 @@ export default function MobileEntryEditor({
 }: MobileEntryEditorProps) {
   const { theme } = useTheme();
   const { isOpen: isKeyboardOpen } = useKeyboard();
+  const { target, clearTarget } = useEntryNavigation();
   const [content, setContent] = useState(entry.content);
   const [showMenu, setShowMenu] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEntering, setIsEntering] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const appliedHighlightRef = useRef<string | null>(null);
 
   const { progress: swipeProgress, isActive: isSwipeActive } = useSwipeNavigation({
     onSwipeBack: () => {
@@ -54,6 +94,104 @@ export default function MobileEntryEditor({
     const timer = setTimeout(() => setIsEntering(false), 300);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!target?.sourceRange || target.entryId !== entry.id) {
+      return;
+    }
+
+    const highlightKey = `${entry.id}-${target.sourceRange.start}-${target.sourceRange.end}`;
+    if (appliedHighlightRef.current === highlightKey) {
+      return;
+    }
+
+    const applyHighlight = () => {
+      const editorElement = editorContainerRef.current?.querySelector('[contenteditable]') as HTMLElement | null;
+      if (!editorElement || !target.sourceRange) return;
+
+      const { start, end } = target.sourceRange;
+
+      if (start < 0 || end > content.length || start >= end) {
+        clearTarget();
+        return;
+      }
+
+      try {
+        const startResult = findTextNodeAndOffset(editorElement, start);
+        const endResult = findTextNodeAndOffset(editorElement, end);
+
+        if (!startResult || !endResult) {
+          clearTarget();
+          return;
+        }
+
+        const range = new Range();
+        range.setStart(startResult.node, startResult.offset);
+        range.setEnd(endResult.node, endResult.offset);
+
+        const highlightSpan = document.createElement('span');
+        highlightSpan.className = 'insight-highlight-span';
+        highlightSpan.setAttribute('data-insight-highlight', 'true');
+
+        highlightSpan.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+
+        highlightSpan.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          if (highlightSpan.parentNode) {
+            const parent = highlightSpan.parentNode;
+            while (highlightSpan.firstChild) {
+              parent.insertBefore(highlightSpan.firstChild, highlightSpan);
+            }
+            parent.removeChild(highlightSpan);
+            parent.normalize();
+          }
+          appliedHighlightRef.current = null;
+        });
+
+        range.surroundContents(highlightSpan);
+
+        appliedHighlightRef.current = highlightKey;
+
+        highlightSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+
+        clearTarget();
+      } catch {
+        clearTarget();
+      }
+    };
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(applyHighlight);
+    });
+  }, [entry, target, content, clearTarget]);
+
+  useEffect(() => {
+    return () => {
+      const editorElement = editorContainerRef.current?.querySelector('[contenteditable]') as HTMLElement | null;
+      if (editorElement) {
+        const highlightSpan = editorElement.querySelector('[data-insight-highlight]');
+        if (highlightSpan && highlightSpan.parentNode) {
+          const parent = highlightSpan.parentNode;
+          while (highlightSpan.firstChild) {
+            parent.insertBefore(highlightSpan.firstChild, highlightSpan);
+          }
+          parent.removeChild(highlightSpan);
+        }
+      }
+      if (CSS.highlights) {
+        CSS.highlights.delete('insight-highlight');
+      }
+      appliedHighlightRef.current = null;
+    };
+  }, [entry.id]);
 
   const saveContent = useCallback((newContent: string) => {
     if (newContent !== entry.content) {
@@ -179,7 +317,7 @@ export default function MobileEntryEditor({
         {isKeyboardOpen && <div className="mobile-editor-spacer" />}
       </header>
 
-      <div className="mobile-editor-content-wrapper">
+      <div className="mobile-editor-content-wrapper" ref={editorContainerRef}>
         <ContentEditableEditor
           value={content}
           onChange={handleChange}

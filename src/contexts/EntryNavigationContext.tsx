@@ -1,12 +1,14 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { SourceRange } from '../types/analytics';
 
 interface NavigationTarget {
   entryId: string;
+  sourceRange?: SourceRange;
 }
 
 interface EntryNavigationContextType {
   target: NavigationTarget | null;
-  navigateToEntry: (entryId: string) => void;
+  navigateToEntry: (entryId: string, sourceRange?: SourceRange) => void;
   clearTarget: () => void;
 }
 
@@ -15,8 +17,8 @@ const EntryNavigationContext = createContext<EntryNavigationContextType | undefi
 export function EntryNavigationProvider({ children }: { children: ReactNode }) {
   const [target, setTarget] = useState<NavigationTarget | null>(null);
 
-  const navigateToEntry = useCallback((entryId: string) => {
-    setTarget({ entryId });
+  const navigateToEntry = useCallback((entryId: string, sourceRange?: SourceRange) => {
+    setTarget({ entryId, sourceRange });
   }, []);
 
   const clearTarget = useCallback(() => {

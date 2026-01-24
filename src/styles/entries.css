@@ -1,3 +1,50 @@
+::highlight(insight-highlight) {
+  background-color: rgba(251, 191, 36, 0.35);
+}
+
+@media (prefers-color-scheme: light) {
+  ::highlight(insight-highlight) {
+    background-color: rgba(245, 158, 11, 0.35);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  ::highlight(insight-highlight) {
+    background-color: rgba(251, 191, 36, 0.45);
+  }
+}
+
+.insight-highlight-span {
+  background-color: rgba(251, 191, 36, 0.35);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.insight-highlight-span:hover {
+  background-color: rgba(251, 191, 36, 0.55);
+}
+
+@media (prefers-color-scheme: light) {
+  .insight-highlight-span {
+    background-color: rgba(245, 158, 11, 0.35);
+  }
+
+  .insight-highlight-span:hover {
+    background-color: rgba(245, 158, 11, 0.55);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .insight-highlight-span {
+    background-color: rgba(251, 191, 36, 0.45);
+  }
+
+  .insight-highlight-span:hover {
+    background-color: rgba(251, 191, 36, 0.65);
+  }
+}
+
 :root {
   --entries-sidebar-collapsed: 48px;
   --entries-sidebar-expanded: 300px;

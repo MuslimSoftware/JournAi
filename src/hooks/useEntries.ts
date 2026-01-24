@@ -38,7 +38,7 @@ export function useEntries(): UseEntriesReturn {
         setInitialized,
     } = useEntriesState();
 
-    const { target, clearTarget } = useEntryNavigation();
+    const { target } = useEntryNavigation();
     const handledTargetId = useRef<string | null>(null);
     const isLoadingRef = useRef(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -80,7 +80,6 @@ export function useEntries(): UseEntriesReturn {
         const existsInList = state.entries.some(e => e.id === target.entryId);
         if (existsInList) {
             setSelectedEntryId(target.entryId);
-            clearTarget();
         } else {
             entriesService.getEntriesByIds([target.entryId]).then(fetched => {
                 if (fetched.length > 0) {
@@ -89,10 +88,9 @@ export function useEntries(): UseEntriesReturn {
                     setEntries(newList);
                     setSelectedEntryId(target.entryId);
                 }
-                clearTarget();
             });
         }
-    }, [state.entries, target, clearTarget, setSelectedEntryId, setEntries, setScrollOffset]);
+    }, [state.entries, target, setSelectedEntryId, setEntries, setScrollOffset]);
 
     const selectedEntry = useMemo(
         () => state.entries.find(e => e.id === state.selectedEntryId) || null,
