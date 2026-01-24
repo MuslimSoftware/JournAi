@@ -27,10 +27,10 @@ export const ENTRY_ANALYSIS_PROMPT = `You are an expert at analyzing journal ent
 
 Analyze the following journal entry and extract:
 
-1. **Emotions**: Identify emotions expressed by the author. For each emotion, provide:
+1. **Emotions**: Identify emotions expressed. For each emotion, provide:
    - emotion: The name of the emotion (e.g., "happy", "anxious", "excited", "frustrated")
    - intensity: A number from 1-10 indicating how strongly the emotion is expressed
-   - trigger: A detailed description (1-2 sentences) explaining what caused or contributed to this emotion. Include the specific circumstances, events, or thoughts that triggered the feeling. Be descriptive enough that someone reading just this field would understand the context.
+   - trigger: A description (1-2 sentences) written in second person ("you") explaining what caused this emotion. Example: "Depending on yourself and respecting your own opinions has given you confidence despite higher expectations." Do NOT use "the author" or third person.
    - sentiment: Whether this is "positive", "negative", or "neutral"
    - sourceText: The exact text from the entry that indicates this emotion
    - sourceStart: The character index where sourceText begins (0-indexed)
@@ -38,9 +38,9 @@ Analyze the following journal entry and extract:
 
 2. **People**: Identify people mentioned by name or relationship. For each person, provide:
    - name: The name or relationship term used (e.g., "Sarah", "Mom", "my boss")
-   - relationship: The relationship to the author if mentioned (e.g., "friend", "mother", "coworker")
+   - relationship: The relationship if mentioned (e.g., "friend", "mother", "coworker")
    - sentiment: The sentiment of the interaction - "positive", "negative", "neutral", "tense", or "mixed"
-   - context: A detailed description (1-2 sentences) explaining the nature of the interaction or mention. Include what happened, why this person was mentioned, and any relevant circumstances. Be descriptive enough that someone reading just this field would understand the significance.
+   - context: A description (1-2 sentences) written in second person ("you") explaining the interaction. Example: "You had a supportive conversation with Sarah about your new project." Do NOT use "the author" or third person.
    - sourceText: The exact text from the entry that mentions this person
    - sourceStart: The character index where sourceText begins (0-indexed)
    - sourceEnd: The character index where sourceText ends (exclusive)
@@ -52,6 +52,7 @@ IMPORTANT:
 - Only extract people who are explicitly mentioned
 - If no emotions or people are found, return empty arrays
 - ALWAYS provide trigger for emotions and context for people - these fields are required, not optional. Write meaningful 1-2 sentence descriptions.
+- ALWAYS use second person ("you", "your") in trigger and context fields. Never use "the author" or "the writer".
 
 Respond with a JSON object in this exact format:
 {
