@@ -61,3 +61,42 @@ Changes made to the prompt:
 
 ### Verification
 - TypeScript compilation: PASSED
+
+---
+
+## Feature: Entry Editor Auto-Scroll (UI)
+**Status: PASSED**
+**Date: 2026-01-24**
+
+### Implementation Summary
+Fixed the `scrollCursorIntoView` function in `ContentEditableEditor.tsx` to properly keep the cursor visible while typing long content.
+
+**Root Cause:** The original implementation compared the cursor position against the editor element's bounding rect instead of the scroll parent's visible bounds. Since the editor grows with content inside the scroll container, this comparison was incorrect.
+
+### Technical Changes
+1. **src/components/entries/ContentEditableEditor.tsx**
+   - Refactored `scrollCursorIntoView` to compare cursor position against the scroll parent's bounds (not the editor's bounds)
+   - Added early return for empty cursor rectangles (width/height = 0)
+   - Added padding buffer (20px) to scroll before cursor reaches the edge
+   - Simplified the scroll logic by finding the scroll parent first
+
+2. **src/styles/mobile.css**
+   - Added `overflow-y: auto` to `.mobile-editor-content-wrapper` to enable proper scrolling on mobile
+
+### Files Modified
+- `src/components/entries/ContentEditableEditor.tsx`
+- `src/styles/mobile.css`
+
+### QA Test Results
+1. ✅ Navigate to entry editor
+2. ✅ Start typing content that exceeds the visible area
+3. ✅ Continue typing past the bottom of the visible text area
+4. ✅ View automatically scrolls to keep cursor visible
+5. ✅ User does not need to manually scroll to see what they're typing
+6. ✅ Type multiple lines rapidly - scroll keeps up
+7. ✅ Scroll position keeps up with cursor position
+8. ✅ Smooth scrolling behavior without jarring jumps
+
+### Verification
+- TypeScript compilation: PASSED
+- Manual QA by user: PASSED

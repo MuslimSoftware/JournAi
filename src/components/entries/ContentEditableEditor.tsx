@@ -162,29 +162,32 @@ export const ContentEditableEditor = forwardRef<ContentEditableEditorRef, Conten
 
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      const editorRect = editorRef.current.getBoundingClientRect();
 
-      const isAboveView = rect.top < editorRect.top;
-      const isBelowView = rect.bottom > editorRect.bottom;
+      if (rect.width === 0 && rect.height === 0) return;
 
-      if (isAboveView || isBelowView) {
-        const scrollParent = editorRef.current.closest('.entries-content, .mobile-editor-content-wrapper') as HTMLElement;
+      const scrollParent = editorRef.current.closest('.entries-content, .mobile-editor-content-wrapper') as HTMLElement;
 
-        if (scrollParent) {
-          const scrollParentRect = scrollParent.getBoundingClientRect();
+      if (scrollParent) {
+        const scrollParentRect = scrollParent.getBoundingClientRect();
+        const padding = 20;
+
+        const isAboveView = rect.top < scrollParentRect.top + padding;
+        const isBelowView = rect.bottom > scrollParentRect.bottom - padding;
+
+        if (isAboveView || isBelowView) {
           const targetTop = rect.top - scrollParentRect.top + scrollParent.scrollTop;
-          const offset = isBelowView ? -scrollParentRect.height + rect.height + 100 : -100;
+          const offset = isBelowView ? -scrollParentRect.height + rect.height + padding : -padding;
 
           scrollParent.scrollTo({
             top: Math.max(0, targetTop + offset),
             behavior: 'smooth'
           });
-        } else {
-          const temp = document.createElement('span');
-          range.insertNode(temp);
-          temp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          temp.remove();
         }
+      } else {
+        const temp = document.createElement('span');
+        range.insertNode(temp);
+        temp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        temp.remove();
       }
     }, []);
 
