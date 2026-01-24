@@ -317,9 +317,26 @@ export default function Insights() {
               </div>
               <div className="insights-emotion-card__intensity">
                 <div className="insights-intensity-bars">
-                  {Array.from({ length: INTENSITY_BAR_COUNT }, (_, i) => (
-                    <div key={i} className={getIntensityBarClass(e.sentiment, i < e.avgIntensity)} />
-                  ))}
+                  {Array.from({ length: INTENSITY_BAR_COUNT }, (_, i) => {
+                    const fullBars = Math.floor(e.avgIntensity);
+                    const partialFill = e.avgIntensity % 1;
+                    const isPartial = i === fullBars && partialFill > 0;
+                    const isFull = i < fullBars;
+                    const sentimentClass = `insights-intensity-bar--filled-${e.sentiment}`;
+
+                    if (isPartial) {
+                      return (
+                        <div
+                          key={i}
+                          className="insights-intensity-bar"
+                          style={{
+                            background: `linear-gradient(to right, var(--insights-intensity-${e.sentiment}) ${partialFill * 100}%, var(--bg-primary) ${partialFill * 100}%)`,
+                          }}
+                        />
+                      );
+                    }
+                    return <div key={i} className={isFull ? `insights-intensity-bar ${sentimentClass}` : 'insights-intensity-bar'} />;
+                  })}
                 </div>
                 <span className="insights-intensity-value">{e.avgIntensity}</span>
               </div>

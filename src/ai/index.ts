@@ -1,4 +1,5 @@
-export * from './providers';
-export * from './modules';
-export * from './evaluation/composite';
-export { initializeRuntime, JournalAIRuntime, type RuntimeConfig, type StreamCallbacks } from './runtime';
+export {
+  AGENT_SYSTEM_PROMPT,
+  ENTRY_ANALYSIS_PROMPT,
+  TITLE_GENERATION_PROMPT,
+} from './prompts';

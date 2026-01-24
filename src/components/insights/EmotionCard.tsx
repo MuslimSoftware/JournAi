@@ -41,15 +41,26 @@ export default function EmotionCard({ insight, onClick }: EmotionCardProps) {
           <span className="insight-card__date">{formatShortDate(insight.entryDate)}</span>
           <div className="insight-card__intensity-wrapper">
             <div className="insight-card__intensity-bars">
-              {Array.from({ length: 10 }, (_, idx) => (
-                <div
-                  key={idx}
-                  className="insight-card__intensity-bar"
-                  style={{
-                    backgroundColor: idx < insight.intensity ? getIntensityColor(insight.intensity) : undefined,
-                  }}
-                />
-              ))}
+              {Array.from({ length: 10 }, (_, idx) => {
+                const fullBars = Math.floor(insight.intensity);
+                const partialFill = insight.intensity % 1;
+                const color = getIntensityColor(insight.intensity);
+
+                let background: string | undefined;
+                if (idx < fullBars) {
+                  background = color;
+                } else if (idx === fullBars && partialFill > 0) {
+                  background = `linear-gradient(to right, ${color} ${partialFill * 100}%, var(--bg-primary) ${partialFill * 100}%)`;
+                }
+
+                return (
+                  <div
+                    key={idx}
+                    className="insight-card__intensity-bar"
+                    style={{ backgroundColor: idx < fullBars ? color : undefined, background }}
+                  />
+                );
+              })}
             </div>
             <span className="insight-card__intensity-value" style={{ color: getIntensityColor(insight.intensity) }}>
               {insight.intensity}
