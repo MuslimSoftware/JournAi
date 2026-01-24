@@ -611,7 +611,6 @@ export default function Insights() {
                 style={isActive ? {
                   color: opt.color || undefined,
                   backgroundColor: opt.color ? `${opt.color}15` : undefined,
-                  borderColor: opt.color || undefined,
                 } : undefined}
               >
                 {opt.label}
