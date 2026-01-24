@@ -17,7 +17,7 @@ const mainNavItems = [
 function LayoutContent() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { isFocusMode } = useFocusMode();
-  const { isProcessing, progress, requestCancel } = useProcessing();
+  const { isProcessing, progress, cancelRequested, requestCancel } = useProcessing();
 
   return (
     <div className={`app-layout ${isFocusMode ? 'focus-mode-active' : ''}`}>
@@ -33,16 +33,22 @@ function LayoutContent() {
         onClose={() => setIsSettingsOpen(false)}
       />
       {isProcessing && progress && (
-        <div className="processing-toast">
+        <div className={`processing-toast ${cancelRequested ? 'cancelling' : ''}`}>
           <IoSync className="spin" size={14} />
-          <span>Analyzing entries ({progress.processed}/{progress.total})</span>
-          <button
-            className="processing-toast-cancel"
-            onClick={requestCancel}
-            aria-label="Cancel processing"
-          >
-            <IoClose size={16} />
-          </button>
+          <span>
+            {cancelRequested
+              ? 'Cancelling...'
+              : `Analyzing entries (${progress.processed}/${progress.total})`}
+          </span>
+          {!cancelRequested && (
+            <button
+              className="processing-toast-cancel"
+              onClick={requestCancel}
+              aria-label="Cancel processing"
+            >
+              <IoClose size={16} />
+            </button>
+          )}
         </div>
       )}
     </div>

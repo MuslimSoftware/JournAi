@@ -172,3 +172,7 @@
   color: var(--text-primary);
   background-color: var(--button-ghost-hover);
 }
+
+.processing-toast.cancelling {
+  opacity: 0.8;
+}
