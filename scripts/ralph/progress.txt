@@ -31,3 +31,33 @@ Updated all service files to import from the centralized prompts file:
 - TypeScript compilation: PASSED
 - Tauri build (debug): PASSED
 - App functionality verified via Tauri MCP screenshot - Chat feature working correctly
+
+---
+
+## Feature: Richer Insights Descriptions (Functional)
+**Status: PASSED**
+**Date: 2026-01-24**
+
+### Implementation Summary
+Updated the `ENTRY_ANALYSIS_PROMPT` in `src/ai/prompts.ts` to request more detailed descriptions for emotion triggers and person context fields.
+
+Changes made to the prompt:
+1. **Emotion trigger field**: Changed from optional brief description to required 1-2 sentence description explaining:
+   - What caused or contributed to the emotion
+   - Specific circumstances, events, or thoughts that triggered the feeling
+   - Enough context for standalone understanding
+
+2. **Person context field**: Changed from optional brief description to required 1-2 sentence description explaining:
+   - The nature of the interaction or mention
+   - What happened and why this person was mentioned
+   - Relevant circumstances and significance
+
+3. Added explicit instruction that trigger and context fields are required (not optional) and must contain meaningful 1-2 sentence descriptions.
+
+### Technical Changes
+- File modified: `src/ai/prompts.ts`
+- Updated `ENTRY_ANALYSIS_PROMPT` constant with enhanced field descriptions
+- No schema/type changes required (fields were already string type)
+
+### Verification
+- TypeScript compilation: PASSED

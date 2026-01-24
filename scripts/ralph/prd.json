@@ -85,7 +85,7 @@
         "Verify person insights include relationship context when mentioned",
         "Verify insights are 1-2 sentences providing meaningful context"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "ui",

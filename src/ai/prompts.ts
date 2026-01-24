@@ -30,7 +30,7 @@ Analyze the following journal entry and extract:
 1. **Emotions**: Identify emotions expressed by the author. For each emotion, provide:
    - emotion: The name of the emotion (e.g., "happy", "anxious", "excited", "frustrated")
    - intensity: A number from 1-10 indicating how strongly the emotion is expressed
-   - trigger: What caused this emotion (optional, only if clearly stated)
+   - trigger: A detailed description (1-2 sentences) explaining what caused or contributed to this emotion. Include the specific circumstances, events, or thoughts that triggered the feeling. Be descriptive enough that someone reading just this field would understand the context.
    - sentiment: Whether this is "positive", "negative", or "neutral"
    - sourceText: The exact text from the entry that indicates this emotion
    - sourceStart: The character index where sourceText begins (0-indexed)
@@ -40,7 +40,7 @@ Analyze the following journal entry and extract:
    - name: The name or relationship term used (e.g., "Sarah", "Mom", "my boss")
    - relationship: The relationship to the author if mentioned (e.g., "friend", "mother", "coworker")
    - sentiment: The sentiment of the interaction - "positive", "negative", "neutral", "tense", or "mixed"
-   - context: Brief context about the interaction (optional)
+   - context: A detailed description (1-2 sentences) explaining the nature of the interaction or mention. Include what happened, why this person was mentioned, and any relevant circumstances. Be descriptive enough that someone reading just this field would understand the significance.
    - sourceText: The exact text from the entry that mentions this person
    - sourceStart: The character index where sourceText begins (0-indexed)
    - sourceEnd: The character index where sourceText ends (exclusive)
@@ -51,6 +51,7 @@ IMPORTANT:
 - Only extract emotions that are clearly expressed, not implied
 - Only extract people who are explicitly mentioned
 - If no emotions or people are found, return empty arrays
+- ALWAYS provide trigger for emotions and context for people - these fields are required, not optional. Write meaningful 1-2 sentence descriptions.
 
 Respond with a JSON object in this exact format:
 {
