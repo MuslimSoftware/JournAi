@@ -160,9 +160,15 @@
   display: flex;
   align-items: center;
   border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+
+.processing-toast:hover .processing-toast-cancel {
+  opacity: 1;
 }
 
 .processing-toast-cancel:hover {
   color: var(--text-primary);
-  background-color: var(--bg-tertiary);
+  background-color: var(--button-ghost-hover);
 }
