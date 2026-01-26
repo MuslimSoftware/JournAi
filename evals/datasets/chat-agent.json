@@ -1,0 +1,184 @@
+{
+  "name": "chat-agent",
+  "testCases": [
+    {
+      "id": "ca-001",
+      "name": "Generic question - no tools",
+      "input": "Hey how are you?",
+      "expectedToolCalls": [],
+      "qualityCriteria": {
+        "intent": "Respond conversationally without querying journal data",
+        "tone": "conversational"
+      },
+      "tags": ["no-tools", "greeting"]
+    },
+    {
+      "id": "ca-002",
+      "name": "Search for gym mentions",
+      "input": "When was the last time I mentioned going to the gym?",
+      "expectedToolCalls": [
+        {
+          "name": "query_entries",
+          "containsParams": {
+            "filters.search": "gym"
+          }
+        }
+      ],
+      "qualityCriteria": {
+        "intent": "Search entries for gym mentions and report the most recent date",
+        "tone": "informative",
+        "shouldCiteEntries": true
+      },
+      "tags": ["search", "entries"]
+    },
+    {
+      "id": "ca-003",
+      "name": "Reflect on latest entry",
+      "input": "What do you think of my last journal entry?",
+      "expectedToolCalls": [
+        {
+          "name": "query_entries",
+          "containsParams": {
+            "limit": 1,
+            "orderBy.direction": "desc",
+            "returnFullText": true
+          },
+          "forbiddenParams": ["filters.dateRange"]
+        }
+      ],
+      "qualityCriteria": {
+        "intent": "Retrieve only the most recent entry and provide thoughtful reflection",
+        "tone": "empathetic",
+        "shouldCiteEntries": true
+      },
+      "tags": ["entries", "latest", "reflection"]
+    },
+    {
+      "id": "ca-004",
+      "name": "Week review",
+      "input": "What do you think of my week so far?",
+      "expectedToolCalls": [
+        {
+          "name": "query_insights",
+          "containsParams": {
+            "filters.dateRange": {}
+          }
+        }
+      ],
+      "qualityCriteria": {
+        "intent": "Query insights from the past week and provide a holistic reflection on themes and emotions",
+        "tone": "empathetic",
+        "shouldCiteEntries": true
+      },
+      "tags": ["insights", "week", "reflection"]
+    },
+    {
+      "id": "ca-005",
+      "name": "Most positive person",
+      "input": "Who has been the most positive influence on my life?",
+      "expectedToolCalls": [
+        {
+          "name": "query_insights",
+          "containsParams": {
+            "filters.category": ["people"],
+            "filters.sentiment": ["positive"],
+            "groupBy": "entity",
+            "orderBy.field": "count",
+            "orderBy.direction": "desc"
+          }
+        }
+      ],
+      "qualityCriteria": {
+        "intent": "Find the single most positive person (or tied top) and explain why based on journal context",
+        "tone": "informative",
+        "shouldCiteEntries": true
+      },
+      "tags": ["people", "positive", "top"]
+    },
+    {
+      "id": "ca-006",
+      "name": "Most negative person",
+      "input": "Who has been the most negative influence on my life?",
+      "expectedToolCalls": [
+        {
+          "name": "query_insights",
+          "containsParams": {
+            "filters.category": ["people"],
+            "filters.sentiment": ["negative"],
+            "groupBy": "entity",
+            "orderBy.field": "count",
+            "orderBy.direction": "desc"
+          }
+        }
+      ],
+      "qualityCriteria": {
+        "intent": "Find the single most negative person (or tied top) and explain sensitively without judgment",
+        "tone": "empathetic",
+        "shouldCiteEntries": true
+      },
+      "tags": ["people", "negative", "top"]
+    },
+    {
+      "id": "ca-007",
+      "name": "Most mentioned person this month",
+      "input": "Who has been affecting me the most this month?",
+      "expectedToolCalls": [
+        {
+          "name": "query_insights",
+          "containsParams": {
+            "filters.category": ["people"],
+            "filters.dateRange": {},
+            "groupBy": "entity",
+            "orderBy.field": "count",
+            "orderBy.direction": "desc"
+          }
+        }
+      ],
+      "qualityCriteria": {
+        "intent": "Find most frequently mentioned people this calendar month across both positive and negative sentiments, report ties if any",
+        "tone": "informative",
+        "shouldCiteEntries": true
+      },
+      "tags": ["people", "month", "frequency"]
+    },
+    {
+      "id": "ca-008",
+      "name": "Emotions this calendar month",
+      "input": "How have I been feeling this last month?",
+      "expectedToolCalls": [
+        {
+          "name": "query_insights",
+          "containsParams": {
+            "filters.category": ["emotions"],
+            "filters.dateRange": {}
+          }
+        }
+      ],
+      "qualityCriteria": {
+        "intent": "Query emotions for the calendar month (not last 30 days) and summarize emotional patterns",
+        "tone": "empathetic",
+        "shouldCiteEntries": true
+      },
+      "tags": ["emotions", "month", "summary"]
+    },
+    {
+      "id": "ca-009",
+      "name": "Search for sleep issues",
+      "input": "Have I experienced sleep troubles like this before?",
+      "expectedToolCalls": [
+        {
+          "name": "query_entries",
+          "containsParams": {
+            "filters.search": "sleep"
+          }
+        }
+      ],
+      "qualityCriteria": {
+        "intent": "Search entries for past mentions of sleep issues and report findings",
+        "tone": "empathetic",
+        "shouldCiteEntries": true
+      },
+      "tags": ["search", "sleep", "history"]
+    }
+  ]
+}

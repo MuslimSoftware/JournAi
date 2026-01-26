@@ -1,170 +1,4 @@
-import type { OpenAITool } from '../types/chat';
-import { hybridSearch } from './search';
-import { getFilteredInsights } from './analytics';
-import { getEntriesByIds } from './entries';
-import { select } from '../lib/db';
-
-export const AGENT_TOOLS: OpenAITool[] = [
-  {
-    type: 'function',
-    function: {
-      name: 'query_insights',
-      description: `Query pre-extracted emotions and people from journal entries.
-
-Filters: category (people/emotions), sentiment, dateRange, search, name
-Grouping: Use groupBy "entity" to aggregate by person/emotion name
-Ordering: By count, date, or intensity`,
-      parameters: {
-        type: 'object',
-        properties: {
-          filters: {
-            type: 'object',
-            description: 'Filters to apply to insights',
-            properties: {
-              category: {
-                type: 'array',
-                items: { type: 'string', enum: ['people', 'emotions'] },
-                description: 'Filter by category type (people or emotions)',
-              },
-              sentiment: {
-                type: 'array',
-                items: { type: 'string', enum: ['positive', 'negative', 'neutral', 'tense', 'mixed'] },
-                description: 'Filter by sentiment',
-              },
-              dateRange: {
-                type: 'object',
-                properties: {
-                  start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
-                  end: { type: 'string', description: 'End date (YYYY-MM-DD)' },
-                },
-                description: 'Filter by date range',
-              },
-              search: {
-                type: 'string',
-                description: 'Semantic search query to find relevant insights. Use for "mentions of X" queries.',
-              },
-              name: {
-                type: 'string',
-                description: 'Filter by specific person name or emotion name (partial match)',
-              },
-            },
-          },
-          groupBy: {
-            type: 'string',
-            enum: ['entity', 'category', 'sentiment', 'date'],
-            description: 'Group results by field. Use "entity" to aggregate by person/emotion name.',
-          },
-          orderBy: {
-            type: 'object',
-            properties: {
-              field: {
-                type: 'string',
-                enum: ['count', 'date', 'intensity'],
-                description: 'Field to sort by',
-              },
-              direction: {
-                type: 'string',
-                enum: ['asc', 'desc'],
-                description: 'Sort direction',
-              },
-            },
-            description: 'How to order results',
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results to return (default: 10, max: 50)',
-          },
-          includeEntryIds: {
-            type: 'boolean',
-            description: 'Include related entry IDs in results (default: true)',
-          },
-        },
-        required: [],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'query_entries',
-      description: `Search and retrieve journal entries.
-
-Filters: dateRange (start/end dates), search (semantic text search)
-Ordering: By date or relevance (relevance only with search)
-Options: returnFullText for full content, limit for max results`,
-      parameters: {
-        type: 'object',
-        properties: {
-          filters: {
-            type: 'object',
-            description: 'Filters to apply to entries',
-            properties: {
-              dateRange: {
-                type: 'object',
-                properties: {
-                  start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
-                  end: { type: 'string', description: 'End date (YYYY-MM-DD)' },
-                },
-                description: 'Filter by date range',
-              },
-              search: {
-                type: 'string',
-                description: 'Semantic search query using hybrid BM25+vector search. Finds relevant entries.',
-              },
-              hasInsights: {
-                type: 'boolean',
-                description: 'Filter entries that have been analyzed for insights',
-              },
-            },
-          },
-          orderBy: {
-            type: 'object',
-            properties: {
-              field: {
-                type: 'string',
-                enum: ['date', 'relevance'],
-                description: 'Field to sort by. Use "relevance" only with search queries.',
-              },
-              direction: {
-                type: 'string',
-                enum: ['asc', 'desc'],
-                description: 'Sort direction',
-              },
-            },
-            description: 'How to order results',
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of entries to return (default: 10, max: 50)',
-          },
-          returnFullText: {
-            type: 'boolean',
-            description: 'Return full entry text. Default false (returns IDs and dates only).',
-          },
-        },
-        required: [],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_entries_by_ids',
-      description: 'Retrieve full text content for specific entry IDs. Use when you need detailed entry content after querying.',
-      parameters: {
-        type: 'object',
-        properties: {
-          entryIds: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Array of entry IDs to retrieve',
-          },
-        },
-        required: ['entryIds'],
-      },
-    },
-  },
-];
+import { select, searchFTS, closeDb } from './db';
 
 export type ToolName = 'query_insights' | 'query_entries' | 'get_entries_by_ids';
 
@@ -207,37 +41,58 @@ interface GetEntriesByIdsArgs {
   entryIds: string[];
 }
 
+function generateSnippet(content: string, query: string, maxLength: number = 3000): string {
+  if (content.length <= maxLength) {
+    return content.trim();
+  }
+
+  const lower = content.toLowerCase();
+  const queryTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+
+  let bestStart = 0;
+  for (const term of queryTerms) {
+    const idx = lower.indexOf(term);
+    if (idx !== -1) {
+      bestStart = Math.max(0, idx - 200);
+      break;
+    }
+  }
+
+  const snippet = content.slice(bestStart, bestStart + maxLength);
+  return (bestStart > 0 ? '...' : '') + snippet.trim() + (bestStart + maxLength < content.length ? '...' : '');
+}
+
 async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
   const limit = Math.min(args.limit || 10, 50);
   const includeEntryIds = args.includeEntryIds !== false;
   const filters = args.filters || {};
 
   if (args.filters?.search) {
-    const searchResults = await hybridSearch(args.filters.search, { limit: limit * 2 });
-    const entryIds = searchResults.map(r => r.entryId);
+    const searchResults = await searchFTS(args.filters.search, limit * 2);
+    const entryIds = searchResults.map(r => r.id);
 
     if (entryIds.length === 0) {
       return [];
     }
 
+    const placeholders = entryIds.map((_, i) => `?`).join(',');
     let query = `SELECT ji.content, ji.metadata, ji.entry_id, ji.entry_date, ji.insight_type
                  FROM journal_insights ji
-                 WHERE ji.entry_id IN (${entryIds.map((_, i) => `$${i + 1}`).join(',')})`;
+                 WHERE ji.entry_id IN (${placeholders})`;
     const params: unknown[] = [...entryIds];
-    let paramIndex = entryIds.length + 1;
 
     if (filters.category) {
       const types = filters.category.map(c => c === 'people' ? 'person' : 'emotion');
-      query += ` AND ji.insight_type IN (${types.map(() => `$${paramIndex++}`).join(',')})`;
+      query += ` AND ji.insight_type IN (${types.map(() => `?`).join(',')})`;
       params.push(...types);
     }
 
     if (filters.sentiment) {
-      query += ` AND json_extract(ji.metadata, '$.sentiment') IN (${filters.sentiment.map(() => `$${paramIndex++}`).join(',')})`;
+      query += ` AND json_extract(ji.metadata, '$.sentiment') IN (${filters.sentiment.map(() => `?`).join(',')})`;
       params.push(...filters.sentiment);
     }
 
-    query += ` ORDER BY ji.entry_date DESC LIMIT $${paramIndex}`;
+    query += ` ORDER BY ji.entry_date DESC LIMIT ?`;
     params.push(limit);
 
     const rows = await select<{
@@ -275,24 +130,24 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
     const categoryFilter = filters.category || ['people', 'emotions'];
     const types = categoryFilter.map(c => c === 'people' ? 'person' : 'emotion');
 
+    const placeholders = types.map(() => `?`).join(',');
     let query = `SELECT ji.content, ji.insight_type, ji.metadata, ji.entry_id, ji.entry_date
                  FROM journal_insights ji
-                 WHERE ji.insight_type IN (${types.map((_, i) => `$${i + 1}`).join(',')})`;
+                 WHERE ji.insight_type IN (${placeholders})`;
     const params: unknown[] = [...types];
-    let paramIndex = types.length + 1;
 
     if (filters.sentiment) {
-      query += ` AND json_extract(ji.metadata, '$.sentiment') IN (${filters.sentiment.map(() => `$${paramIndex++}`).join(',')})`;
+      query += ` AND json_extract(ji.metadata, '$.sentiment') IN (${filters.sentiment.map(() => `?`).join(',')})`;
       params.push(...filters.sentiment);
     }
 
     if (filters.dateRange) {
-      query += ` AND ji.entry_date >= $${paramIndex++} AND ji.entry_date <= $${paramIndex++}`;
+      query += ` AND ji.entry_date >= ? AND ji.entry_date <= ?`;
       params.push(filters.dateRange.start, filters.dateRange.end);
     }
 
     if (filters.name) {
-      query += ` AND LOWER(ji.content) LIKE '%' || $${paramIndex++} || '%'`;
+      query += ` AND LOWER(ji.content) LIKE '%' || ? || '%'`;
       params.push(filters.name.toLowerCase());
     }
 
@@ -403,35 +258,58 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
   }
 
   const type = filters.category?.[0] === 'people' ? 'person' : filters.category?.[0] === 'emotions' ? 'emotion' : undefined;
-  const insights = await getFilteredInsights({
-    type,
-    name: filters.name,
-    sentiment: filters.sentiment?.[0] as 'positive' | 'negative' | 'neutral' | 'tense' | 'mixed',
-    limit,
-  });
 
-  return insights.map(insight => {
+  let query = `SELECT content, metadata, entry_id, entry_date, insight_type FROM journal_insights WHERE 1=1`;
+  const params: unknown[] = [];
+
+  if (type) {
+    query += ` AND insight_type = ?`;
+    params.push(type);
+  }
+
+  if (filters.name) {
+    query += ` AND LOWER(content) LIKE '%' || ? || '%'`;
+    params.push(filters.name.toLowerCase());
+  }
+
+  if (filters.sentiment) {
+    query += ` AND json_extract(metadata, '$.sentiment') IN (${filters.sentiment.map(() => '?').join(',')})`;
+    params.push(...filters.sentiment);
+  }
+
+  query += ` ORDER BY entry_date DESC LIMIT ?`;
+  params.push(limit);
+
+  const rows = await select<{
+    content: string;
+    metadata: string;
+    entry_id: string;
+    entry_date: string;
+    insight_type: string;
+  }>(query, params);
+
+  return rows.map(r => {
+    const meta = r.metadata ? JSON.parse(r.metadata) : {};
     const base = {
-      type: insight.type,
-      sentiment: insight.sentiment,
-      ...(includeEntryIds && { entryId: insight.entryId }),
-      entryDate: insight.entryDate,
+      type: r.insight_type,
+      sentiment: meta.sentiment,
+      ...(includeEntryIds && { entryId: r.entry_id }),
+      entryDate: r.entry_date,
     };
 
-    if (insight.type === 'person') {
+    if (r.insight_type === 'person') {
       return {
         ...base,
-        name: insight.name,
-        relationship: insight.relationship,
-        context: insight.context,
+        name: r.content,
+        relationship: meta.relationship,
+        context: meta.context,
       };
     } else {
-      // insight.type === 'emotion'
       return {
         ...base,
-        emotion: insight.emotion,
-        intensity: insight.intensity,
-        trigger: insight.trigger,
+        emotion: r.content,
+        intensity: meta.intensity,
+        trigger: meta.trigger,
       };
     }
   });
@@ -443,27 +321,23 @@ async function executeQueryEntries(args: QueryEntriesArgs): Promise<unknown> {
   const filters = args.filters || {};
 
   if (filters.search) {
-    const searchResults = await hybridSearch(filters.search, {
-      limit,
-      dateRange: filters.dateRange,
-    });
+    const searchResults = await searchFTS(filters.search, limit, filters.dateRange);
 
     return searchResults.map(r => ({
-      entryId: r.entryId,
+      entryId: r.id,
       date: r.date,
       ...(returnFullText && { content: r.content }),
-      ...(!returnFullText && { snippet: r.snippet.slice(0, 200) }),
-      score: r.score,
+      ...(!returnFullText && { snippet: generateSnippet(r.content, filters.search!, 200) }),
+      score: -r.rank,
     }));
   }
 
   let query = 'SELECT e.id, e.date, e.content FROM entries e';
   const params: unknown[] = [];
-  let paramIndex = 1;
   const whereClauses: string[] = [];
 
   if (filters.dateRange) {
-    whereClauses.push(`e.date >= $${paramIndex++} AND e.date <= $${paramIndex++}`);
+    whereClauses.push(`e.date >= ? AND e.date <= ?`);
     params.push(filters.dateRange.start, filters.dateRange.end);
   }
 
@@ -481,7 +355,7 @@ async function executeQueryEntries(args: QueryEntriesArgs): Promise<unknown> {
 
   const orderField = args.orderBy?.field || 'date';
   const orderDir = args.orderBy?.direction || 'desc';
-  query += ` ORDER BY e.${orderField} ${orderDir.toUpperCase()} LIMIT $${paramIndex}`;
+  query += ` ORDER BY e.${orderField} ${orderDir.toUpperCase()} LIMIT ?`;
   params.push(limit);
 
   const rows = await select<{ id: string; date: string; content: string }>(query, params);
@@ -499,8 +373,13 @@ async function executeGetEntriesByIds(args: GetEntriesByIdsArgs): Promise<unknow
     return [];
   }
 
-  const entries = await getEntriesByIds(args.entryIds);
-  return entries.map(e => ({
+  const placeholders = args.entryIds.map(() => '?').join(', ');
+  const rows = await select<{ id: string; date: string; content: string }>(
+    `SELECT id, date, content FROM entries WHERE id IN (${placeholders})`,
+    args.entryIds
+  );
+
+  return rows.map(e => ({
     entryId: e.id,
     date: e.date,
     content: e.content,
@@ -538,39 +417,6 @@ export async function executeToolCall(
   }
 }
 
-export function formatToolResultForAPI(result: ToolResult): string {
-  if (!result.success) {
-    return JSON.stringify({ error: result.error });
-  }
-  return JSON.stringify(result.data);
-}
-
-export function getToolDescription(name: string, args: string): string {
-  try {
-    const parsed = JSON.parse(args);
-    switch (name) {
-      case 'query_insights': {
-        const parts: string[] = [];
-        if (parsed.filters?.search) parts.push(`searching "${parsed.filters.search}"`);
-        if (parsed.filters?.category) parts.push(parsed.filters.category.join(', '));
-        if (parsed.filters?.sentiment) parts.push(parsed.filters.sentiment.join(', '));
-        if (parsed.groupBy) parts.push(`grouped by ${parsed.groupBy}`);
-        if (parts.length === 0) return 'Querying insights';
-        return `Querying ${parts.join(' ')} insights`;
-      }
-      case 'query_entries': {
-        if (parsed.filters?.search) return `Searching entries for "${parsed.filters.search}"`;
-        if (parsed.filters?.dateRange) {
-          return `Getting entries from ${parsed.filters.dateRange.start} to ${parsed.filters.dateRange.end}`;
-        }
-        return 'Querying entries';
-      }
-      case 'get_entries_by_ids':
-        return `Getting ${parsed.entryIds?.length || 0} entries`;
-      default:
-        return name;
-    }
-  } catch {
-    return name;
-  }
+export function cleanup(): void {
+  closeDb();
 }

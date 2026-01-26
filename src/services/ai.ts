@@ -12,6 +12,7 @@ import {
   formatToolResultForAPI,
   AGENT_TOOLS,
   type ToolName,
+  type ToolResult,
 } from './agentTools';
 import { AGENT_SYSTEM_PROMPT } from '../ai/prompts';
 
@@ -38,13 +39,19 @@ export interface AgentStreamCallbacks extends StreamCallbacks {
   onContext?: (context: RAGContext) => void;
 }
 
+export interface AgentOptions {
+  dryRun?: boolean;
+  toolExecutor?: (name: ToolName, args: Record<string, unknown>) => Promise<ToolResult>;
+}
+
 export async function sendAgentChatMessage(
   userMessage: string,
   conversationHistory: OpenAIMessage[],
   apiKey: string,
   model: OpenAIModel,
   callbacks: AgentStreamCallbacks,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: AgentOptions
 ): Promise<void> {
   try {
     const today = new Date();
@@ -70,15 +77,30 @@ export async function sendAgentChatMessage(
       return;
     }
 
+    if (options?.dryRun) {
+      for (const toolCall of firstResponse.toolCalls) {
+        callbacks.onToolCallStart?.(toolCall);
+        callbacks.onToolCallComplete?.({
+          ...toolCall,
+          result: JSON.stringify({ dryRun: true }),
+          status: 'completed',
+        });
+      }
+      callbacks.onComplete();
+      return;
+    }
+
     const toolMessages: OpenAIToolResultMessage[] = [];
     const allCitations: Array<{ entryId: string }> = [];
     const allInsights: FilteredInsight[] = [];
     let contextText = '';
 
+    const executor = options?.toolExecutor ?? executeToolCall;
+
     for (const toolCall of firstResponse.toolCalls) {
       callbacks.onToolCallStart?.(toolCall);
 
-      const result = await executeToolCall(
+      const result = await executor(
         toolCall.name as ToolName,
         JSON.parse(toolCall.arguments)
       );
@@ -235,8 +257,8 @@ export async function sendAgentChatMessage(
       {
         role: 'assistant',
         content: firstResponse.content || '',
-        tool_calls: firstResponse.toolCalls.map((tc) => ({
-          index: 0,
+        tool_calls: firstResponse.toolCalls.map((tc, idx) => ({
+          index: idx,
           id: tc.id,
           type: 'function' as const,
           function: {

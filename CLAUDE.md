@@ -34,7 +34,7 @@ bun run tauri build  # Production build
 
 | Directory  | Responsibility                                      |
 | ---------- | --------------------------------------------------- |
-| `/evals`   | Evaluation datasets and optimization scripts        |
+| `/evals`   | AI agent evaluation framework and test datasets     |
 | `/plans`   | Planning documents                                  |
 | `/scripts` | Utility scripts                                     |
 
@@ -80,17 +80,10 @@ SQLite database via `tauri-plugin-sql`. Settings persisted via `tauri-plugin-sto
 
 ### Architecture (`/src/ai`)
 
-The AI agent system uses a modular architecture with providers, modules, and evaluation tools.
-
-**Directory Structure:**
-
-| Directory       | Purpose                                               |
-| --------------- | ----------------------------------------------------- |
-| `modules/`      | Agent modules (chat, tool routing)                    |
-| `providers/`    | LLM providers (OpenAI)                                |
-| `evaluation/`   | Evaluation interfaces (exact match, tool match)       |
-| `optimization/` | Prompt optimization engine using DSPy                 |
-| `runtime.ts`    | `JournalAIRuntime` - orchestrates AI operations       |
+| File         | Purpose                                      |
+| ------------ | -------------------------------------------- |
+| `prompts.ts` | System prompt and analysis prompt templates  |
+| `index.ts`   | Module exports                               |
 
 ### Agent Tools (`services/agentTools.ts`)
 
@@ -113,29 +106,83 @@ Two main tools available to the AI agent:
 - Message history management
 - Citation extraction from responses
 
-## Evaluation & Optimization (`/evals`)
+## Evaluation System (`/evals`)
 
-### Datasets
+The evaluation system validates AI agent behavior through tool routing accuracy and response quality scoring.
 
-| Dataset               | Purpose                                  |
-| --------------------- | ---------------------------------------- |
-| `chat-golden.json`    | Golden examples for chat responses       |
-| `tool-routing.json`   | Golden examples for tool selection       |
+### Directory Structure
 
-### Optimization Scripts
+| File/Directory              | Purpose                                    |
+| --------------------------- | ------------------------------------------ |
+| `run.ts`                    | CLI entry point                            |
+| `config.ts`                 | API key management                         |
+| `datasets/chat-agent.json`  | Test cases (9 cases)                       |
+| `lib/types.ts`              | TypeScript interfaces                      |
+| `lib/runner.ts`             | Test execution orchestration               |
+| `lib/agentWrapper.ts`       | Agent invocation wrapper                   |
+| `lib/toolEvaluator.ts`      | Tool routing validation                    |
+| `lib/qualityEvaluator.ts`   | LLM-based quality scoring                  |
+| `lib/report.ts`             | Console/JSON report generation             |
 
-| Script         | Purpose                                      |
-| -------------- | -------------------------------------------- |
-| `evaluate.ts`  | Run evaluations against golden datasets     |
-| `optimize.ts`  | Optimize prompts using DSPy (SIMBA/MIPROv2)  |
+### Running Evaluations
 
-**Optimization Process:**
-1. Curate golden examples with input/expectedOutput pairs
-2. Choose optimizer (SIMBA for speed, MIPROv2 for quality)
-3. Run optimization to refine prompts
-4. Evaluate improved prompts against test set
+```bash
+bun run evals/run.ts                     # All datasets
+bun run evals/run.ts -d chat-agent       # Specific dataset
+bun run evals/run.ts -f search -f people # Filter by tags
+bun run evals/run.ts --dry-run           # Tool routing only
+bun run evals/run.ts -o json             # JSON output
+bun run evals/run.ts -v                  # Verbose output
+```
 
-**Cost estimates:** $2.50-$14 depending on dataset size and optimizer choice.
+### Test Case Structure
+
+```typescript
+{
+  id: string;                    // e.g., "ca-001"
+  name: string;                  // Descriptive test name
+  input: string;                 // User query to test
+  expectedToolCalls?: [{
+    name: ToolName;              // 'query_entries' or 'query_insights'
+    containsParams?: {...};      // Loose parameter matching
+    requiredParams?: {...};      // Exact parameter matching
+  }];
+  qualityCriteria?: {
+    intent: string;              // Expected response intent
+    tone: string;                // 'conversational' | 'empathetic' | 'informative'
+    shouldCiteEntries: boolean;
+    mustInclude?: string[];
+    mustNotInclude?: string[];
+  };
+  tags?: string[];               // For filtering (no-tools, search, people, etc.)
+}
+```
+
+### Evaluation Types
+
+**Tool Routing Evaluation:**
+- Validates correct tool selection (query_entries vs query_insights)
+- Supports exact (`requiredParams`) and loose (`containsParams`) parameter matching
+- Detects missing tools, unexpected tools, and parameter errors
+
+**Quality Evaluation:**
+- Uses GPT-4o-mini as judge to score responses
+- Dimensions: relevance, accuracy, empathy, completeness (1-5 each)
+- Overall score: 0-100 scale (pass threshold: 60)
+
+### API Key Configuration
+
+Priority order:
+1. `OPENAI_API_KEY` environment variable
+2. `evals/.env.local` file
+3. `~/.journai/config.json` file
+
+### Adding Test Cases
+
+1. Add case to `datasets/chat-agent.json`
+2. Include `expectedToolCalls` for tool routing tests
+3. Include `qualityCriteria` for response quality tests
+4. Tag appropriately for filtering
 
 ## Mobile Implementation
 
