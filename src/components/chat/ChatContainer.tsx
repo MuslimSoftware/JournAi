@@ -1,10 +1,12 @@
-import { CSSProperties, useCallback, useState, useEffect, useRef } from 'react';
-import { useChat } from '../../hooks/useChat';
-import { useAutoScroll } from '../../hooks/useAutoScroll';
-import MessageList from './MessageList';
-import ChatInput from './ChatInput';
-import type { Chat } from '../../types/chatHistory';
-import '../../styles/chat.css';
+import { CSSProperties, useCallback, useState, useEffect, useRef } from "react";
+import { useChat } from "../../hooks/useChat";
+import { useAutoScroll } from "../../hooks/useAutoScroll";
+import MessageList from "./MessageList";
+import ChatInput from "./ChatInput";
+import type { Chat } from "../../types/chatHistory";
+import type { OpenAIModel } from "../../types/chat";
+import { appStore, STORE_KEYS } from "../../lib/store";
+import "../../styles/chat.css";
 
 interface ChatContainerProps {
   chatId: string | null;
@@ -24,6 +26,7 @@ export default function ChatContainer({
   inputWrapperStyle,
 }: ChatContainerProps) {
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [model, setModel] = useState<OpenAIModel>("gpt-5.2");
   const {
     messages,
     isLoading,
@@ -33,18 +36,28 @@ export default function ChatContainer({
     loadMoreMessages,
     hasMoreMessages,
     isLoadingMore,
+    lastTokenUsage,
   } = useChat({
     chatId,
     onTitleGenerated,
     onMessageAdded,
   });
-  const isAnyMessageStreaming = messages.some(msg => msg.isStreaming);
-  const lastMessageContent = messages.length > 0 ? messages[messages.length - 1].content : '';
+  const isAnyMessageStreaming = messages.some((msg) => msg.isStreaming);
+  const lastMessageContent =
+    messages.length > 0 ? messages[messages.length - 1].content : "";
   const { scrollRef, scrollToBottom } = useAutoScroll({
-    deps: [messages.length, isAnyMessageStreaming, lastMessageContent]
+    deps: [messages.length, isAnyMessageStreaming, lastMessageContent],
   });
   const prevMessageCountRef = useRef(0);
   const prevScrollHeightRef = useRef(0);
+
+  useEffect(() => {
+    const loadModel = async () => {
+      const savedModel = await appStore.get<OpenAIModel>(STORE_KEYS.AI_MODEL);
+      if (savedModel) setModel(savedModel);
+    };
+    loadModel();
+  }, []);
 
   // Preserve scroll position when loading more messages
   useEffect(() => {
@@ -52,7 +65,10 @@ export default function ChatContainer({
     if (!scrollElement) return;
 
     // If messages were prepended (count increased but we were loading more)
-    if (messages.length > prevMessageCountRef.current && prevScrollHeightRef.current > 0) {
+    if (
+      messages.length > prevMessageCountRef.current &&
+      prevScrollHeightRef.current > 0
+    ) {
       const newScrollHeight = scrollElement.scrollHeight;
       const heightDiff = newScrollHeight - prevScrollHeightRef.current;
 
@@ -84,14 +100,17 @@ export default function ChatContainer({
     }
   }, [chatId, pendingMessage, sendMessage]);
 
-  const handleSend = useCallback(async (content: string) => {
-    if (!chatId && onCreateChat) {
-      setPendingMessage(content);
-      await onCreateChat();
-    } else {
-      sendMessage(content);
-    }
-  }, [chatId, onCreateChat, sendMessage]);
+  const handleSend = useCallback(
+    async (content: string) => {
+      if (!chatId && onCreateChat) {
+        setPendingMessage(content);
+        await onCreateChat();
+      } else {
+        sendMessage(content);
+      }
+    },
+    [chatId, onCreateChat, sendMessage],
+  );
 
   return (
     <div style={style} className="chat-container">
@@ -111,6 +130,8 @@ export default function ChatContainer({
           disabled={isLoading}
           placeholder="Ask about your journal..."
           messages={messages}
+          tokenUsage={lastTokenUsage}
+          model={model}
         />
       </div>
     </div>

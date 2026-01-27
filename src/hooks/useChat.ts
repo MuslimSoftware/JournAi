@@ -6,7 +6,13 @@ import type {
   OpenAIModel,
   ToolCall,
 } from "../types/chat";
-import { sendAgentChatMessage, formatMessagesForAPI } from "../services/ai";
+import {
+  sendAgentChatMessage,
+  formatMessagesForAPI,
+  shouldCompact,
+  compactConversation,
+  type TokenUsage,
+} from "../services/ai";
 import * as chatMessagesService from "../services/chatMessages";
 import * as chatsService from "../services/chats";
 import { appStore, STORE_KEYS } from "../lib/store";
@@ -26,6 +32,8 @@ interface UseChatReturn extends ChatState {
   loadMoreMessages: () => Promise<void>;
   hasMoreMessages: boolean;
   isLoadingMore: boolean;
+  isCompacting: boolean;
+  lastTokenUsage: TokenUsage | null;
 }
 
 const MESSAGES_PAGE_SIZE = 50;
@@ -49,6 +57,8 @@ export function useChat({
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [totalMessageCount, setTotalMessageCount] = useState(0);
+  const [isCompacting, setIsCompacting] = useState(false);
+  const [lastTokenUsage, setLastTokenUsage] = useState<TokenUsage | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const titleGeneratedRef = useRef<Set<string>>(new Set());
 
@@ -309,6 +319,9 @@ export function useChat({
                 ),
               }));
             },
+            onUsage: (usage) => {
+              setLastTokenUsage(usage);
+            },
             onComplete: async () => {
               setState((prev) => ({
                 ...prev,
@@ -341,6 +354,55 @@ export function useChat({
                 },
               ];
               generateTitleIfNeeded(chatId, updatedMessages);
+
+              if (
+                lastTokenUsage &&
+                shouldCompact(lastTokenUsage.promptTokens, aiSettings.model)
+              ) {
+                setIsCompacting(true);
+                try {
+                  const messagesToCompact = updatedMessages
+                    .filter((m) => m.role === "user" || m.role === "assistant")
+                    .slice(0, -3)
+                    .map((m) => ({
+                      role: m.role as "user" | "assistant",
+                      content: m.content,
+                    }));
+
+                  if (messagesToCompact.length > 2) {
+                    const { summary } = await compactConversation(
+                      messagesToCompact,
+                      aiSettings.apiKey,
+                      aiSettings.model,
+                    );
+
+                    const recentMessages = updatedMessages.slice(-3);
+                    const compactedMessage: ChatMessage = {
+                      id: `msg-compacted-${Date.now()}`,
+                      role: "assistant" as MessageRole,
+                      content: `[Conversation Summary]\n${summary}`,
+                      timestamp: new Date(),
+                      status: "sent",
+                    };
+
+                    setState((prev) => ({
+                      ...prev,
+                      messages: [compactedMessage, ...recentMessages],
+                    }));
+
+                    console.log(
+                      `Context compacted: ${lastTokenUsage.promptTokens} tokens exceeded threshold`,
+                    );
+                  }
+                } catch (compactError) {
+                  console.error(
+                    "Failed to compact conversation:",
+                    compactError,
+                  );
+                } finally {
+                  setIsCompacting(false);
+                }
+              }
             },
             onError: async (error) => {
               const errorContent = `Error: ${error.message}`;
@@ -413,6 +475,7 @@ export function useChat({
       chatId,
       onMessageAdded,
       generateTitleIfNeeded,
+      lastTokenUsage,
     ],
   );
 
@@ -469,5 +532,7 @@ export function useChat({
     loadMoreMessages,
     hasMoreMessages,
     isLoadingMore,
+    isCompacting,
+    lastTokenUsage,
   };
 }

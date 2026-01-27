@@ -560,6 +560,40 @@
         background-color 0.15s ease-out;
 }
 
+.chat-context-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    font-size: 0.7rem;
+}
+
+.chat-context-progress {
+    width: 60px;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.chat-context-progress-fill {
+    height: 100%;
+    transition:
+        width 0.3s ease,
+        background-color 0.3s ease;
+}
+
+.chat-context-progress-fill--low {
+    background: #22c55e;
+}
+
+.chat-context-progress-fill--medium {
+    background: #eab308;
+}
+
+.chat-context-progress-fill--high {
+    background: #ef4444;
+}
+
 .chat-welcome {
     flex: 1;
     display: flex;

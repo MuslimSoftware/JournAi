@@ -205,7 +205,7 @@ export default function MessageBubble({
         <StreamingBubble
           className={getBubbleClass()}
           style={{ padding: `${theme.spacing.sm} ${theme.spacing.md}` }}
-          isStreaming={!isUser && message.isStreaming}
+          isStreaming={!isUser && !!message.isStreaming}
         >
           {isUser ? (
             message.content
