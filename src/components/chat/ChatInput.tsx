@@ -115,6 +115,30 @@ export default function ChatInput({
 
   return (
     <div className="chat-input">
+      <div className="chat-toolbar">
+        <button
+          className="chat-toolbar-button"
+          style={
+            {
+              fontFamily: theme.typography.fontFamily,
+              "--toolbar-hover-bg": theme.colors.background.secondary,
+              "--toolbar-hover-color": theme.colors.text.secondary,
+              display: "flex",
+              alignItems: "center",
+              gap: theme.spacing.xs,
+              transition: "all 0.25s ease-out",
+            } as React.CSSProperties
+          }
+          onClick={handleCopyConversation}
+          disabled={messages.length === 0}
+        >
+          {copied ? <IoCheckmark size={14} /> : <IoCopy size={14} />}
+          {copied ? "Copied!" : "Copy to clipboard"}
+        </button>
+        {tokenUsage && model && (
+          <ContextBar tokenUsage={tokenUsage} model={model} />
+        )}
+      </div>
       <div className="chat-input-row">
         <div
           className="chat-input-wrapper"
@@ -150,30 +174,6 @@ export default function ChatInput({
           disabled={disabled || !value.trim()}
           style={{ borderRadius: "50%" }}
         />
-      </div>
-      <div className="chat-toolbar">
-        <button
-          className="chat-toolbar-button"
-          style={
-            {
-              fontFamily: theme.typography.fontFamily,
-              "--toolbar-hover-bg": theme.colors.background.secondary,
-              "--toolbar-hover-color": theme.colors.text.secondary,
-              display: "flex",
-              alignItems: "center",
-              gap: theme.spacing.xs,
-              transition: "all 0.25s ease-out",
-            } as React.CSSProperties
-          }
-          onClick={handleCopyConversation}
-          disabled={messages.length === 0}
-        >
-          {copied ? <IoCheckmark size={14} /> : <IoCopy size={14} />}
-          {copied ? "Copied!" : "Copy to clipboard"}
-        </button>
-        {tokenUsage && model && (
-          <ContextBar tokenUsage={tokenUsage} model={model} />
-        )}
       </div>
     </div>
   );

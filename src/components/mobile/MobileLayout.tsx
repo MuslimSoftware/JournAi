@@ -27,7 +27,12 @@ function MobileLayoutInner() {
     window.getSelection()?.removeAllRanges();
   }, [location.pathname]);
 
-  const mainPadding = isKeyboardOpen ? '20px' : 'calc(var(--mobile-nav-height) + var(--mobile-safe-area-bottom))';
+  const isChatPage = location.pathname === '/chat';
+  const mainPadding = isChatPage
+    ? '0'
+    : isKeyboardOpen
+      ? '20px'
+      : 'calc(var(--mobile-nav-height) + var(--mobile-safe-area-bottom))';
 
   return (
     <div className="mobile-layout">

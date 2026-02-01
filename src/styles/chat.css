@@ -663,3 +663,23 @@
 .chat-tool-call-icon--spinning {
     animation: spin 1s linear infinite;
 }
+
+/* Mobile chat overrides */
+@media (max-width: 768px) {
+    .chat-container {
+        padding-bottom: 0;
+    }
+
+    .chat-input {
+        padding: 8px 16px 8px;
+        gap: 8px;
+    }
+
+    .chat-input-wrapper {
+        padding: 12px 16px;
+    }
+
+    .chat-message-list {
+        padding-top: 16px;
+    }
+}
