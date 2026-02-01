@@ -348,10 +348,26 @@ html.keyboard-open .mobile-fab {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  gap: 12px;
+  flex: 1;
+  gap: 8px;
   padding: 24px;
   text-align: center;
+}
+
+.mobile-empty-icon {
+  margin-bottom: 8px;
+  opacity: 0.4;
+}
+
+.mobile-empty-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.mobile-empty-subtitle {
+  font-size: 0.875rem;
+  max-width: 200px;
+  line-height: 1.4;
 }
 
 .mobile-no-results {
@@ -439,15 +455,16 @@ html.keyboard-open .mobile-fab {
 
 .mobile-list-transform {
   transition: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .mobile-list-transform--animated {
   transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
 
-.mobile-empty-text {
-  font-size: 1rem;
-}
 
 .mobile-date-picker-container {
   display: flex;

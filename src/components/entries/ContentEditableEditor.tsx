@@ -231,12 +231,16 @@ export const ContentEditableEditor = forwardRef<ContentEditableEditorRef, Conten
       ...style,
     };
 
+    const combinedClassName = className
+      ? `content-editable-editor ${className}`
+      : 'content-editable-editor';
+
     return (
       <div
         ref={editorRef}
         contentEditable
         suppressContentEditableWarning
-        className={className}
+        className={combinedClassName}
         style={editorStyle}
         data-placeholder={placeholder}
         onInput={handleInput}

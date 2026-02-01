@@ -22,6 +22,9 @@ export default function BottomNav({ items }: BottomNavProps) {
 
   const handleNavClick = useCallback((path: string) => {
     if (path !== lastPath.current) {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
       hapticSelection();
       lastPath.current = path;
     }

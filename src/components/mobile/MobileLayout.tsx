@@ -1,4 +1,5 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
+import { useLayoutEffect } from 'react';
 import { IoCalendarOutline, IoCalendar, IoBookOutline, IoBook, IoChatbubbleOutline, IoChatbubble, IoSparklesOutline, IoSparkles } from 'react-icons/io5';
 import BottomNav from './BottomNav';
 import SettingsModal from '../SettingsModal';
@@ -17,6 +18,14 @@ const mobileNavItems = [
 function MobileLayoutInner() {
   const { isOpen: isKeyboardOpen } = useKeyboard();
   const { isOpen: isSettingsOpen, openSettings, closeSettings } = useSettings();
+  const location = useLocation();
+
+  useLayoutEffect(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    window.getSelection()?.removeAllRanges();
+  }, [location.pathname]);
 
   const mainPadding = isKeyboardOpen ? '20px' : 'calc(var(--mobile-nav-height) + var(--mobile-safe-area-bottom))';
 
