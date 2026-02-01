@@ -1,11 +1,11 @@
-import { useCallback } from 'react';
-import { useCalendar } from '../../hooks/useCalendar';
-import { hapticSelection } from '../../hooks/useHaptics';
-import CalendarGrid from '../calendar/CalendarGrid';
-import DayDetail from '../calendar/DayDetail';
-import BottomSheet from './BottomSheet';
-import { SkeletonCalendarGrid } from './Skeleton';
-import '../../styles/calendar.css';
+import { useCallback, useState, useEffect } from "react";
+import { useCalendar } from "../../hooks/useCalendar";
+import { hapticSelection, hapticImpact } from "../../hooks/useHaptics";
+import CalendarGrid from "../calendar/CalendarGrid";
+import DayDetail from "../calendar/DayDetail";
+import WeekStrip from "./WeekStrip";
+import { SkeletonCalendarGrid } from "./Skeleton";
+import "../../styles/calendar.css";
 
 export default function MobileCalendar() {
   const {
@@ -30,21 +30,46 @@ export default function MobileCalendar() {
     updateStickyNote,
   } = useCalendar();
 
-  const handleSelectDate = useCallback((date: string | null) => {
-    if (date) {
-      hapticSelection();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (selectedDate && !isCollapsed) {
+      setIsCollapsed(true);
     }
-    selectDate(date);
+  }, [selectedDate]);
+
+  const handleSelectDate = useCallback(
+    (date: string | null) => {
+      if (date) {
+        hapticSelection();
+      }
+      selectDate(date);
+    },
+    [selectDate],
+  );
+
+  const handleMonthChange = useCallback(
+    (direction: "prev" | "next") => {
+      hapticSelection();
+      if (direction === "prev") {
+        goToPreviousMonth();
+      } else {
+        goToNextMonth();
+      }
+    },
+    [goToPreviousMonth, goToNextMonth],
+  );
+
+  const handleExpand = useCallback(() => {
+    hapticImpact("light");
+    setIsCollapsed(false);
+    selectDate(null);
   }, [selectDate]);
 
-  const handleMonthChange = useCallback((direction: 'prev' | 'next') => {
-    hapticSelection();
-    if (direction === 'prev') {
-      goToPreviousMonth();
-    } else {
-      goToNextMonth();
-    }
-  }, [goToPreviousMonth, goToNextMonth]);
+  const handleCollapse = useCallback(() => {
+    hapticImpact("light");
+    setIsCollapsed(true);
+  }, []);
 
   if (isLoadingIndicators && !indicators) {
     return (
@@ -55,37 +80,47 @@ export default function MobileCalendar() {
   }
 
   return (
-    <div className="mobile-calendar-page">
-      <CalendarGrid
-        month={currentMonth}
-        year={currentYear}
-        selectedDate={selectedDate}
-        indicators={indicators}
-        onPreviousMonth={() => handleMonthChange('prev')}
-        onNextMonth={() => handleMonthChange('next')}
-        onToday={goToToday}
-        onSelectDate={handleSelectDate}
-        onMonthChange={setMonth}
-        onYearChange={setYear}
-      />
-
-      <BottomSheet
-        isOpen={!!selectedDate}
-        onClose={() => selectDate(null)}
-        title="Day Details"
-        height="half"
+    <div className={`mobile-calendar-page ${isCollapsed ? "collapsed" : ""}`}>
+      <div
+        className={`calendar-collapse-container ${isCollapsed ? "collapsed" : ""}`}
       >
-        <DayDetail
-          dayData={dayData}
-          isLoading={isLoadingDayData}
-          stickyNote={stickyNote}
-          onCreateTodo={createTodo}
-          onUpdateTodo={updateTodo}
-          onDeleteTodo={deleteTodo}
-          onReorderTodos={reorderTodos}
-          onUpdateStickyNote={updateStickyNote}
+        <CalendarGrid
+          month={currentMonth}
+          year={currentYear}
+          selectedDate={selectedDate}
+          indicators={indicators}
+          onPreviousMonth={() => handleMonthChange("prev")}
+          onNextMonth={() => handleMonthChange("next")}
+          onToday={goToToday}
+          onSelectDate={handleSelectDate}
+          onMonthChange={setMonth}
+          onYearChange={setYear}
         />
-      </BottomSheet>
+      </div>
+
+      {isCollapsed && selectedDate && (
+        <WeekStrip
+          selectedDate={selectedDate}
+          indicators={indicators}
+          onSelectDate={handleSelectDate}
+          onExpand={handleExpand}
+        />
+      )}
+
+      {isCollapsed && selectedDate && (
+        <div className="mobile-calendar-detail">
+          <DayDetail
+            dayData={dayData}
+            isLoading={isLoadingDayData}
+            stickyNote={stickyNote}
+            onCreateTodo={createTodo}
+            onUpdateTodo={updateTodo}
+            onDeleteTodo={deleteTodo}
+            onReorderTodos={reorderTodos}
+            onUpdateStickyNote={updateStickyNote}
+          />
+        </div>
+      )}
     </div>
   );
 }

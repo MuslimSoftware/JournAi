@@ -5,13 +5,12 @@ import { DayPicker } from 'react-day-picker';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useKeyboard } from '../../hooks/useKeyboard';
-import { useSwipeNavigation } from '../../hooks/useSwipeNavigation';
 import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
 import { useEntryNavigation } from '../../contexts/EntryNavigationContext';
 import { Text } from '../themed';
 import { ContentEditableEditor } from '../entries/ContentEditableEditor';
 import BottomSheet from './BottomSheet';
-import { ENTRIES_CONSTANTS, MOBILE_ENTRIES_CONSTANTS } from '../../constants/entries';
+import { ENTRIES_CONSTANTS } from '../../constants/entries';
 import '../../styles/mobile.css';
 import '../../styles/entries.css';
 import 'react-day-picker/style.css';
@@ -71,29 +70,13 @@ export default function MobileEntryEditor({
   const [showMenu, setShowMenu] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isEntering, setIsEntering] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const appliedHighlightRef = useRef<string | null>(null);
 
-  const { progress: swipeProgress, isActive: isSwipeActive } = useSwipeNavigation({
-    onSwipeBack: () => {
-      hapticImpact('light');
-      onBack();
-    },
-    enabled: !isKeyboardOpen,
-    edgeWidth: MOBILE_ENTRIES_CONSTANTS.SWIPE_EDGE_WIDTH,
-    threshold: MOBILE_ENTRIES_CONSTANTS.SWIPE_THRESHOLD,
-  });
-
   useEffect(() => {
     setContent(entry.content);
   }, [entry.id]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsEntering(false), 300);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (!target?.sourceRange || target.entryId !== entry.id) {
@@ -247,48 +230,14 @@ export default function MobileEntryEditor({
     }
   }, [entry.id, onDelete]);
 
-  const containerTransform = isSwipeActive
-    ? `translateX(${swipeProgress * 50}px)`
-    : 'translateX(0)';
-  const containerOpacity = isSwipeActive ? 1 - swipeProgress * 0.3 : 1;
-  const getContainerTransition = () => {
-    if (isEntering) return 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)';
-    if (isSwipeActive) return 'none';
-    return 'transform 0.2s ease-out, opacity 0.2s ease-out';
-  };
-
   return (
     <div
       className="mobile-editor-container"
       style={{
         height: '100%',
         backgroundColor: theme.colors.background.primary,
-        transform: isEntering ? 'translateX(100%)' : containerTransform,
-        opacity: containerOpacity,
-        transition: getContainerTransition(),
       }}
     >
-      {isSwipeActive && (
-        <div
-          className="mobile-editor-swipe-edge"
-          style={{
-            backgroundColor: theme.colors.text.muted,
-            opacity: Math.min(swipeProgress * 2, 0.4),
-            transform: `scaleX(${swipeProgress >= 1 ? 1.5 : 1})`,
-            transition: isSwipeActive ? 'none' : 'opacity 0.2s ease-out, transform 0.1s ease-out',
-          }}
-        />
-      )}
-      {isSwipeActive && (
-        <div
-          className="mobile-editor-swipe-overlay"
-          style={{
-            width: `${swipeProgress * 100}px`,
-            background: `linear-gradient(90deg, rgba(128, 128, 128, ${swipeProgress * 0.1}) 0%, transparent 100%)`,
-            opacity: 1,
-          }}
-        />
-      )}
       <header
         className="mobile-editor-header"
         style={{ backgroundColor: theme.colors.background.primary }}

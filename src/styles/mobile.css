@@ -51,6 +51,9 @@ body {
 
   body {
     overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
 
   .mobile-main {
@@ -58,8 +61,11 @@ body {
     overscroll-behavior-y: contain;
   }
 
-  input, textarea, select {
+  input, textarea, select, [contenteditable="true"] {
     font-size: 16px !important;
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
   }
 
   @keyframes preventScrollOnFocus {
@@ -275,9 +281,13 @@ html.keyboard-open .mobile-fab {
   transition: background-color 0.1s ease-out;
   border-radius: 8px;
   margin: 0 8px;
+  min-height: var(--mobile-touch-target-min);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
-.mobile-entry-item.pressed {
+.mobile-entry-item:active {
   background-color: var(--bg-secondary);
 }
 
@@ -506,6 +516,11 @@ html.keyboard-open .mobile-fab {
   overflow-y: auto;
 }
 
+.mobile-action-menu {
+  display: flex;
+  flex-direction: column;
+}
+
 .mobile-menu-item {
   display: flex;
   align-items: center;
@@ -517,10 +532,19 @@ html.keyboard-open .mobile-fab {
   cursor: pointer;
   font-size: 1rem;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.1s ease-out;
+}
+
+.mobile-menu-item:active {
+  background-color: var(--bg-secondary);
 }
 
 .mobile-menu-item--delete {
   color: #ef4444;
+}
+
+.mobile-delete-confirm-content {
+  padding: 8px 0;
 }
 
 .mobile-confirm-text {

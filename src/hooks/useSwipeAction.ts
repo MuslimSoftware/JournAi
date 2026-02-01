@@ -13,6 +13,8 @@ interface UseSwipeActionOptions {
   openPosition?: number;
 }
 
+const MIN_GESTURE_THRESHOLD = 10;
+
 export function useSwipeAction(options: UseSwipeActionOptions = {}) {
   const {
     actionThreshold = 60,
@@ -30,22 +32,28 @@ export function useSwipeAction(options: UseSwipeActionOptions = {}) {
   const startY = useRef(0);
   const isHorizontalSwipe = useRef<boolean | null>(null);
   const startOffset = useRef(0);
+  const isTouchActive = useRef(false);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
     startY.current = e.touches[0].clientY;
     isHorizontalSwipe.current = null;
     startOffset.current = state.offsetX;
-    setState(prev => ({ ...prev, isDragging: true }));
+    isTouchActive.current = true;
   }, [state.offsetX]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!state.isDragging) return;
+    if (!isTouchActive.current) return;
 
     const currentX = e.touches[0].clientX;
     const currentY = e.touches[0].clientY;
     const diffX = currentX - startX.current;
     const diffY = currentY - startY.current;
+    const totalMovement = Math.abs(diffX) + Math.abs(diffY);
+
+    if (totalMovement < MIN_GESTURE_THRESHOLD) {
+      return;
+    }
 
     if (isHorizontalSwipe.current === null) {
       isHorizontalSwipe.current = Math.abs(diffX) > Math.abs(diffY);
@@ -59,10 +67,17 @@ export function useSwipeAction(options: UseSwipeActionOptions = {}) {
     const clampedOffset = Math.max(-fullSwipeThreshold - 50, Math.min(0, newOffset));
     const isFullSwipe = Math.abs(clampedOffset) >= fullSwipeThreshold;
 
-    setState(prev => ({ ...prev, offsetX: clampedOffset, isFullSwipe }));
-  }, [state.isDragging, fullSwipeThreshold]);
+    setState({ offsetX: clampedOffset, isFullSwipe, isDragging: true, isOpen: false });
+  }, [fullSwipeThreshold]);
 
   const handleTouchEnd = useCallback(() => {
+    isTouchActive.current = false;
+
+    if (!state.isDragging) {
+      isHorizontalSwipe.current = null;
+      return { isFullSwipe: false };
+    }
+
     const absOffset = Math.abs(state.offsetX);
     const isFullSwipe = absOffset >= fullSwipeThreshold;
 
@@ -85,7 +100,7 @@ export function useSwipeAction(options: UseSwipeActionOptions = {}) {
     isHorizontalSwipe.current = null;
 
     return { isFullSwipe };
-  }, [state.offsetX, actionThreshold, fullSwipeThreshold, openPosition]);
+  }, [state.isDragging, state.offsetX, actionThreshold, fullSwipeThreshold, openPosition]);
 
   const close = useCallback(() => {
     setState({ offsetX: 0, isDragging: false, isFullSwipe: false, isOpen: false });

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { FiPlus, FiEdit3, FiX } from 'react-icons/fi';
 import { Text, Button, IconButton, Card } from '../themed';
+import { useTheme } from '../../contexts/ThemeContext';
 import { ContentEditableEditor, ContentEditableEditorRef } from './ContentEditableEditor';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
 import { ENTRIES_CONSTANTS } from '../../constants/entries';
@@ -62,6 +63,7 @@ export default function EntryDetail({ entry, hasEntries, recentEntries = [], onU
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const { isFocusMode } = useFocusMode();
   const { target, clearTarget } = useEntryNavigation();
+  const { theme } = useTheme();
   const appliedHighlightRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -208,10 +210,15 @@ export default function EntryDetail({ entry, hasEntries, recentEntries = [], onU
             </Text>
             <div className="empty-state-actions">
               <Button
-                variant="primary"
+                variant="secondary"
                 size="sm"
                 icon={<FiPlus size={16} />}
                 onClick={() => void onCreateEntry()}
+                style={{
+                  backgroundColor: theme.colors.text.primary,
+                  color: theme.colors.background.primary,
+                  border: 'none',
+                }}
               >
                 New Entry
               </Button>
@@ -252,10 +259,15 @@ export default function EntryDetail({ entry, hasEntries, recentEntries = [], onU
               Capture your thoughts, ideas, and reflections. Your entries are stored locally and never leave your device.
             </Text>
             <Button
-              variant="primary"
+              variant="secondary"
               size="sm"
               icon={<FiPlus size={16} />}
               onClick={() => void onCreateEntry()}
+              style={{
+                backgroundColor: theme.colors.text.primary,
+                color: theme.colors.background.primary,
+                border: 'none',
+              }}
             >
               Create your first entry
             </Button>

@@ -66,6 +66,9 @@ export default function CalendarGrid({
         onMonthChange={onMonthChange}
         onYearChange={onYearChange}
       />
+      <button className="mobile-today-button" onClick={onToday}>
+        Today
+      </button>
       <div className="calendar-weekdays">
         {WEEKDAYS.map(day => (
           <div key={day} className="calendar-weekday">{day}</div>

@@ -8,11 +8,10 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
 import { Text, Button, Input } from '../themed';
-import SwipeableListItem from './SwipeableListItem';
 import MobileEntryEditor from './MobileEntryEditor';
 import BottomSheet from './BottomSheet';
 import { SkeletonEntryList } from './Skeleton';
-import { FiPlus, FiSearch, FiX, FiCheck, FiClock, FiRefreshCw } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiX, FiCheck, FiClock, FiRefreshCw, FiCalendar, FiTrash2 } from 'react-icons/fi';
 import { groupEntriesByDate } from '../../utils/dateGrouping';
 import { formatEntryDate } from '../../utils/date';
 import { getInsightCountForEntry, EntryInsightCount } from '../../services/analytics';
@@ -23,6 +22,7 @@ import 'react-day-picker/style.css';
 type View = 'list' | 'editor';
 
 const PULL_THRESHOLD = 70;
+const LONG_PRESS_DURATION = 400;
 
 export default function MobileEntries() {
   const { theme } = useTheme();
@@ -30,12 +30,16 @@ export default function MobileEntries() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingDateEntry, setEditingDateEntry] = useState<JournalEntry | null>(null);
-  const [pressedEntryId, setPressedEntryId] = useState<string | null>(null);
+  const [actionEntry, setActionEntry] = useState<JournalEntry | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [insightCounts, setInsightCounts] = useState<Map<string, EntryInsightCount>>(new Map());
   const [tooltipEntryId, setTooltipEntryId] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   const searchInputRef = useRef<HTMLInputElement>(null);
   const statusIndicatorRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+  const touchedEntry = useRef<JournalEntry | null>(null);
 
   const {
     entries,
@@ -73,8 +77,20 @@ export default function MobileEntries() {
   }, [selectEntry]);
 
   const handleBack = useCallback(() => {
+    selectEntry(null);
     setView('list');
-  }, []);
+  }, [selectEntry]);
+
+  useEffect(() => {
+    if (view === 'list') {
+      touchedEntry.current = null;
+      didLongPress.current = false;
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    }
+  }, [view]);
 
   const handleCreate = useCallback(async () => {
     hapticImpact('light');
@@ -90,10 +106,56 @@ export default function MobileEntries() {
     }
   }, [deleteEntry, selectedEntryId]);
 
-  const handleEditDate = useCallback((entry: JournalEntry) => {
+  const handleEditDate = useCallback(() => {
+    if (!actionEntry) return;
     hapticSelection();
-    setEditingDateEntry(entry);
+    setEditingDateEntry(actionEntry);
+    setActionEntry(null);
+  }, [actionEntry]);
+
+  const handleDeleteFromSheet = useCallback(() => {
+    setShowDeleteConfirm(true);
   }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!actionEntry) return;
+    hapticImpact('medium');
+    await deleteEntry(actionEntry.id);
+    setShowDeleteConfirm(false);
+    setActionEntry(null);
+    if (selectedEntryId === actionEntry.id) {
+      setView('list');
+    }
+  }, [actionEntry, deleteEntry, selectedEntryId]);
+
+  const handleCancelDelete = useCallback(() => {
+    setShowDeleteConfirm(false);
+  }, []);
+
+  const handleTouchStart = useCallback((entry: JournalEntry) => {
+    touchedEntry.current = entry;
+    didLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      hapticImpact('medium');
+      setActionEntry(entry);
+    }, LONG_PRESS_DURATION);
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleClick = useCallback((entry: JournalEntry) => {
+    if (didLongPress.current) {
+      didLongPress.current = false;
+      return;
+    }
+    handleEntrySelect(entry.id);
+  }, [handleEntrySelect]);
 
   const handleDateSelect = useCallback(async (date: Date | undefined) => {
     if (date && editingDateEntry) {
@@ -364,35 +426,30 @@ export default function MobileEntries() {
                     {group}
                   </div>
                   {groupEntries.map((entry) => (
-                    <SwipeableListItem
+                    <div
                       key={entry.id}
-                      onDelete={() => handleDelete(entry.id)}
-                      onEditDate={() => handleEditDate(entry)}
+                      className="mobile-entry-item"
+                      onClick={() => handleClick(entry)}
+                      onTouchStart={() => handleTouchStart(entry)}
+                      onTouchEnd={handleTouchEnd}
+                      onTouchMove={handleTouchEnd}
                     >
-                      <div
-                        className={`mobile-entry-item ${pressedEntryId === entry.id ? 'pressed' : ''}`}
-                        onClick={() => handleEntrySelect(entry.id)}
-                        onTouchStart={() => setPressedEntryId(entry.id)}
-                        onTouchEnd={() => setPressedEntryId(null)}
-                        onTouchCancel={() => setPressedEntryId(null)}
-                      >
-                        <div className="mobile-entry-date-row">
-                          <span
-                            className="mobile-entry-date"
-                            style={{ color: theme.colors.text.muted }}
-                          >
-                            {formatEntryDate(entry.date)}
-                          </span>
-                          {renderStatusIndicator(entry)}
-                        </div>
+                      <div className="mobile-entry-date-row">
                         <span
-                          className="mobile-entry-preview"
-                          style={{ color: theme.colors.text.primary }}
+                          className="mobile-entry-date"
+                          style={{ color: theme.colors.text.muted }}
                         >
-                          {entry.preview}
+                          {formatEntryDate(entry.date)}
                         </span>
+                        {renderStatusIndicator(entry)}
                       </div>
-                    </SwipeableListItem>
+                      <span
+                        className="mobile-entry-preview"
+                        style={{ color: theme.colors.text.primary }}
+                      >
+                        {entry.preview}
+                      </span>
+                    </div>
                   ))}
                 </div>
               ))
@@ -414,6 +471,56 @@ export default function MobileEntries() {
           <FiPlus size={24} />
         </button>
       )}
+
+      <BottomSheet
+        isOpen={!!actionEntry && !showDeleteConfirm}
+        onClose={() => setActionEntry(null)}
+        title="Entry Options"
+      >
+        <div className="mobile-action-menu">
+          <button
+            className="mobile-menu-item"
+            onClick={handleEditDate}
+            style={{ color: theme.colors.text.primary }}
+          >
+            <FiCalendar size={20} />
+            <span>Change Date</span>
+          </button>
+          <button
+            className="mobile-menu-item mobile-menu-item--delete"
+            onClick={handleDeleteFromSheet}
+          >
+            <FiTrash2 size={20} />
+            <span>Delete Entry</span>
+          </button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        isOpen={showDeleteConfirm}
+        onClose={handleCancelDelete}
+        title="Delete Entry"
+      >
+        <div className="mobile-delete-confirm-content">
+          <Text className="mobile-confirm-text" style={{ color: theme.colors.text.primary }}>
+            Are you sure you want to delete this entry? This action cannot be undone.
+          </Text>
+          <div className="mobile-confirm-buttons">
+            <button
+              className="mobile-confirm-button mobile-confirm-button--cancel"
+              onClick={handleCancelDelete}
+            >
+              Cancel
+            </button>
+            <button
+              className="mobile-confirm-button mobile-confirm-button--delete"
+              onClick={handleConfirmDelete}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
 
       <BottomSheet
         isOpen={!!editingDateEntry}

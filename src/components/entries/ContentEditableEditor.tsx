@@ -123,7 +123,7 @@ export const ContentEditableEditor = forwardRef<ContentEditableEditorRef, Conten
     ref
   ) {
     const editorRef = useRef<HTMLDivElement>(null);
-    const lastValueRef = useRef(value);
+    const lastValueRef = useRef<string | null>(null);
     const isInternalChange = useRef(false);
 
     useImperativeHandle(ref, () => ({
