@@ -969,3 +969,108 @@ html.keyboard-open .mobile-fab {
   min-width: 22px;
   min-height: 22px;
 }
+
+.month-year-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 16px 8px;
+}
+
+.month-year-picker__today {
+  align-self: center;
+  background-color: var(--bg-secondary);
+  border: none;
+  padding: 10px 24px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 20px;
+}
+
+.month-year-picker__today:active {
+  background-color: var(--bg-tertiary);
+}
+
+.month-year-picker__wheels {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.picker-wheel-container {
+  position: relative;
+  flex: 1;
+  max-width: 180px;
+}
+
+.picker-wheel-highlight {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 44px;
+  transform: translateY(-50%);
+  background-color: var(--bg-tertiary);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.picker-wheel {
+  position: relative;
+  height: 264px;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  z-index: 1;
+}
+
+.picker-wheel::-webkit-scrollbar {
+  display: none;
+}
+
+.picker-wheel__padding {
+  height: 110px;
+}
+
+.picker-item {
+  height: 44px;
+  scroll-snap-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  padding: 0;
+  position: relative;
+}
+
+.picker-item span {
+  font-size: 1.125rem;
+}
+
+.picker-wheel-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 110px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.picker-wheel-fade--top {
+  top: 0;
+  background: linear-gradient(to bottom, var(--bg-primary) 0%, var(--bg-primary) 20%, transparent 100%);
+}
+
+.picker-wheel-fade--bottom {
+  bottom: 0;
+  background: linear-gradient(to top, var(--bg-primary) 0%, var(--bg-primary) 20%, transparent 100%);
+}

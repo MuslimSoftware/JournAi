@@ -11,6 +11,8 @@ interface BottomSheetProps {
   onClose: () => void;
   children: ReactNode;
   title?: string;
+  headerLeft?: ReactNode;
+  headerRight?: ReactNode;
   height?: 'auto' | 'half' | 'full';
   snapPoints?: SnapPoint[];
   defaultSnapPoint?: number;
@@ -31,6 +33,8 @@ export default function BottomSheet({
   onClose,
   children,
   title,
+  headerLeft,
+  headerRight,
   height = 'auto',
   snapPoints = ['auto'],
   defaultSnapPoint = 0,
@@ -255,9 +259,11 @@ export default function BottomSheet({
         >
           <div className="bottom-sheet-handle" />
         </div>
-        {title && (
+        {(title || headerLeft || headerRight) && (
           <div className={headerClass}>
+            <div className="bottom-sheet-header-left">{headerLeft}</div>
             <span className="bottom-sheet-title">{title}</span>
+            <div className="bottom-sheet-header-right">{headerRight}</div>
           </div>
         )}
         <div ref={contentRef} className="bottom-sheet-content">{children}</div>

@@ -70,9 +70,38 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
 
   useImperativeHandle(ref, () => ({
     scrollToDate: (dateStr: string) => {
-      const weekIndex = weeks.findIndex((week) =>
+      let weekIndex = weeks.findIndex((week) =>
         week.some((d) => toDateString(d) === dateStr),
       );
+
+      if (weekIndex < 0) {
+        const targetDate = new Date(dateStr + "T12:00:00");
+        const weekStart = getWeekStartDate(targetDate);
+        weekStart.setDate(weekStart.getDate() - WEEKS_BEFORE * 7);
+        const newWeeks = generateWeeks(weekStart, WEEKS_BEFORE + WEEKS_AFTER + 1);
+        setWeeks(newWeeks);
+        hasInitialScrolled.current = false;
+
+        weekIndex = newWeeks.findIndex((week) =>
+          week.some((d) => toDateString(d) === dateStr),
+        );
+
+        if (scrollRef.current && weekIndex >= 0) {
+          requestAnimationFrame(() => {
+            if (scrollRef.current) {
+              const rowHeight = scrollRef.current.scrollHeight / newWeeks.length;
+              const targetScroll = (weekIndex - 1) * rowHeight;
+              scrollRef.current.scrollTo({
+                top: Math.max(0, targetScroll),
+                behavior: "auto",
+              });
+              hasInitialScrolled.current = true;
+            }
+          });
+        }
+        return;
+      }
+
       if (scrollRef.current && weekIndex >= 0) {
         const rowHeight = scrollRef.current.scrollHeight / weeks.length;
         const targetScroll = (weekIndex - 1) * rowHeight;
@@ -221,6 +250,8 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
                 hasStickyNote ||
                 (todosCount && todosCount.total > 0);
 
+              const isOddMonth = date.getMonth() % 2 === 1;
+
               return (
                 <button
                   key={dayIndex}
@@ -229,6 +260,7 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
                     isSelected && "selected",
                     isToday && "today",
                     !isCurrentMonth && "outside-month",
+                    !isCurrentMonth && (isOddMonth ? "month-odd" : "month-even"),
                   ]
                     .filter(Boolean)
                     .join(" ")}

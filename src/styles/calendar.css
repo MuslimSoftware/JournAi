@@ -838,6 +838,15 @@
 
 .week-strip-day.outside-month {
     opacity: 0.4;
+    border-radius: 0;
+}
+
+.week-strip-day.outside-month.month-odd {
+    background-color: var(--bg-subtle);
+}
+
+.week-strip-day.outside-month.month-even {
+    background-color: transparent;
 }
 
 .week-strip-day-number {
@@ -878,6 +887,11 @@
 .week-strip-week-vertical {
     min-width: unset;
     scroll-snap-align: unset;
+    gap: 0;
+}
+
+.week-strip-vertical .week-strip-day {
+    padding: 0.5rem 0.5rem;
 }
 
 /* Inline Detail Section */

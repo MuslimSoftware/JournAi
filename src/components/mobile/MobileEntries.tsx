@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns';
 import { IoRefresh } from 'react-icons/io5';
 import { useEntries } from '../../hooks/useEntries';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useEntryNavigation } from '../../contexts/EntryNavigationContext';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
 import { Text, Input } from '../themed';
@@ -25,7 +26,9 @@ const LONG_PRESS_DURATION = 400;
 
 export default function MobileEntries() {
   const { theme } = useTheme();
+  const { target } = useEntryNavigation();
   const [view, setView] = useState<View>('list');
+  const handledTargetId = useRef<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingDateEntry, setEditingDateEntry] = useState<JournalEntry | null>(null);
@@ -47,6 +50,15 @@ export default function MobileEntries() {
     deleteEntry,
     refreshEntries,
   } = useEntries();
+
+  useEffect(() => {
+    if (!target || !selectedEntry) return;
+    if (handledTargetId.current === target.entryId) return;
+    if (target.entryId === selectedEntry.id) {
+      handledTargetId.current = target.entryId;
+      setView('editor');
+    }
+  }, [target, selectedEntry]);
 
   const handleRefresh = useCallback(async () => {
     await refreshEntries();

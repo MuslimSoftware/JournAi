@@ -51,18 +51,59 @@
 .bottom-sheet-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 8px 16px 12px;
+  justify-content: space-between;
+  padding: 4px 4px 8px;
 }
 
 .bottom-sheet-header--with-border {
   border-bottom: 1px solid var(--border-primary);
 }
 
+.bottom-sheet-header-left,
+.bottom-sheet-header-right {
+  min-width: 70px;
+}
+
+.bottom-sheet-header-left {
+  text-align: left;
+}
+
+.bottom-sheet-header-right {
+  text-align: right;
+}
+
+.bottom-sheet-header-left button,
+.bottom-sheet-header-right button {
+  background: none;
+  border: none;
+  padding: 10px 12px;
+  font-size: 1rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 8px;
+}
+
+.bottom-sheet-header-left button {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.bottom-sheet-header-right button {
+  font-weight: 600;
+}
+
+.bottom-sheet-header-left button:active,
+.bottom-sheet-header-right button:active {
+  background-color: var(--bg-secondary);
+}
+
 .bottom-sheet-title {
   font-size: 1.0625rem;
   font-weight: 600;
   color: var(--text-primary);
+  text-align: center;
+  flex: 1;
 }
 
 .bottom-sheet-content {
