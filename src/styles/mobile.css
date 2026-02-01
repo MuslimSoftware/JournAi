@@ -291,48 +291,8 @@ html.keyboard-open .mobile-fab {
   background-color: var(--bg-secondary);
 }
 
-.mobile-entry-date-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .mobile-entry-date {
   font-size: 0.75rem;
-}
-
-.mobile-entry-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.mobile-entry-status-analyzed {
-  background-color: var(--text-accent);
-  color: var(--bg-primary);
-}
-
-.mobile-entry-status-unprocessed {
-  background-color: var(--bg-subtle);
-  color: var(--text-muted);
-}
-
-.mobile-entry-status-needs-reanalysis {
-  background-color: var(--text-warning, #f59e0b);
-  color: var(--bg-primary);
-}
-
-.mobile-entry-status-clickable {
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-
-.mobile-entry-status-clickable:active {
-  transform: scale(0.9);
 }
 
 .mobile-entry-preview {

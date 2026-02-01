@@ -1,14 +1,15 @@
 .content-editable-editor:empty::before {
   content: attr(data-placeholder);
-  color: var(--text-muted);
-  opacity: 0.5;
+  color: var(--text-secondary);
+  opacity: 0.6;
   pointer-events: none;
 }
 
 .content-editable-editor:focus:empty::before {
-  opacity: 0.4;
+  opacity: 0.5;
 }
 
 .content-editable-editor {
   cursor: text;
+  min-height: 1.5em;
 }
