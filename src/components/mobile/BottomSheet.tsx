@@ -40,10 +40,11 @@ export default function BottomSheet({
   const sheetRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [sheetHeight, setSheetHeight] = useState(0);
-  const [translateY, setTranslateY] = useState(0);
+  const [translateY, setTranslateY] = useState(window.innerHeight);
   const [isDragging, setIsDragging] = useState(false);
   const [currentSnapIndex, setCurrentSnapIndex] = useState(defaultSnapPoint);
   const [isVisible, setIsVisible] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [overlayOpacity, setOverlayOpacity] = useState(0);
 
   const startY = useRef(0);
@@ -54,7 +55,10 @@ export default function BottomSheet({
   const contentScrollTop = useRef(0);
   const isScrolling = useRef(false);
 
-  const { animate, cancel, setCurrent } = useSpringAnimation(0, setTranslateY);
+  const { animate, cancel, setCurrent } = useSpringAnimation(0, setTranslateY, {
+    stiffness: 400,
+    damping: 35,
+  });
 
   const getSnapPointPixels = useCallback((snapPoint: SnapPoint): number => {
     if (snapPoint === 'auto') {
@@ -101,29 +105,36 @@ export default function BottomSheet({
 
   useEffect(() => {
     if (isOpen) {
+      setTranslateY(window.innerHeight);
+      setCurrent(window.innerHeight);
       setIsVisible(true);
+      setIsReady(false);
       document.body.style.overflow = 'hidden';
 
       requestAnimationFrame(() => {
-        if (sheetRef.current) {
-          const height = sheetRef.current.offsetHeight;
-          setSheetHeight(height);
-          setTranslateY(height);
-          setCurrent(height);
+        requestAnimationFrame(() => {
+          if (sheetRef.current) {
+            const height = sheetRef.current.offsetHeight;
+            setSheetHeight(height);
+            setTranslateY(height);
+            setCurrent(height);
+            setIsReady(true);
 
-          requestAnimationFrame(() => {
-            setOverlayOpacity(1);
-            animate(0);
-            hapticImpact('light');
-          });
-        }
+            requestAnimationFrame(() => {
+              setOverlayOpacity(1);
+              animate(0);
+              hapticImpact('light');
+            });
+          }
+        });
       });
-    } else {
+    } else if (isVisible) {
       setOverlayOpacity(0);
       animate(sheetHeight, velocityY.current);
 
       const timeout = setTimeout(() => {
         setIsVisible(false);
+        setIsReady(false);
         document.body.style.overflow = '';
       }, 300);
 
@@ -133,7 +144,7 @@ export default function BottomSheet({
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen, animate, setCurrent, sheetHeight]);
+  }, [isOpen]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (contentRef.current) {
@@ -216,14 +227,17 @@ export default function BottomSheet({
 
   const overlayClass = `bottom-sheet-overlay${isDragging ? '' : ' bottom-sheet-overlay--animated'}`;
   const headerClass = `bottom-sheet-header${title ? ' bottom-sheet-header--with-border' : ''}`;
+  const showOverlay = isReady || overlayOpacity > 0;
 
   return createPortal(
     <>
-      <div
-        className={overlayClass}
-        style={{ backgroundColor: `rgba(0, 0, 0, ${0.5 * overlayOpacity})` }}
-        onClick={handleOverlayClick}
-      />
+      {showOverlay && (
+        <div
+          className={overlayClass}
+          style={{ backgroundColor: `rgba(0, 0, 0, ${0.5 * overlayOpacity})` }}
+          onClick={handleOverlayClick}
+        />
+      )}
       <div
         ref={sheetRef}
         className="bottom-sheet"

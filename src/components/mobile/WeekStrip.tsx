@@ -1,120 +1,169 @@
-import { useRef, useEffect, useCallback, useMemo, useState } from "react";
+import { useRef, useEffect, useCallback, useMemo, useState, useLayoutEffect, forwardRef, useImperativeHandle } from "react";
 import type { MonthIndicators } from "../../services/calendar";
 import { toDateString, getTodayString } from "../../utils/date";
 import { hapticSelection } from "../../hooks/useHaptics";
 
 interface WeekStripProps {
-  selectedDate: string;
+  selectedDate: string | null;
   indicators: MonthIndicators | null;
   onSelectDate: (date: string) => void;
-  onExpand: () => void;
+}
+
+export interface WeekStripRef {
+  scrollToDate: (dateStr: string) => void;
 }
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+const WEEKS_BEFORE = 52;
+const WEEKS_AFTER = 52;
+const LOAD_THRESHOLD = 4;
+const LOAD_BATCH = 12;
 
-function getWeekDays(centerDate: string): Date[] {
-  const date = new Date(centerDate + "T12:00:00");
-  const dayOfWeek = date.getDay();
-  const days: Date[] = [];
-
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(date);
-    d.setDate(date.getDate() - dayOfWeek + i);
-    days.push(d);
-  }
-
-  return days;
+function getWeekStartDate(date: Date): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() - d.getDay());
+  return d;
 }
 
-function getWeeksForMonth(year: number, month: number): Date[][] {
+function generateWeeks(startDate: Date, count: number): Date[][] {
   const weeks: Date[][] = [];
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
+  const currentDate = new Date(startDate);
 
-  let currentDate = new Date(firstDay);
-  currentDate.setDate(currentDate.getDate() - currentDate.getDay());
-
-  while (currentDate <= lastDay || weeks.length < 1) {
+  for (let w = 0; w < count; w++) {
     const week: Date[] = [];
-    for (let i = 0; i < 7; i++) {
+    for (let d = 0; d < 7; d++) {
       week.push(new Date(currentDate));
       currentDate.setDate(currentDate.getDate() + 1);
     }
     weeks.push(week);
-
-    if (currentDate > lastDay && week[6] >= lastDay) break;
   }
 
   return weeks;
 }
 
-export default function WeekStrip({
+const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
   selectedDate,
   indicators,
   onSelectDate,
-  onExpand,
-}: WeekStripProps) {
+}, ref) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const todayStr = getTodayString();
+  const effectiveDate = selectedDate || todayStr;
 
-  const selectedDateObj = useMemo(
-    () => new Date(selectedDate + "T12:00:00"),
-    [selectedDate],
-  );
-  const weeks = useMemo(
-    () =>
-      getWeeksForMonth(
-        selectedDateObj.getFullYear(),
-        selectedDateObj.getMonth(),
-      ),
-    [selectedDateObj],
-  );
+  const isTouchingRef = useRef(false);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasInitialScrolled = useRef(false);
+  const pendingScrollAdjustment = useRef<number | null>(null);
+
+  const [weeks, setWeeks] = useState<Date[][]>(() => {
+    const today = new Date(todayStr + "T12:00:00");
+    const weekStart = getWeekStartDate(today);
+    weekStart.setDate(weekStart.getDate() - WEEKS_BEFORE * 7);
+    return generateWeeks(weekStart, WEEKS_BEFORE + WEEKS_AFTER + 1);
+  });
 
   const selectedWeekIndex = useMemo(() => {
     return weeks.findIndex((week) =>
-      week.some((d) => toDateString(d) === selectedDate),
+      week.some((d) => toDateString(d) === effectiveDate),
     );
-  }, [weeks, selectedDate]);
+  }, [weeks, effectiveDate]);
 
-  const [isUserScrolling, setIsUserScrolling] = useState(false);
-  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useImperativeHandle(ref, () => ({
+    scrollToDate: (dateStr: string) => {
+      const weekIndex = weeks.findIndex((week) =>
+        week.some((d) => toDateString(d) === dateStr),
+      );
+      if (scrollRef.current && weekIndex >= 0) {
+        const rowHeight = scrollRef.current.scrollHeight / weeks.length;
+        const targetScroll = (weekIndex - 1) * rowHeight;
+        scrollRef.current.scrollTo({
+          top: Math.max(0, targetScroll),
+          behavior: "smooth",
+        });
+      }
+    },
+  }), [weeks]);
 
   useEffect(() => {
-    if (scrollRef.current && selectedWeekIndex >= 0 && !isUserScrolling) {
-      const weekWidth = scrollRef.current.offsetWidth;
+    if (hasInitialScrolled.current) return;
+    if (scrollRef.current && selectedWeekIndex >= 0) {
+      const rowHeight = scrollRef.current.scrollHeight / weeks.length;
+      const targetScroll = (selectedWeekIndex - 1) * rowHeight;
+
       scrollRef.current.scrollTo({
-        left: selectedWeekIndex * weekWidth,
-        behavior: "smooth",
+        top: Math.max(0, targetScroll),
+        behavior: "auto",
       });
+      hasInitialScrolled.current = true;
     }
-  }, [selectedWeekIndex, isUserScrolling]);
+  }, [selectedWeekIndex, weeks.length]);
+
+  useLayoutEffect(() => {
+    if (pendingScrollAdjustment.current !== null && scrollRef.current) {
+      scrollRef.current.scrollTop += pendingScrollAdjustment.current;
+      pendingScrollAdjustment.current = null;
+    }
+  }, [weeks]);
+
+  const loadMoreWeeks = useCallback((direction: "up" | "down") => {
+    setWeeks((prevWeeks) => {
+      if (direction === "up") {
+        const firstWeekStart = prevWeeks[0][0];
+        const newStart = new Date(firstWeekStart);
+        newStart.setDate(newStart.getDate() - LOAD_BATCH * 7);
+        const newWeeks = generateWeeks(newStart, LOAD_BATCH);
+
+        if (scrollRef.current) {
+          const rowHeight = scrollRef.current.scrollHeight / prevWeeks.length;
+          pendingScrollAdjustment.current = LOAD_BATCH * rowHeight;
+        }
+
+        return [...newWeeks, ...prevWeeks];
+      } else {
+        const lastWeek = prevWeeks[prevWeeks.length - 1];
+        const lastDay = lastWeek[6];
+        const newStart = new Date(lastDay);
+        newStart.setDate(newStart.getDate() + 1);
+        const newWeeks = generateWeeks(newStart, LOAD_BATCH);
+
+        return [...prevWeeks, ...newWeeks];
+      }
+    });
+  }, []);
 
   const handleScroll = useCallback(() => {
-    setIsUserScrolling(true);
-
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
+    if (!isTouchingRef.current) {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {}, 1000);
     }
 
-    scrollTimeoutRef.current = setTimeout(() => {
-      if (!scrollRef.current) return;
+    if (scrollRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+      const rowHeight = scrollHeight / weeks.length;
+      const topWeeksHidden = Math.floor(scrollTop / rowHeight);
+      const bottomWeeksHidden = Math.floor((scrollHeight - scrollTop - clientHeight) / rowHeight);
 
-      const scrollLeft = scrollRef.current.scrollLeft;
-      const weekWidth = scrollRef.current.offsetWidth;
-      const newWeekIndex = Math.round(scrollLeft / weekWidth);
-
-      if (newWeekIndex !== selectedWeekIndex && weeks[newWeekIndex]) {
-        const currentDayOfWeek = selectedDateObj.getDay();
-        const newWeekDate = weeks[newWeekIndex][currentDayOfWeek];
-        if (newWeekDate) {
-          hapticSelection();
-          onSelectDate(toDateString(newWeekDate));
-        }
+      if (topWeeksHidden < LOAD_THRESHOLD) {
+        loadMoreWeeks("up");
+      } else if (bottomWeeksHidden < LOAD_THRESHOLD) {
+        loadMoreWeeks("down");
       }
+    }
+  }, [weeks.length, loadMoreWeeks]);
 
-      setIsUserScrolling(false);
-    }, 150);
-  }, [selectedWeekIndex, weeks, selectedDateObj, onSelectDate]);
+  const handleTouchStart = useCallback(() => {
+    isTouchingRef.current = true;
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    isTouchingRef.current = false;
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -132,8 +181,13 @@ export default function WeekStrip({
     [onSelectDate],
   );
 
+  const selectedDateObj = useMemo(
+    () => new Date(effectiveDate + "T12:00:00"),
+    [effectiveDate],
+  );
+
   return (
-    <div className="week-strip-container">
+    <div className="week-strip-container week-strip-vertical">
       <div className="week-strip-weekdays">
         {WEEKDAYS.map((day, i) => (
           <div key={i} className="week-strip-weekday">
@@ -144,20 +198,23 @@ export default function WeekStrip({
 
       <div
         ref={scrollRef}
-        className="week-strip-scroll"
+        className="week-strip-scroll-vertical"
         onScroll={handleScroll}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleTouchStart}
+        onMouseUp={handleTouchEnd}
+        onMouseLeave={handleTouchEnd}
       >
-        {weeks.map((week, weekIndex) => (
-          <div key={weekIndex} className="week-strip-week">
+        {weeks.map((week) => (
+          <div key={toDateString(week[0])} className="week-strip-week week-strip-week-vertical">
             {week.map((date, dayIndex) => {
               const dateStr = toDateString(date);
-              const isSelected = dateStr === selectedDate;
+              const isSelected = dateStr === effectiveDate;
               const isToday = dateStr === todayStr;
-              const isCurrentMonth =
-                date.getMonth() === selectedDateObj.getMonth();
+              const isCurrentMonth = date.getMonth() === selectedDateObj.getMonth();
               const hasEntry = indicators?.entriesDates.has(dateStr) ?? false;
-              const hasStickyNote =
-                indicators?.stickyNotesDates.has(dateStr) ?? false;
+              const hasStickyNote = indicators?.stickyNotesDates.has(dateStr) ?? false;
               const todosCount = indicators?.todosCounts.get(dateStr);
               const hasIndicator =
                 hasEntry ||
@@ -187,22 +244,8 @@ export default function WeekStrip({
           </div>
         ))}
       </div>
-
-      <button
-        className="week-strip-expand-button"
-        onClick={onExpand}
-        aria-label="Expand to month view"
-      >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path
-            d="M5 8L10 13L15 8"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
     </div>
   );
-}
+});
+
+export default WeekStrip;
