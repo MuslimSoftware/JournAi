@@ -1,12 +1,14 @@
 import { CSSProperties, useCallback, useState } from 'react';
-import { IoChevronDown, IoAddOutline } from 'react-icons/io5';
+import { IoAddOutline } from 'react-icons/io5';
+import { FiPlus } from 'react-icons/fi';
+import { HiMenuAlt2 } from 'react-icons/hi';
 import { useKeyboard } from '../../hooks/useKeyboard';
 import { useChats } from '../../hooks/useChats';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ChatContainer } from '../chat';
 import { Text } from '../themed';
 import { CHAT } from '../chat/constants';
-import BottomSheet from './BottomSheet';
+import SideDrawer from './SideDrawer';
 import SwipeableListItem from './SwipeableListItem';
 import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
 import type { Chat } from '../../types/chatHistory';
@@ -16,7 +18,6 @@ export default function MobileChat() {
   const { theme } = useTheme();
   const { isOpen: isKeyboardOpen } = useKeyboard();
   const [showHistory, setShowHistory] = useState(false);
-  const [isHeaderPressed, setIsHeaderPressed] = useState(false);
 
   const {
     chats,
@@ -43,6 +44,11 @@ export default function MobileChat() {
     setShowHistory(false);
   }, [createChat]);
 
+  const handleNewChatFromHeader = useCallback(async () => {
+    hapticImpact('light');
+    await createChat();
+  }, [createChat]);
+
   const handleSelectChat = useCallback((id: string) => {
     hapticSelection();
     selectChat(id);
@@ -54,42 +60,43 @@ export default function MobileChat() {
     await deleteChat(id);
   }, [deleteChat]);
 
-  const handleHeaderClick = useCallback(() => {
-    if (!isKeyboardOpen) {
-      hapticSelection();
-      setShowHistory(true);
-    }
-  }, [isKeyboardOpen]);
+  const handleHistoryClick = useCallback(() => {
+    hapticSelection();
+    setShowHistory(true);
+  }, []);
 
   const inputWrapperStyle: CSSProperties = {
     paddingBottom: isKeyboardOpen ? '0' : 'calc(var(--mobile-nav-height) + var(--mobile-safe-area-bottom))',
     transition: `padding-bottom ${CHAT.transition.layout}`,
   };
 
-  const headerClass = `mobile-chat-header${isHeaderPressed ? ' mobile-chat-header--pressed' : ''}`;
-  const chevronClass = `mobile-chat-chevron${showHistory ? ' mobile-chat-chevron--open' : ''}`;
   const currentTitle = selectedChat?.title || 'New Chat';
 
   return (
     <div className="mobile-chat-container">
       <header
-        className={headerClass}
-        style={{ backgroundColor: isHeaderPressed ? undefined : theme.colors.background.primary }}
-        onClick={handleHeaderClick}
-        onTouchStart={() => !isKeyboardOpen && setIsHeaderPressed(true)}
-        onTouchEnd={() => setIsHeaderPressed(false)}
-        onTouchCancel={() => setIsHeaderPressed(false)}
+        className="mobile-chat-header"
+        style={{ backgroundColor: theme.colors.background.primary }}
       >
+        <button
+          className="mobile-chat-header-button"
+          onClick={handleHistoryClick}
+          aria-label="Chat history"
+          style={{ color: theme.colors.text.primary }}
+        >
+          <HiMenuAlt2 size={22} />
+        </button>
         <Text variant="primary" className="mobile-chat-title">
           {currentTitle}
         </Text>
-        {!isKeyboardOpen && (
-          <IoChevronDown
-            size={16}
-            color={theme.colors.text.muted}
-            className={chevronClass}
-          />
-        )}
+        <button
+          className="mobile-chat-header-button"
+          onClick={handleNewChatFromHeader}
+          aria-label="New chat"
+          style={{ color: theme.colors.text.primary }}
+        >
+          <FiPlus size={24} />
+        </button>
       </header>
 
       <ChatContainer
@@ -101,7 +108,7 @@ export default function MobileChat() {
         style={{ flex: 1 }}
       />
 
-      <BottomSheet
+      <SideDrawer
         isOpen={showHistory}
         onClose={() => setShowHistory(false)}
         title="Conversations"
@@ -113,7 +120,7 @@ export default function MobileChat() {
           onDelete={handleDeleteChat}
           onNewChat={handleNewChat}
         />
-      </BottomSheet>
+      </SideDrawer>
     </div>
   );
 }

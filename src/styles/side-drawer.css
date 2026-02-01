@@ -1,0 +1,48 @@
+.side-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.side-drawer-overlay--animated {
+  transition: background-color 0.3s ease-out;
+}
+
+.side-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 1000;
+  background-color: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
+  padding-top: var(--mobile-safe-area-top);
+  padding-bottom: var(--mobile-safe-area-bottom);
+  will-change: transform;
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.side-drawer-header {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-primary);
+  min-height: 56px;
+}
+
+.side-drawer-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.side-drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}

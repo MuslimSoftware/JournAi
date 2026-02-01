@@ -3,6 +3,7 @@ import { useRef, useCallback, useEffect } from 'react';
 interface SpringAnimationOptions {
   stiffness?: number;
   damping?: number;
+  onComplete?: () => void;
 }
 
 export function useSpringAnimation(
@@ -10,7 +11,7 @@ export function useSpringAnimation(
   onUpdate: (value: number) => void,
   options: SpringAnimationOptions = {}
 ) {
-  const { stiffness = 300, damping = 30 } = options;
+  const { stiffness = 300, damping = 30, onComplete } = options;
   const animationRef = useRef<number | null>(null);
   const velocityRef = useRef(0);
   const currentRef = useRef(targetValue);
@@ -45,11 +46,12 @@ export function useSpringAnimation(
       } else {
         currentRef.current = target;
         onUpdate(target);
+        onComplete?.();
       }
     };
 
     animationRef.current = requestAnimationFrame(step);
-  }, [onUpdate, stiffness, damping]);
+  }, [onUpdate, stiffness, damping, onComplete]);
 
   const cancel = useCallback(() => {
     if (animationRef.current) {
