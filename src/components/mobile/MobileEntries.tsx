@@ -8,6 +8,7 @@ import { usePullToRefresh } from '../../hooks/usePullToRefresh';
 import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
 import { Text, Input } from '../themed';
 import MobileEntryEditor from './MobileEntryEditor';
+import MobilePageHeader from './MobilePageHeader';
 import BottomSheet from './BottomSheet';
 import { SkeletonEntryList } from './Skeleton';
 import { FiPlus, FiSearch, FiX, FiCalendar, FiTrash2 } from 'react-icons/fi';
@@ -191,6 +192,7 @@ export default function MobileEntries() {
         className="mobile-entries-container"
         style={{ backgroundColor: theme.colors.background.primary }}
       >
+        <MobilePageHeader title="Entries" />
         <SkeletonEntryList count={6} />
       </div>
     );
@@ -245,24 +247,26 @@ export default function MobileEntries() {
         className={listClass}
         style={{ transform: `translateY(${pullDistance}px)` }}
       >
-        {entries.length > 0 && (
+        {!isSearching ? (
+          <MobilePageHeader
+            title="Entries"
+            rightContent={entries.length > 0 ? (
+              <button
+                onClick={handleSearchOpen}
+                className="mobile-icon-button"
+                style={{ color: theme.colors.text.muted }}
+                aria-label="Search"
+              >
+                <FiSearch size={20} />
+              </button>
+            ) : undefined}
+          />
+        ) : (
           <header
             className="mobile-entries-header"
             style={{ backgroundColor: theme.colors.background.primary }}
           >
-            {!isSearching && (
-              <div className="mobile-search-row">
-                <button
-                  onClick={handleSearchOpen}
-                  className="mobile-icon-button"
-                  style={{ color: theme.colors.text.muted }}
-                  aria-label="Search"
-                >
-                  <FiSearch size={20} />
-                </button>
-              </div>
-            )}
-            <div className={`mobile-search-bar-container ${isSearching ? 'expanded' : ''}`}>
+            <div className="mobile-search-bar-container expanded">
               <div className="mobile-search-input-wrapper">
                 <FiSearch
                   size={18}

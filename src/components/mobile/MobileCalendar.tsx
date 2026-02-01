@@ -4,6 +4,7 @@ import { hapticSelection, hapticImpact } from "../../hooks/useHaptics";
 import CalendarGrid from "../calendar/CalendarGrid";
 import DayDetail from "../calendar/DayDetail";
 import WeekStrip from "./WeekStrip";
+import MobilePageHeader from "./MobilePageHeader";
 import { SkeletonCalendarGrid } from "./Skeleton";
 import "../../styles/calendar.css";
 
@@ -74,6 +75,7 @@ export default function MobileCalendar() {
   if (isLoadingIndicators && !indicators) {
     return (
       <div className="mobile-calendar-page loading">
+        <MobilePageHeader title="Calendar" />
         <SkeletonCalendarGrid />
       </div>
     );
@@ -81,6 +83,7 @@ export default function MobileCalendar() {
 
   return (
     <div className={`mobile-calendar-page ${isCollapsed ? "collapsed" : ""}`}>
+      <MobilePageHeader title="Calendar" />
       <div
         className={`calendar-collapse-container ${isCollapsed ? "collapsed" : ""}`}
       >

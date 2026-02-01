@@ -1,13 +1,13 @@
 import { CSSProperties, useCallback, useState } from 'react';
-import { IoAddOutline } from 'react-icons/io5';
+import { IoAddOutline, IoTimeOutline } from 'react-icons/io5';
 import { FiPlus } from 'react-icons/fi';
-import { HiMenuAlt2 } from 'react-icons/hi';
 import { useKeyboard } from '../../hooks/useKeyboard';
 import { useChats } from '../../hooks/useChats';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ChatContainer } from '../chat';
 import { Text } from '../themed';
 import { CHAT } from '../chat/constants';
+import MobilePageHeader from './MobilePageHeader';
 import SideDrawer from './SideDrawer';
 import SwipeableListItem from './SwipeableListItem';
 import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
@@ -74,30 +74,33 @@ export default function MobileChat() {
 
   return (
     <div className="mobile-chat-container">
-      <header
-        className="mobile-chat-header"
-        style={{ backgroundColor: theme.colors.background.primary }}
-      >
-        <button
-          className="mobile-chat-header-button"
-          onClick={handleHistoryClick}
-          aria-label="Chat history"
-          style={{ color: theme.colors.text.primary }}
-        >
-          <HiMenuAlt2 size={22} />
-        </button>
-        <Text variant="primary" className="mobile-chat-title">
-          {currentTitle}
-        </Text>
-        <button
-          className="mobile-chat-header-button"
-          onClick={handleNewChatFromHeader}
-          aria-label="New chat"
-          style={{ color: theme.colors.text.primary }}
-        >
-          <FiPlus size={24} />
-        </button>
-      </header>
+      <MobilePageHeader
+        centerContent={
+          <Text variant="primary" className="mobile-chat-title">
+            {currentTitle}
+          </Text>
+        }
+        rightContent={
+          <div className="mobile-chat-header-actions">
+            <button
+              className="mobile-page-header__action-button"
+              onClick={handleNewChatFromHeader}
+              aria-label="New chat"
+              style={{ color: theme.colors.text.primary }}
+            >
+              <FiPlus size={24} />
+            </button>
+            <button
+              className="mobile-page-header__action-button"
+              onClick={handleHistoryClick}
+              aria-label="Chat history"
+              style={{ color: theme.colors.text.primary }}
+            >
+              <IoTimeOutline size={22} />
+            </button>
+          </div>
+        }
+      />
 
       <ChatContainer
         chatId={selectedChatId}

@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { IoSettingsOutline } from "react-icons/io5";
 import { Container, Text, Spinner } from "../components/themed";
 import { useIsMobile } from "../hooks/useMediaQuery";
-import { useSettings } from "../contexts/SettingsContext";
+import MobilePageHeader from "../components/mobile/MobilePageHeader";
 import {
   useInsights,
   TimeFilter,
@@ -223,7 +222,6 @@ function filterPeopleBySentiment(
 export default function Insights() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { openSettings } = useSettings();
   const { navigateToEntry } = useEntryNavigation();
   const {
     aggregated,
@@ -801,18 +799,7 @@ export default function Insights() {
   if (isMobile) {
     return (
       <div className="insights-page">
-        <header className="insights-header insights-header--mobile">
-          <Text className="insights-header__title--mobile">Insights</Text>
-          <div className="insights-header__actions">
-            <button
-              onClick={openSettings}
-              className="insights-icon-button"
-              aria-label="Settings"
-            >
-              <IoSettingsOutline size={22} />
-            </button>
-          </div>
-        </header>
+        <MobilePageHeader title="Insights" />
         {content}
       </div>
     );
