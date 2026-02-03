@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode, ButtonHTMLAttributes, useState } from 'react';
+import { CSSProperties, ReactNode, ButtonHTMLAttributes, useState, cloneElement, isValidElement } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -88,6 +88,14 @@ export default function IconButton({
     ...style,
   };
 
+  const iconElement = isValidElement(icon)
+    ? cloneElement(icon, {
+        className: icon.props.className
+          ? `app-icon ${icon.props.className}`
+          : 'app-icon',
+      })
+    : icon;
+
   return (
     <button
       style={buttonStyle}
@@ -98,7 +106,7 @@ export default function IconButton({
       onMouseLeave={() => setIsHovered(false)}
       {...props}
     >
-      {icon}
+      {iconElement}
     </button>
   );
 }

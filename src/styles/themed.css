@@ -38,6 +38,18 @@
   min-height: 56px;
 }
 
+.app-icon {
+  display: block;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+button svg {
+  display: block;
+  flex-shrink: 0;
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);

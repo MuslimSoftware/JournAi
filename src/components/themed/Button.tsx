@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode, ButtonHTMLAttributes, useState } from 'react';
+import { CSSProperties, ReactNode, ButtonHTMLAttributes, useState, cloneElement, isValidElement } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -81,6 +81,14 @@ export default function Button({
     ...style,
   };
 
+  const normalizedIcon = isValidElement(icon)
+    ? cloneElement(icon, {
+        className: icon.props.className
+          ? `app-icon ${icon.props.className}`
+          : 'app-icon',
+      })
+    : icon;
+
   return (
     <button
       style={buttonStyle}
@@ -90,9 +98,9 @@ export default function Button({
       onMouseUp={() => setIsActive(false)}
       {...props}
     >
-      {icon && iconPosition === 'left' && <span style={{ display: 'flex' }}>{icon}</span>}
+      {normalizedIcon && iconPosition === 'left' && <span style={{ display: 'flex' }}>{normalizedIcon}</span>}
       {children}
-      {icon && iconPosition === 'right' && <span style={{ display: 'flex' }}>{icon}</span>}
+      {normalizedIcon && iconPosition === 'right' && <span style={{ display: 'flex' }}>{normalizedIcon}</span>}
     </button>
   );
 }

@@ -228,7 +228,7 @@ export default function MemorySection() {
         </div>
       ) : null}
 
-      <div className="settings-section">
+      <div className="settings-section settings-advanced">
         <div className="settings-button-row">
           <Button
             variant="secondary"
@@ -359,7 +359,7 @@ export default function MemorySection() {
         </div>
       ) : null}
 
-      <div className="settings-section">
+      <div className="settings-section settings-advanced">
         <div className="settings-button-row">
           <Button
             variant="secondary"

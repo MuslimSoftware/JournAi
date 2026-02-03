@@ -5,6 +5,7 @@ import { Text, Button } from '../themed';
 import { appStore, STORE_KEYS } from '../../lib/store';
 import { getApiKey, setApiKey } from '../../lib/secureStorage';
 import type { OpenAIModel } from '../../types/chat';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 import '../../styles/settings.css';
 
 const MODELS: { value: OpenAIModel; label: string }[] = [
@@ -21,6 +22,7 @@ function getSelectArrowImage(isDark: boolean): string {
 
 export default function AISection() {
   const { mode } = useTheme();
+  const isMobile = useIsMobile();
   const [apiKeyValue, setApiKeyValue] = useState('');
   const [model, setModel] = useState<OpenAIModel>('gpt-5.2');
   const [showKey, setShowKey] = useState(false);
@@ -73,19 +75,35 @@ export default function AISection() {
             className="settings-input"
             style={{ backgroundColor: inputBg }}
           />
-          <button
-            type="button"
-            onClick={() => setShowKey(!showKey)}
-            className="settings-toggle-button"
-            aria-label={showKey ? 'Hide API key' : 'Show API key'}
-          >
-            {showKey ? <IoEyeOff size={14} /> : <IoEye size={14} />}
-          </button>
+          {!isMobile && (
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              className="settings-toggle-button"
+              aria-label={showKey ? 'Hide API key' : 'Show API key'}
+            >
+              {showKey ? <IoEyeOff size={14} /> : <IoEye size={14} />}
+            </button>
+          )}
         </div>
         <p className="settings-hint">Get your API key from platform.openai.com</p>
       </div>
 
-      <div className="settings-field">
+      {isMobile && (
+        <div className="settings-toggle-row">
+          <span className="settings-toggle-label">Show API key</span>
+          <label className="settings-switch">
+            <input
+              type="checkbox"
+              checked={showKey}
+              onChange={(event) => setShowKey(event.target.checked)}
+            />
+            <span className="settings-switch__slider" />
+          </label>
+        </div>
+      )}
+
+      <div className="settings-field settings-advanced">
         <label className="settings-label">Model</label>
         <select
           value={model}

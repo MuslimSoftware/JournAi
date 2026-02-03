@@ -9,7 +9,7 @@ import DataManagementSection from './settings/DataManagementSection';
 import { useTheme } from '../contexts/ThemeContext';
 import IconButton from './themed/IconButton';
 import { useIsMobile } from '../hooks/useMediaQuery';
-import BottomSheet from './mobile/BottomSheet';
+import MobileSettings from './mobile/MobileSettings';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -54,65 +54,25 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     margin: 0,
   };
 
-  const content = (
-    <>
-      {isMobile ? (
-        <div style={{ padding: 0 }}>
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto' }}>
-            {SECTIONS.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '20px',
-                  border: 'none',
-                  backgroundColor: activeSection === section.id
-                    ? theme.colors.text.primary
-                    : theme.colors.background.secondary,
-                  color: activeSection === section.id
-                    ? theme.colors.background.primary
-                    : theme.colors.text.secondary,
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                }}
-              >
-                {section.label}
-              </button>
-            ))}
-          </div>
-          {activeSection === 'personalization' && <PersonalizationSection />}
-          {activeSection === 'ai' && <AISection />}
-          {activeSection === 'memory' && <MemorySection />}
-          {activeSection === 'data-management' && <DataManagementSection />}
-        </div>
-      ) : (
-        <div style={contentStyle}>
-          <SettingsSidebar
-            items={SECTIONS}
-            activeId={activeSection}
-            onSelect={setActiveSection}
-          />
-          <div style={mainStyle}>
-            {activeSection === 'personalization' && <PersonalizationSection />}
-            {activeSection === 'ai' && <AISection />}
-            {activeSection === 'memory' && <MemorySection />}
-            {activeSection === 'data-management' && <DataManagementSection />}
-          </div>
-        </div>
-      )}
-    </>
-  );
-
   if (isMobile) {
-    return (
-      <BottomSheet isOpen={isOpen} onClose={onClose} title="Settings" height="full">
-        {content}
-      </BottomSheet>
-    );
+    return <MobileSettings isOpen={isOpen} onClose={onClose} />;
   }
+
+  const content = (
+    <div style={contentStyle}>
+      <SettingsSidebar
+        items={SECTIONS}
+        activeId={activeSection}
+        onSelect={setActiveSection}
+      />
+      <div style={mainStyle}>
+        {activeSection === 'personalization' && <PersonalizationSection />}
+        {activeSection === 'ai' && <AISection />}
+        {activeSection === 'memory' && <MemorySection />}
+        {activeSection === 'data-management' && <DataManagementSection />}
+      </div>
+    </div>
+  );
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
