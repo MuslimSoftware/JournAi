@@ -473,8 +473,8 @@
 .todo-item-wrapper.dragging {
     z-index: 9999;
     box-shadow:
-        0 12px 28px rgba(0, 0, 0, 0.18),
-        0 4px 10px rgba(0, 0, 0, 0.1);
+        0 4px 12px rgba(0, 0, 0, 0.15),
+        0 2px 4px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
     user-select: none;
     background-color: var(--bg-primary);
@@ -1255,4 +1255,35 @@
 .mobile-date-picker .rdp-selected .rdp-day_button {
     background-color: var(--text-accent);
     color: white;
+}
+
+/* Mobile Todo List - Long press to drag */
+.todo-list-container.mobile .todo-drag-handle {
+    display: none;
+}
+
+.todo-list-container.mobile .todo-item-wrapper {
+    touch-action: pan-y;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.todo-list-container.mobile .todo-item-wrapper.dragging {
+    touch-action: none;
+}
+
+
+.todo-list-container.mobile .todo-input {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    pointer-events: none;
+}
+
+.todo-list-container.mobile .todo-input:focus {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+    pointer-events: auto;
 }

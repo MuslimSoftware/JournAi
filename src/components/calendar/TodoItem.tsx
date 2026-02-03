@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { TrashButton } from '../themed';
 import type { Todo } from '../../types/todo';
 
@@ -28,11 +28,25 @@ interface NewTodoProps extends TodoItemPropsBase {
 
 type TodoItemProps = ExistingTodoProps | NewTodoProps;
 
-export default function TodoItem(props: TodoItemProps) {
+export interface TodoItemHandle {
+  focus: () => void;
+}
+
+const TodoItem = forwardRef<TodoItemHandle, TodoItemProps>(function TodoItem(props, ref) {
   const { isNew } = props;
 
   const [content, setContent] = useState(isNew ? '' : props.todo.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      }
+    },
+  }), []);
 
   const autoResize = useCallback(() => {
     const textarea = textareaRef.current;
@@ -116,4 +130,6 @@ export default function TodoItem(props: TodoItemProps) {
       )}
     </div>
   );
-}
+});
+
+export default TodoItem;
