@@ -10,6 +10,9 @@ interface SideDrawerProps {
   children: ReactNode;
   title?: string;
   width?: number;
+  side?: 'left' | 'right';
+  enableSwipeClose?: boolean;
+  disableSafeAreaBottom?: boolean;
 }
 
 const VELOCITY_THRESHOLD = 0.3;
@@ -21,19 +24,26 @@ export default function SideDrawer({
   children,
   title,
   width = 280,
+  side = 'left',
+  enableSwipeClose = true,
+  disableSafeAreaBottom = false,
 }: SideDrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
-  const [translateX, setTranslateX] = useState(-width);
+  const isRight = side === 'right';
+  const hiddenTranslateX = isRight ? width : -width;
+  const [translateX, setTranslateX] = useState(hiddenTranslateX);
   const [isDragging, setIsDragging] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [overlayOpacity, setOverlayOpacity] = useState(0);
 
   const startX = useRef(0);
+  const startY = useRef(0);
   const startTranslateX = useRef(0);
   const lastX = useRef(0);
   const lastTime = useRef(0);
   const velocityX = useRef(0);
+  const gestureAxis = useRef<'horizontal' | 'vertical' | null>(null);
 
   const handleAnimationUpdate = useCallback((value: number) => {
     setTranslateX(value);
@@ -43,7 +53,7 @@ export default function SideDrawer({
     setIsAnimating(false);
   }, []);
 
-  const { animate: springAnimate, cancel, setCurrent } = useSpringAnimation(-width, handleAnimationUpdate, {
+  const { animate: springAnimate, cancel, setCurrent } = useSpringAnimation(hiddenTranslateX, handleAnimationUpdate, {
     onComplete: handleAnimationComplete,
   });
 
@@ -56,8 +66,8 @@ export default function SideDrawer({
     if (isOpen) {
       setIsVisible(true);
       document.body.style.overflow = 'hidden';
-      setTranslateX(-width);
-      setCurrent(-width);
+      setTranslateX(hiddenTranslateX);
+      setCurrent(hiddenTranslateX);
 
       requestAnimationFrame(() => {
         setOverlayOpacity(1);
@@ -66,7 +76,7 @@ export default function SideDrawer({
       });
     } else {
       setOverlayOpacity(0);
-      animate(-width, velocityX.current);
+      animate(hiddenTranslateX, velocityX.current);
 
       const timeout = setTimeout(() => {
         setIsVisible(false);
@@ -79,23 +89,47 @@ export default function SideDrawer({
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen, animate, setCurrent, width]);
+  }, [isOpen, animate, setCurrent, hiddenTranslateX]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!enableSwipeClose) return;
     cancel();
     setIsAnimating(false);
     startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
     startTranslateX.current = translateX;
     lastX.current = e.touches[0].clientX;
     lastTime.current = Date.now();
-    setIsDragging(true);
-  }, [cancel, translateX]);
+    gestureAxis.current = null;
+    setIsDragging(false);
+  }, [cancel, translateX, enableSwipeClose]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging) return;
-
+    if (!enableSwipeClose) return;
     const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
     const deltaX = currentX - startX.current;
+    const deltaY = currentY - startY.current;
+
+    if (!gestureAxis.current) {
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+
+      if (absX < 6 && absY < 6) return;
+
+      if (absY > absX * 1.2) {
+        gestureAxis.current = 'vertical';
+        return;
+      }
+
+      gestureAxis.current = 'horizontal';
+      setIsDragging(true);
+      lastX.current = currentX;
+      lastTime.current = Date.now();
+    }
+
+    if (gestureAxis.current !== 'horizontal') return;
+
     const now = Date.now();
     const dt = now - lastTime.current;
 
@@ -106,20 +140,31 @@ export default function SideDrawer({
     lastX.current = currentX;
     lastTime.current = now;
 
-    const newTranslateX = Math.min(0, Math.max(-width, startTranslateX.current + deltaX));
+    const minTranslateX = isRight ? 0 : -width;
+    const maxTranslateX = isRight ? width : 0;
+    const newTranslateX = Math.min(maxTranslateX, Math.max(minTranslateX, startTranslateX.current + deltaX));
     setTranslateX(newTranslateX);
     setCurrent(newTranslateX);
 
     const progress = Math.abs(newTranslateX) / width;
     setOverlayOpacity(1 - progress * 0.5);
-  }, [isDragging, width, setCurrent]);
+  }, [width, setCurrent, enableSwipeClose]);
 
   const handleTouchEnd = useCallback(() => {
-    if (!isDragging) return;
+    if (!enableSwipeClose) return;
+    if (gestureAxis.current !== 'horizontal') {
+      gestureAxis.current = null;
+      setIsDragging(false);
+      return;
+    }
+
     setIsDragging(false);
 
     const progress = Math.abs(translateX) / width;
-    const shouldClose = velocityX.current < -VELOCITY_THRESHOLD || progress > DISMISS_THRESHOLD;
+    const isVelocityDismiss = isRight
+      ? velocityX.current > VELOCITY_THRESHOLD
+      : velocityX.current < -VELOCITY_THRESHOLD;
+    const shouldClose = isVelocityDismiss || progress > DISMISS_THRESHOLD;
 
     if (shouldClose) {
       hapticImpact('light');
@@ -129,7 +174,8 @@ export default function SideDrawer({
     }
 
     velocityX.current = 0;
-  }, [isDragging, translateX, width, animate, onClose]);
+    gestureAxis.current = null;
+  }, [translateX, width, animate, onClose, enableSwipeClose, isRight]);
 
   const handleOverlayClick = useCallback(() => {
     hapticImpact('light');
@@ -139,6 +185,8 @@ export default function SideDrawer({
   if (!isVisible) return null;
 
   const overlayClass = `side-drawer-overlay${isDragging ? '' : ' side-drawer-overlay--animated'}`;
+  const drawerClass = `side-drawer${isRight ? ' side-drawer--right' : ''}`;
+  const drawerPaddingBottom = disableSafeAreaBottom ? '0' : undefined;
 
   return createPortal(
     <>
@@ -149,15 +197,16 @@ export default function SideDrawer({
       />
       <div
         ref={drawerRef}
-        className="side-drawer"
+        className={drawerClass}
         style={{
           width,
           transform: `translateX(${translateX}px)`,
           transition: (isDragging || isAnimating) ? 'none' : undefined,
+          paddingBottom: drawerPaddingBottom,
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onTouchStart={enableSwipeClose ? handleTouchStart : undefined}
+        onTouchMove={enableSwipeClose ? handleTouchMove : undefined}
+        onTouchEnd={enableSwipeClose ? handleTouchEnd : undefined}
       >
         {title && (
           <div className="side-drawer-header">

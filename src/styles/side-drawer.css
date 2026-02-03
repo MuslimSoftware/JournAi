@@ -25,6 +25,12 @@
   transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+.side-drawer--right {
+  left: auto;
+  right: 0;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.15);
+}
+
 .side-drawer-header {
   display: flex;
   align-items: center;

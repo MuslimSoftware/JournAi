@@ -12,6 +12,7 @@ import SideDrawer from './SideDrawer';
 import SwipeableListItem from './SwipeableListItem';
 import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
 import type { Chat } from '../../types/chatHistory';
+import { groupEntriesByDate } from '../../utils/dateGrouping';
 import '../../styles/mobile.css';
 
 export default function MobileChat() {
@@ -115,6 +116,8 @@ export default function MobileChat() {
         isOpen={showHistory}
         onClose={() => setShowHistory(false)}
         title="Conversations"
+        side="right"
+        disableSafeAreaBottom
       >
         <ChatHistoryList
           chats={chats}
@@ -143,10 +146,14 @@ function ChatHistoryList({
   onDelete,
   onNewChat,
 }: ChatHistoryListProps) {
+  const { theme } = useTheme();
   const [pressedId, setPressedId] = useState<string | null>(null);
   const [isNewChatPressed, setIsNewChatPressed] = useState(false);
 
   const newChatButtonClass = `mobile-chat-new-button${isNewChatPressed ? ' mobile-chat-new-button--pressed' : ''}`;
+
+  const chatsWithDate = chats.map(chat => ({ ...chat, date: chat.updatedAt }));
+  const groupedChats = groupEntriesByDate(chatsWithDate);
 
   const getChatItemClass = (id: string) => {
     let className = 'mobile-chat-item';
@@ -165,7 +172,7 @@ function ChatHistoryList({
         onTouchCancel={() => setIsNewChatPressed(false)}
       >
         <IoAddOutline size={20} />
-        <Text variant="accent" className="mobile-chat-new-text">New conversation</Text>
+        <Text variant="primary" className="mobile-chat-new-text">New conversation</Text>
       </button>
 
       {chats.length === 0 ? (
@@ -174,31 +181,41 @@ function ChatHistoryList({
         </div>
       ) : (
         <div className="mobile-chat-list">
-          {chats.map((chat) => (
-            <SwipeableListItem
-              key={chat.id}
-              onDelete={() => onDelete(chat.id)}
-            >
+          {Array.from(groupedChats).map(([group, groupChats]) => (
+            <div key={group} className="mobile-chat-group">
               <div
-                className={getChatItemClass(chat.id)}
-                onClick={() => onSelect(chat.id)}
-                onTouchStart={() => setPressedId(chat.id)}
-                onTouchEnd={() => setPressedId(null)}
-                onTouchCancel={() => setPressedId(null)}
+                className="mobile-chat-group-header"
+                style={{ color: theme.colors.text.muted }}
               >
-                <Text
-                  variant="primary"
-                  className={`mobile-chat-item__title${chat.id === selectedId ? ' mobile-chat-item__title--selected' : ''}`}
-                >
-                  {chat.title}
-                </Text>
-                {chat.preview && (
-                  <Text variant="muted" className="mobile-chat-item__preview">
-                    {chat.preview}
-                  </Text>
-                )}
+                {group}
               </div>
-            </SwipeableListItem>
+              {groupChats.map((chat) => (
+                <SwipeableListItem
+                  key={chat.id}
+                  onDelete={() => onDelete(chat.id)}
+                >
+                  <div
+                    className={getChatItemClass(chat.id)}
+                    onClick={() => onSelect(chat.id)}
+                    onTouchStart={() => setPressedId(chat.id)}
+                    onTouchEnd={() => setPressedId(null)}
+                    onTouchCancel={() => setPressedId(null)}
+                  >
+                    <Text
+                      variant="primary"
+                      className={`mobile-chat-item__title${chat.id === selectedId ? ' mobile-chat-item__title--selected' : ''}`}
+                    >
+                      {chat.title}
+                    </Text>
+                    {chat.preview && (
+                      <Text variant="muted" className="mobile-chat-item__preview">
+                        {chat.preview}
+                      </Text>
+                    )}
+                  </div>
+                </SwipeableListItem>
+              ))}
+            </div>
           ))}
         </div>
       )}

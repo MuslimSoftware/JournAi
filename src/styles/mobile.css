@@ -610,11 +610,15 @@ html.keyboard-open .mobile-fab {
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  background: transparent;
+  background-color: var(--bg-secondary);
+  background-color: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
   border: none;
-  width: 100%;
+  border-radius: 12px;
+  width: calc(100% - 16px);
+  box-sizing: border-box;
   cursor: pointer;
-  color: var(--text-accent);
+  color: var(--text-primary);
+  margin: 8px 8px 4px;
   -webkit-tap-highlight-color: transparent;
   transition: background-color 0.1s ease-out;
 }
@@ -633,6 +637,19 @@ html.keyboard-open .mobile-fab {
 }
 
 .mobile-chat-list {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.mobile-chat-group-header {
+  padding: 24px 16px 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mobile-chat-group:first-of-type .mobile-chat-group-header {
   padding-top: 8px;
 }
 
