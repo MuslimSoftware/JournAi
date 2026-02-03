@@ -44,5 +44,8 @@ Thumbs.db
 # Claude Code
 .mcp.json
 
+# Ralph PRD
+ralph/
+
 # Bun
 bun.lockb
