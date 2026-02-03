@@ -291,7 +291,7 @@ export default function EntryDetail({ entry, hasEntries, recentEntries = [], onU
           />
         </div>
       )}
-      <div ref={editorContainerRef}>
+      <div ref={editorContainerRef} className="entry-content-editor-wrapper">
         <ContentEditableEditor
           ref={editorRef}
           value={content}

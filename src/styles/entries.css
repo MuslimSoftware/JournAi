@@ -48,7 +48,7 @@
 :root {
   --entries-sidebar-collapsed: 48px;
   --entries-sidebar-expanded: 300px;
-  --entries-content-max-width: 720px;
+  --entries-content-max-width: 770px;
   --entries-header-height: 40px;
   --entries-item-height: 56px;
   --entries-item-height-small: 52px;
@@ -193,6 +193,12 @@
   opacity: 1;
 }
 
+.entry-content-editor-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
 .entry-close-button {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-primary);
@@ -215,6 +221,7 @@
   color: var(--text-primary);
   font-size: 16px;
   line-height: 1.7;
+  text-align: left;
   resize: none;
   outline: none;
   font-family: inherit;
