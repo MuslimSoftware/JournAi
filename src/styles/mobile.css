@@ -252,15 +252,19 @@ html.keyboard-open .mobile-fab {
 }
 
 .mobile-entry-group-header {
-  padding: 24px 16px 8px;
+  padding: 12px 16px 6px;
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
+.mobile-entries-list > div:first-child .mobile-entry-group-header {
+  padding-top: 12px;
+}
+
 .mobile-entry-item {
-  padding: 14px 16px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
   gap: 4px;
