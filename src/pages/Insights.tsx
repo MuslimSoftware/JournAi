@@ -250,6 +250,8 @@ export default function Insights() {
   const [loading, setLoading] = useState(!dataLoaded);
   const [error, setError] = useState<string | null>(null);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [emotionSentimentFilter, setEmotionSentimentFilter] =
+    useState<SentimentFilter>("all");
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const lastLoadedFilter = useRef<string | null>(
@@ -345,12 +347,11 @@ export default function Insights() {
 
   const filteredEmotions = filterEmotionsBySentiment(
     aggregated?.emotions,
-    sentimentFilter,
+    isMobile ? emotionSentimentFilter : sentimentFilter,
   );
-  const filteredPeople = filterPeopleBySentiment(
-    aggregated?.people,
-    sentimentFilter,
-  );
+  const filteredPeople = isMobile
+    ? aggregated?.people
+    : filterPeopleBySentiment(aggregated?.people, sentimentFilter);
 
   const filteredEmotionEntries = selectedEmotion
     ? rawEmotions.filter(
@@ -363,6 +364,23 @@ export default function Insights() {
         (p) => p.name.toLowerCase() === selectedPerson.toLowerCase(),
       )
     : [];
+
+  const sentimentOptions: {
+    value: SentimentFilter;
+    label: string;
+    color?: string;
+  }[] = [
+    { value: "all", label: "All" },
+    { value: "positive", label: "Positive", color: SENTIMENT_COLORS.positive },
+    { value: "negative", label: "Negative", color: SENTIMENT_COLORS.negative },
+    { value: "mixed", label: "Mixed", color: SENTIMENT_COLORS.mixed },
+  ];
+
+  const typeOptions: { value: InsightTypeFilter; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "emotions", label: "Emotions" },
+    { value: "people", label: "People" },
+  ];
 
   const renderEmotionsColumn = () => (
     <div>
@@ -666,27 +684,13 @@ export default function Insights() {
     return null;
   };
 
-  const sentimentOptions: {
-    value: SentimentFilter;
-    label: string;
-    color?: string;
-  }[] = [
-    { value: "all", label: "All" },
-    { value: "positive", label: "Positive", color: SENTIMENT_COLORS.positive },
-    { value: "negative", label: "Negative", color: SENTIMENT_COLORS.negative },
-    { value: "mixed", label: "Mixed", color: SENTIMENT_COLORS.mixed },
-  ];
+  const showEmotions = isMobile
+    ? true
+    : typeFilter === "all" || typeFilter === "emotions";
+  const showPeople = isMobile
+    ? true
+    : typeFilter === "all" || typeFilter === "people";
 
-  const typeOptions: { value: InsightTypeFilter; label: string }[] = [
-    { value: "all", label: "All" },
-    { value: "emotions", label: "Emotions" },
-    { value: "people", label: "People" },
-  ];
-
-  const showEmotions = typeFilter === "all" || typeFilter === "emotions";
-  const showPeople = typeFilter === "all" || typeFilter === "people";
-
-  // Determine the grid column class based on how many columns are shown
   const visibleColumnCount = [showEmotions, showPeople].filter(Boolean).length;
   const columnClass =
     visibleColumnCount === 2
@@ -697,95 +701,173 @@ export default function Insights() {
     <div
       className={`insights-content${isMobile ? " insights-content--mobile" : ""}`}
     >
-      <div className="insights-filters">
-        <div ref={filterDropdownRef} className="insights-filter-dropdown">
-          <button
-            onClick={() => {
-              if (isMobile) hapticSelection();
-              setShowFilterDropdown(!showFilterDropdown);
-            }}
-            className={`insights-filter-button${isMobile ? " insights-filter-button--mobile" : ""}`}
+      {isMobile ? (
+        <div className="insights-filters insights-filters--mobile">
+          <div
+            ref={filterDropdownRef}
+            className="insights-filter-dropdown insights-filter-dropdown--mobile"
           >
-            {getFilterLabel(timeFilter)}
-            <span className="insights-filter-button__arrow">▼</span>
-          </button>
-          {showFilterDropdown && (
-            <div className="insights-filter-menu">
-              {TIME_FILTER_GROUPS.map((group, gi) => (
-                <div key={gi}>
-                  {group.label && (
-                    <div
-                      className={`insights-filter-group-label${gi > 0 ? " insights-filter-group-label--bordered" : ""}`}
-                    >
-                      {group.label}
-                    </div>
-                  )}
-                  {group.options.map((option) => (
+            <button
+              onClick={() => {
+                hapticSelection();
+                setShowFilterDropdown(!showFilterDropdown);
+              }}
+              className={`insights-mobile-chip insights-mobile-chip--time${showFilterDropdown ? " insights-mobile-chip--active" : ""}`}
+            >
+              {getFilterLabel(timeFilter)}
+              <span className="insights-mobile-chip__arrow">▼</span>
+            </button>
+            {showFilterDropdown && (
+              <div className="insights-filter-menu insights-filter-menu--mobile">
+                {TIME_FILTER_GROUPS.map((group, gi) => (
+                  <div key={gi}>
+                    {group.label && (
+                      <div
+                        className={`insights-filter-group-label${gi > 0 ? " insights-filter-group-label--bordered" : ""}`}
+                      >
+                        {group.label}
+                      </div>
+                    )}
+                    {group.options.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => {
+                          hapticSelection();
+                          setTimeFilter(option.value);
+                          setShowFilterDropdown(false);
+                          resetSelections();
+                        }}
+                        className={`insights-filter-option${timeFilter === option.value ? " insights-filter-option--active" : ""}`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="insights-mobile-emotion-scroll">
+            <div className="insights-mobile-emotion-group">
+              <div className="insights-mobile-emotion-filters">
+                {sentimentOptions.map((opt) => {
+                  const isActive = emotionSentimentFilter === opt.value;
+                  return (
                     <button
-                      key={option.value}
+                      key={opt.value}
                       onClick={() => {
-                        if (isMobile) hapticSelection();
-                        setTimeFilter(option.value);
-                        setShowFilterDropdown(false);
+                        hapticSelection();
+                        setEmotionSentimentFilter(opt.value);
                         resetSelections();
                       }}
-                      className={`insights-filter-option${timeFilter === option.value ? " insights-filter-option--active" : ""}`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="insights-sentiment-filters">
-          {sentimentOptions.map((opt) => {
-            const isActive = sentimentFilter === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  if (isMobile) hapticSelection();
-                  setSentimentFilter(opt.value);
-                  resetSelections();
-                }}
-                className={`insights-sentiment-button${isMobile ? " insights-sentiment-button--mobile" : ""}${isActive ? " insights-sentiment-button--active" : ""}`}
-                style={
-                  isActive
-                    ? {
-                        color: opt.color || undefined,
-                        backgroundColor: opt.color
-                          ? `${opt.color}15`
-                          : undefined,
+                      className={`insights-mobile-emotion-filter${isActive ? " insights-mobile-emotion-filter--active" : ""}`}
+                      style={
+                        isActive
+                          ? {
+                              color: opt.color || undefined,
+                              backgroundColor: opt.color
+                                ? `${opt.color}1A`
+                                : "var(--bg-primary)",
+                              borderColor: opt.color
+                                ? `${opt.color}80`
+                                : "transparent",
+                            }
+                          : undefined
                       }
-                    : undefined
-                }
-              >
-                {opt.label}
-              </button>
-            );
-          })}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="insights-type-filters">
-          {typeOptions.map((opt) => {
-            const isActive = typeFilter === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  if (isMobile) hapticSelection();
-                  setTypeFilter(opt.value);
-                  resetSelections();
-                }}
-                className={`insights-type-button${isMobile ? " insights-type-button--mobile" : ""}${isActive ? " insights-type-button--active" : ""}`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
+      ) : (
+        <div className="insights-filters">
+          <div ref={filterDropdownRef} className="insights-filter-dropdown">
+            <button
+              onClick={() => {
+                setShowFilterDropdown(!showFilterDropdown);
+              }}
+              className="insights-filter-button"
+            >
+              {getFilterLabel(timeFilter)}
+              <span className="insights-filter-button__arrow">▼</span>
+            </button>
+            {showFilterDropdown && (
+              <div className="insights-filter-menu">
+                {TIME_FILTER_GROUPS.map((group, gi) => (
+                  <div key={gi}>
+                    {group.label && (
+                      <div
+                        className={`insights-filter-group-label${gi > 0 ? " insights-filter-group-label--bordered" : ""}`}
+                      >
+                        {group.label}
+                      </div>
+                    )}
+                    {group.options.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => {
+                          setTimeFilter(option.value);
+                          setShowFilterDropdown(false);
+                          resetSelections();
+                        }}
+                        className={`insights-filter-option${timeFilter === option.value ? " insights-filter-option--active" : ""}`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="insights-sentiment-filters">
+            {sentimentOptions.map((opt) => {
+              const isActive = sentimentFilter === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setSentimentFilter(opt.value);
+                    resetSelections();
+                  }}
+                  className={`insights-sentiment-button${isActive ? " insights-sentiment-button--active" : ""}`}
+                  style={
+                    isActive
+                      ? {
+                          color: opt.color || undefined,
+                          backgroundColor: opt.color ? `${opt.color}15` : undefined,
+                        }
+                      : undefined
+                  }
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="insights-type-filters">
+            {typeOptions.map((opt) => {
+              const isActive = typeFilter === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setTypeFilter(opt.value);
+                    resetSelections();
+                  }}
+                  className={`insights-type-button${isActive ? " insights-type-button--active" : ""}`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
       <div
         className={`insights-columns ${columnClass}${isMobile ? " insights-columns--mobile" : ""}`}
       >
