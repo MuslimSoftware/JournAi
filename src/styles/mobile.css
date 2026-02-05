@@ -345,9 +345,8 @@ html.keyboard-open .mobile-fab {
 }
 
 .mobile-editor-textarea {
-  flex: 1;
   width: 100%;
-  padding: 60px 16px 20px;
+  padding: 0 16px calc(20px + var(--editor-bottom-pad, 0px));
   background: transparent;
   border: none;
   font-size: 16px;
@@ -357,6 +356,7 @@ html.keyboard-open .mobile-fab {
   font-family: inherit;
   -webkit-appearance: none;
   transition: padding-bottom var(--transition-slow, 0.25s ease-out);
+  min-height: 100%;
 }
 
 .mobile-pull-indicator {
@@ -443,13 +443,17 @@ html.keyboard-open .mobile-fab {
 }
 
 .mobile-editor-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   padding: 8px 8px 8px 4px;
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+.mobile-editor-back-button {
+  justify-self: start;
 }
 
 .mobile-editor-icon-button {
@@ -466,21 +470,28 @@ html.keyboard-open .mobile-fab {
   min-height: 48px;
 }
 
+.mobile-editor-actions {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mobile-editor-icon-button--delete {
+  color: var(--danger-text);
+}
+
 .mobile-editor-date {
   font-size: 0.8125rem;
   color: var(--text-muted);
 }
 
-.mobile-editor-spacer {
-  width: 48px;
-}
-
 .mobile-editor-content-wrapper {
   position: relative;
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: block;
   overflow-y: auto;
+  --editor-bottom-pad: 0px;
 }
 
 .mobile-action-menu {

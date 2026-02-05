@@ -5,6 +5,7 @@ interface ContentEditableEditorProps {
   value: string;
   onChange: (value: string) => void;
   onBlur?: () => void;
+  onFocus?: () => void;
   placeholder?: string;
   className?: string;
   style?: CSSProperties;
@@ -116,6 +117,7 @@ export const ContentEditableEditor = forwardRef<ContentEditableEditorRef, Conten
       value,
       onChange,
       onBlur,
+      onFocus,
       placeholder = 'Start writing...',
       className,
       style,
@@ -245,6 +247,7 @@ export const ContentEditableEditor = forwardRef<ContentEditableEditorRef, Conten
         data-placeholder={placeholder}
         onInput={handleInput}
         onBlur={onBlur}
+        onFocus={onFocus}
         onPaste={handlePaste}
         onKeyDown={handleKeyDown}
         spellCheck={false}

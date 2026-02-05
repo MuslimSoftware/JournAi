@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { FiArrowLeft, FiMoreHorizontal, FiCalendar, FiTrash2 } from 'react-icons/fi';
+import { FiArrowLeft, FiCalendar, FiTrash2 } from 'react-icons/fi';
 import { format, parseISO } from 'date-fns';
 import { DayPicker } from 'react-day-picker';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
@@ -64,12 +64,18 @@ export default function MobileEntryEditor({
   onDelete,
 }: MobileEntryEditorProps) {
   const { theme } = useTheme();
-  const { isOpen: isKeyboardOpen } = useKeyboard();
+  const { isOpen: isKeyboardOpen, height: keyboardHeight } = useKeyboard();
   const { target, clearTarget } = useEntryNavigation();
   const [content, setContent] = useState(entry.content);
-  const [showMenu, setShowMenu] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const fallbackKeyboardHeight = typeof window !== 'undefined'
+    ? Math.round(window.innerHeight * 0.35)
+    : 180;
+  const editorBottomPad = (isKeyboardOpen || isEditing)
+    ? `${Math.max(180, keyboardHeight || fallbackKeyboardHeight)}px`
+    : 'calc(var(--mobile-nav-height) + var(--mobile-safe-area-bottom) + 24px)';
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const appliedHighlightRef = useRef<string | null>(null);
@@ -201,17 +207,30 @@ export default function MobileEntryEditor({
     saveContent(content);
   }, [saveContent, content]);
 
+  const handleEditorBlur = useCallback(() => {
+    setIsEditing(false);
+    handleBlur();
+  }, [handleBlur]);
+
+  const handleEditorFocus = useCallback(() => {
+    setIsEditing(true);
+  }, []);
+
   const handleBack = useCallback(() => {
     hapticImpact('light');
     onBack();
   }, [onBack]);
 
-  const handleMenuOpen = useCallback(() => {
-    if (!isKeyboardOpen) {
-      hapticSelection();
-      setShowMenu(true);
-    }
-  }, [isKeyboardOpen]);
+  const handleDateOpen = useCallback(() => {
+    hapticSelection();
+    setShowDatePicker(true);
+  }, []);
+
+  const handleDeleteOpen = useCallback(() => {
+    if (!onDelete) return;
+    hapticSelection();
+    setShowDeleteConfirm(true);
+  }, [onDelete]);
 
   const handleDateSelect = useCallback(async (date: Date | undefined) => {
     if (date) {
@@ -219,7 +238,6 @@ export default function MobileEntryEditor({
       await onUpdate(entry.id, { date: newDate });
       hapticImpact('light');
       setShowDatePicker(false);
-      setShowMenu(false);
     }
   }, [entry.id, onUpdate]);
 
@@ -243,7 +261,7 @@ export default function MobileEntryEditor({
         style={{ backgroundColor: theme.colors.background.primary }}
       >
         <button
-          className="mobile-editor-icon-button"
+          className="mobile-editor-icon-button mobile-editor-back-button"
           style={{ color: theme.colors.text.primary }}
           onClick={handleBack}
           aria-label="Back"
@@ -253,53 +271,44 @@ export default function MobileEntryEditor({
 
         <Text className="mobile-editor-date">{format(parseISO(entry.date), 'MMMM d, yyyy')}</Text>
 
-        {!isKeyboardOpen && (
+        <div className="mobile-editor-actions">
           <button
             className="mobile-editor-icon-button"
             style={{ color: theme.colors.text.primary }}
-            onClick={handleMenuOpen}
-            aria-label="More options"
+            onClick={handleDateOpen}
+            aria-label="Change date"
           >
-            <FiMoreHorizontal size={22} />
+            <FiCalendar size={20} />
           </button>
-        )}
-        {isKeyboardOpen && <div className="mobile-editor-spacer" />}
+          {onDelete && (
+            <button
+              className="mobile-editor-icon-button mobile-editor-icon-button--delete"
+              onClick={handleDeleteOpen}
+              aria-label="Delete entry"
+            >
+              <FiTrash2 size={20} />
+            </button>
+          )}
+        </div>
       </header>
 
-      <div className="mobile-editor-content-wrapper" ref={editorContainerRef}>
+      <div
+        className="mobile-editor-content-wrapper"
+        ref={editorContainerRef}
+        style={{ '--editor-bottom-pad': editorBottomPad } as React.CSSProperties}
+      >
         <ContentEditableEditor
           value={content}
           onChange={handleChange}
-          onBlur={handleBlur}
+          onBlur={handleEditorBlur}
+          onFocus={handleEditorFocus}
           placeholder="Start writing..."
           className="mobile-editor-textarea"
           style={{
             color: theme.colors.text.primary,
-            padding: '0 16px',
-            paddingBottom: isKeyboardOpen
-              ? '20px'
-              : 'calc(20px + var(--mobile-nav-height) + var(--mobile-safe-area-bottom))',
           }}
         />
       </div>
-
-      <BottomSheet
-        isOpen={showMenu}
-        onClose={() => setShowMenu(false)}
-        title="Entry Options"
-      >
-        <EntryMenu
-          onChangeDate={() => {
-            setShowDatePicker(true);
-            setShowMenu(false);
-          }}
-          onDelete={() => {
-            setShowDeleteConfirm(true);
-            setShowMenu(false);
-          }}
-          hasDelete={!!onDelete}
-        />
-      </BottomSheet>
 
       <BottomSheet
         isOpen={showDatePicker}
@@ -330,35 +339,6 @@ export default function MobileEntryEditor({
           onCancel={() => setShowDeleteConfirm(false)}
         />
       </BottomSheet>
-    </div>
-  );
-}
-
-interface EntryMenuProps {
-  onChangeDate: () => void;
-  onDelete: () => void;
-  hasDelete: boolean;
-}
-
-function EntryMenu({ onChangeDate, onDelete, hasDelete }: EntryMenuProps) {
-  const { theme } = useTheme();
-
-  return (
-    <div>
-      <button
-        className="mobile-menu-item"
-        style={{ color: theme.colors.text.primary }}
-        onClick={onChangeDate}
-      >
-        <FiCalendar size={20} />
-        <span>Change date</span>
-      </button>
-      {hasDelete && (
-        <button className="mobile-menu-item mobile-menu-item--delete" onClick={onDelete}>
-          <FiTrash2 size={20} />
-          <span>Delete entry</span>
-        </button>
-      )}
     </div>
   );
 }
