@@ -32,7 +32,7 @@ export default function DayDetail({
   const navigate = useNavigate();
   const { navigateToEntry } = useEntryNavigation();
 
-  if (isLoading) {
+  if (isLoading && !dayData) {
     return (
       <div className="day-detail-loading">
         <Spinner size="md" />

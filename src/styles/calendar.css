@@ -693,13 +693,15 @@
     display: flex;
     flex-direction: column;
     height: 100%;
+    min-height: 0;
     padding: 0 1rem;
-    padding-bottom: 1rem;
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 .mobile-calendar-page > .mobile-page-header {
     margin: 0 -1rem;
+    flex-shrink: 0;
 }
 
 .mobile-calendar-page.collapsed {
@@ -916,15 +918,19 @@
 .mobile-calendar-detail {
     flex: 1;
     overflow-y: auto;
+    min-height: 0;
     margin-top: 0.75rem;
     padding: 0.25rem 0.5rem 0.5rem;
-    padding-bottom: calc(
-        1rem + var(--mobile-nav-height) + var(--mobile-safe-area-bottom)
-    );
+    padding-bottom: calc(1rem + var(--mobile-safe-area-bottom));
+    scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     animation: detailFadeIn 300ms cubic-bezier(0.32, 0.72, 0, 1);
     animation-delay: 100ms;
     animation-fill-mode: backwards;
+}
+
+.mobile-calendar-detail::-webkit-scrollbar {
+    display: none;
 }
 
 @keyframes detailFadeIn {

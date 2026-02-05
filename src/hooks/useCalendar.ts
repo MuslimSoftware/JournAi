@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { DayData, StickyNote } from '../types/todo';
 import type { MonthIndicators } from '../services/calendar';
 import { getMonthIndicators, getDayData } from '../services/calendar';
-import { getTodayString } from '../utils/date';
+import { getTodayString, parseLocalDate, toDateString } from '../utils/date';
 import * as todosService from '../services/todos';
 import * as stickyNotesService from '../services/stickyNotes';
 import { useCalendarContext } from '../contexts/CalendarContext';
@@ -21,6 +21,23 @@ export function useCalendar() {
   const [stickyNote, setStickyNote] = useState<StickyNote | null>(null);
   const [isLoadingIndicators, setIsLoadingIndicators] = useState(true);
   const [isLoadingDayData, setIsLoadingDayData] = useState(false);
+  const dayDataCacheRef = useRef<Map<string, DayData>>(new Map());
+
+  const setDayDataWithStickyNote = useCallback((data: DayData | null) => {
+    setDayData(data);
+    if (!data) {
+      setStickyNote(null);
+      return;
+    }
+
+    dayDataCacheRef.current.set(data.date, data);
+
+    if (data.stickyNotes.length > 0) {
+      setStickyNote(data.stickyNotes[0]);
+    } else {
+      setStickyNote({ id: '', date: data.date, content: '' });
+    }
+  }, []);
 
   const loadIndicators = useCallback(async () => {
     setIsLoadingIndicators(true);
@@ -31,16 +48,23 @@ export function useCalendar() {
 
   const loadDayData = useCallback(async (date: string) => {
     setIsLoadingDayData(true);
-    const data = await getDayData(date);
-    setDayData(data);
-
-    if (data.stickyNotes.length > 0) {
-      setStickyNote(data.stickyNotes[0]);
-    } else {
-      setStickyNote({ id: '', date, content: '' });
+    const cached = dayDataCacheRef.current.get(date);
+    if (cached) {
+      setDayDataWithStickyNote(cached);
     }
 
+    const data = await getDayData(date);
+    setDayDataWithStickyNote(data);
     setIsLoadingDayData(false);
+  }, [setDayDataWithStickyNote]);
+
+  const prefetchDayData = useCallback(async (date: string) => {
+    if (dayDataCacheRef.current.has(date)) {
+      return;
+    }
+
+    const data = await getDayData(date);
+    dayDataCacheRef.current.set(date, data);
   }, []);
 
   useEffect(() => {
@@ -50,11 +74,18 @@ export function useCalendar() {
   useEffect(() => {
     if (selectedDate) {
       loadDayData(selectedDate);
+      const baseDate = parseLocalDate(selectedDate);
+      const previousDate = new Date(baseDate);
+      previousDate.setDate(previousDate.getDate() - 1);
+      const nextDate = new Date(baseDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      prefetchDayData(toDateString(previousDate));
+      prefetchDayData(toDateString(nextDate));
     } else {
       setDayData(null);
       setStickyNote(null);
     }
-  }, [selectedDate, loadDayData]);
+  }, [selectedDate, loadDayData, prefetchDayData]);
 
   const goToPreviousMonth = useCallback(() => {
     if (currentMonth === 0) {
@@ -99,7 +130,9 @@ export function useCalendar() {
     if (todo) {
       setDayData(prev => {
         if (!prev) return prev;
-        return { ...prev, todos: [...prev.todos, todo] };
+        const next = { ...prev, todos: [...prev.todos, todo] };
+        dayDataCacheRef.current.set(next.date, next);
+        return next;
       });
       await loadIndicators();
     }
@@ -112,10 +145,12 @@ export function useCalendar() {
   ) => {
     setDayData(prev => {
       if (!prev) return prev;
-      return {
+      const next = {
         ...prev,
         todos: prev.todos.map(t => t.id === id ? { ...t, ...updates } : t)
       };
+      dayDataCacheRef.current.set(next.date, next);
+      return next;
     });
 
     const updated = await todosService.updateTodo(id, updates);
@@ -128,7 +163,9 @@ export function useCalendar() {
   const deleteTodo = useCallback(async (id: string) => {
     setDayData(prev => {
       if (!prev) return prev;
-      return { ...prev, todos: prev.todos.filter(t => t.id !== id) };
+      const next = { ...prev, todos: prev.todos.filter(t => t.id !== id) };
+      dayDataCacheRef.current.set(next.date, next);
+      return next;
     });
 
     const success = await todosService.deleteTodo(id);
@@ -139,7 +176,12 @@ export function useCalendar() {
   }, [selectedDate, loadIndicators]);
 
   const reorderTodos = useCallback(async (todoIds: string[], reorderedTodos: DayData['todos']) => {
-    setDayData(prev => prev ? { ...prev, todos: reorderedTodos } : prev);
+    setDayData(prev => {
+      if (!prev) return prev;
+      const next = { ...prev, todos: reorderedTodos };
+      dayDataCacheRef.current.set(next.date, next);
+      return next;
+    });
     await todosService.reorderTodos(todoIds);
   }, []);
 
@@ -149,6 +191,12 @@ export function useCalendar() {
     if (!id && content.length > 0) {
       const newNote = await stickyNotesService.createStickyNote(selectedDate, content);
       setStickyNote(newNote);
+      setDayData(prev => {
+        if (!prev) return prev;
+        const next = { ...prev, stickyNotes: [newNote] };
+        dayDataCacheRef.current.set(next.date, next);
+        return next;
+      });
       await loadIndicators();
       return newNote;
     }
@@ -156,6 +204,12 @@ export function useCalendar() {
     if (id && content.length === 0) {
       await stickyNotesService.deleteStickyNote(id);
       setStickyNote({ id: '', date: selectedDate, content: '' });
+      setDayData(prev => {
+        if (!prev) return prev;
+        const next = { ...prev, stickyNotes: [] };
+        dayDataCacheRef.current.set(next.date, next);
+        return next;
+      });
       await loadIndicators();
       return null;
     }
@@ -164,6 +218,12 @@ export function useCalendar() {
       const updated = await stickyNotesService.updateStickyNote(id, content);
       if (updated) {
         setStickyNote(updated);
+        setDayData(prev => {
+          if (!prev) return prev;
+          const next = { ...prev, stickyNotes: [updated] };
+          dayDataCacheRef.current.set(next.date, next);
+          return next;
+        });
         await loadIndicators();
       }
       return updated;
