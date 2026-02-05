@@ -67,7 +67,7 @@ export default function MobileChat() {
   }, []);
 
   const inputWrapperStyle: CSSProperties = {
-    paddingBottom: isKeyboardOpen ? '0' : 'calc(var(--mobile-nav-height) + var(--mobile-safe-area-bottom))',
+    paddingBottom: isKeyboardOpen ? '8px' : 'max(8px, var(--mobile-safe-area-bottom))',
     transition: `padding-bottom ${CHAT.transition.layout}`,
   };
 
