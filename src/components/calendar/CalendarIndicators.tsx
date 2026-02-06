@@ -12,11 +12,16 @@ export default function CalendarIndicators({
   const completedTodos = todosCount?.completed ?? 0;
   const pendingTodos = todosCount ? todosCount.total - todosCount.completed : 0;
   const hasTodos = completedTodos > 0 || pendingTodos > 0;
+  const hasMetaIndicators = hasEntry || hasStickyNote;
+  const shouldReserveMetaRow = hasTodos && !hasMetaIndicators;
 
   return (
     <div className="calendar-indicators-container">
-      {(hasEntry || hasStickyNote) && (
-        <div className="calendar-indicators">
+      {(hasMetaIndicators || shouldReserveMetaRow) && (
+        <div
+          className={`calendar-indicators ${shouldReserveMetaRow ? 'calendar-indicators-placeholder' : ''}`}
+          aria-hidden={shouldReserveMetaRow ? true : undefined}
+        >
           {hasEntry && (
             <span className="calendar-indicator entry-indicator" />
           )}

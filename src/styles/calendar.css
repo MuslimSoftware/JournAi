@@ -280,6 +280,10 @@
     padding: 0 8px;
 }
 
+.calendar-indicators-placeholder {
+    min-height: 9px;
+}
+
 .calendar-indicator {
     width: 9px;
     height: 9px;
