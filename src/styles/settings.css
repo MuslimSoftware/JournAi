@@ -364,6 +364,7 @@
 .settings-import-button {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--settings-spacing-md);
   padding: var(--settings-spacing-md) var(--settings-spacing-lg);
   background-color: var(--bg-subtle);
@@ -376,15 +377,142 @@
   transition: all 0.15s;
 }
 
+.settings-import-button:hover:not(:disabled) {
+  background-color: var(--bg-secondary);
+}
+
+.settings-import-button--secondary {
+  background-color: transparent;
+}
+
 .settings-import-button:disabled {
   cursor: not-allowed;
   opacity: 0.7;
+}
+
+.settings-import-stepper {
+  display: flex;
+  gap: var(--settings-spacing-md);
+  margin-bottom: var(--settings-spacing-lg);
+}
+
+.settings-import-step {
+  font-size: var(--settings-font-sm);
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-secondary);
+}
+
+.settings-import-step--active {
+  color: var(--text-primary);
+  border-color: var(--border-primary);
+  background-color: var(--bg-subtle);
+}
+
+.settings-import-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--settings-spacing-lg);
+}
+
+.settings-import-format-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--settings-spacing-md);
+}
+
+.settings-import-format-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--settings-spacing-sm);
+  padding: var(--settings-spacing-md);
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.settings-import-format-option input {
+  margin-top: 2px;
+}
+
+.settings-import-format-description {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: var(--settings-font-sm);
+}
+
+.settings-import-hint-box {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  padding: var(--settings-spacing-md);
+}
+
+.settings-import-hint-title {
+  font-size: var(--settings-font-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--settings-spacing-xs);
+}
+
+.settings-import-hint-text {
+  color: var(--text-secondary);
+  font-size: var(--settings-font-sm);
+  line-height: 1.4;
+}
+
+.settings-import-source-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--settings-spacing-sm);
+}
+
+.settings-import-source-path {
+  font-size: var(--settings-font-sm);
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.settings-import-summary {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  padding: var(--settings-spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--settings-spacing-xs);
+}
+
+.settings-import-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--settings-spacing-md);
+  font-size: var(--settings-font-md);
+  color: var(--text-primary);
+}
+
+.settings-import-warnings {
+  color: var(--status-warning);
+  font-size: var(--settings-font-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-import-actions {
+  display: flex;
+  gap: var(--settings-spacing-md);
 }
 
 .settings-import-result {
   margin-top: var(--settings-spacing-lg);
   padding: var(--settings-spacing-lg);
   background-color: var(--bg-subtle);
+  border: 1px solid var(--border-secondary);
   border-radius: 6px;
   font-size: var(--settings-font-md);
 }
