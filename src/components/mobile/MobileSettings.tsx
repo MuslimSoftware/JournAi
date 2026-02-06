@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import { IoChevronBack, IoChevronForward, IoSearchOutline } from 'react-icons/io5';
 import PersonalizationSection from '../settings/PersonalizationSection';
 import AISection from '../settings/AISection';
@@ -26,7 +26,7 @@ const SETTINGS_SECTIONS: Array<{
   description: string;
   group: string;
   hasAdvanced?: boolean;
-  component: () => JSX.Element;
+  component: ComponentType;
 }> = [
   {
     id: 'personalization',

@@ -38,6 +38,14 @@ interface UseChatReturn extends ChatState {
 
 const MESSAGES_PAGE_SIZE = 50;
 
+interface ChatMessagesCacheEntry {
+  messages: ChatMessage[];
+  hasMoreMessages: boolean;
+  totalMessageCount: number;
+}
+
+const chatMessagesSessionCache = new Map<string, ChatMessagesCacheEntry>();
+
 export function useChat({
   chatId,
   onTitleGenerated,
@@ -86,10 +94,34 @@ export function useChat({
       return;
     }
 
+    const cachedMessages = chatMessagesSessionCache.get(chatId);
+    if (cachedMessages) {
+      setState({
+        messages: cachedMessages.messages,
+        isLoading: false,
+        isThinking: false,
+        error: null,
+      });
+      setHasMoreMessages(cachedMessages.hasMoreMessages);
+      setTotalMessageCount(cachedMessages.totalMessageCount);
+    } else {
+      setState({
+        messages: [],
+        isLoading: false,
+        isThinking: false,
+        error: null,
+      });
+      setHasMoreMessages(false);
+      setTotalMessageCount(0);
+    }
+
+    let cancelled = false;
+
     const loadMessages = async () => {
       try {
         // Get total count
         const count = await chatMessagesService.getMessageCount(chatId);
+        if (cancelled) return;
         setTotalMessageCount(count);
 
         // Load most recent messages
@@ -97,20 +129,43 @@ export function useChat({
           chatId,
           MESSAGES_PAGE_SIZE,
         );
+        if (cancelled) return;
         setState((prev) => ({
           ...prev,
           messages,
         }));
 
         // Check if there are more messages to load
-        setHasMoreMessages(count > MESSAGES_PAGE_SIZE);
+        const hasMore = count > MESSAGES_PAGE_SIZE;
+        setHasMoreMessages(hasMore);
+        chatMessagesSessionCache.set(chatId, {
+          messages,
+          hasMoreMessages: hasMore,
+          totalMessageCount: count,
+        });
       } catch (error) {
-        console.error("Failed to load messages:", error);
+        if (!cancelled) {
+          console.error("Failed to load messages:", error);
+        }
       }
     };
 
     loadMessages();
+
+    return () => {
+      cancelled = true;
+    };
   }, [chatId]);
+
+  useEffect(() => {
+    if (!chatId) return;
+
+    chatMessagesSessionCache.set(chatId, {
+      messages: state.messages,
+      hasMoreMessages,
+      totalMessageCount,
+    });
+  }, [chatId, state.messages, hasMoreMessages, totalMessageCount]);
 
   const loadMoreMessages = useCallback(async () => {
     if (!chatId || isLoadingMore || !hasMoreMessages) return;

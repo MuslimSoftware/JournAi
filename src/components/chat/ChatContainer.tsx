@@ -1,4 +1,11 @@
-import { CSSProperties, useCallback, useState, useEffect, useRef } from "react";
+import {
+  CSSProperties,
+  useCallback,
+  useState,
+  useEffect,
+  useRef,
+  useLayoutEffect,
+} from "react";
 import { useChat } from "../../hooks/useChat";
 import { useAutoScroll } from "../../hooks/useAutoScroll";
 import MessageList from "./MessageList";
@@ -26,6 +33,7 @@ export default function ChatContainer({
   inputWrapperStyle,
 }: ChatContainerProps) {
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [hasInitialScrollApplied, setHasInitialScrollApplied] = useState(false);
   const [model, setModel] = useState<OpenAIModel>("gpt-5.2");
   const {
     messages,
@@ -46,7 +54,10 @@ export default function ChatContainer({
   const lastMessageContent =
     messages.length > 0 ? messages[messages.length - 1].content : "";
   const { scrollRef, scrollToBottom } = useAutoScroll({
-    deps: [messages.length, isAnyMessageStreaming, lastMessageContent],
+    behavior: "auto",
+    deps: hasInitialScrollApplied
+      ? [messages.length, isAnyMessageStreaming, lastMessageContent]
+      : [],
   });
   const prevMessageCountRef = useRef(0);
   const prevScrollHeightRef = useRef(0);
@@ -58,6 +69,10 @@ export default function ChatContainer({
     };
     loadModel();
   }, []);
+
+  useEffect(() => {
+    setHasInitialScrollApplied(false);
+  }, [chatId]);
 
   // Preserve scroll position when loading more messages
   useEffect(() => {
@@ -82,16 +97,14 @@ export default function ChatContainer({
     prevScrollHeightRef.current = scrollElement.scrollHeight;
   }, [messages.length, scrollRef]);
 
-  // Scroll to bottom when opening a chat with existing messages
-  useEffect(() => {
-    if (chatId && messages.length > 0) {
-      // Use requestAnimationFrame to ensure DOM is updated
-      requestAnimationFrame(() => {
-        scrollToBottom(true); // immediate scroll, no smooth behavior
-      });
+  useLayoutEffect(() => {
+    if (!chatId || messages.length === 0 || hasInitialScrollApplied) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId]); // Only trigger when chatId changes, not when messages update
+
+    scrollToBottom(true);
+    setHasInitialScrollApplied(true);
+  }, [chatId, messages.length, hasInitialScrollApplied, scrollToBottom]);
 
   useEffect(() => {
     if (chatId && pendingMessage) {

@@ -81,9 +81,9 @@ export default function Button({
     ...style,
   };
 
-  const normalizedIcon = isValidElement(icon)
+  const normalizedIcon = isValidElement<{ className?: string }>(icon)
     ? cloneElement(icon, {
-        className: icon.props.className
+      className: icon.props.className
           ? `app-icon ${icon.props.className}`
           : 'app-icon',
       })

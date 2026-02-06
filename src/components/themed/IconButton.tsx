@@ -88,7 +88,7 @@ export default function IconButton({
     ...style,
   };
 
-  const iconElement = isValidElement(icon)
+  const iconElement = isValidElement<{ className?: string }>(icon)
     ? cloneElement(icon, {
         className: icon.props.className
           ? `app-icon ${icon.props.className}`

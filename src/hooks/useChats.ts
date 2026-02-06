@@ -5,6 +5,18 @@ import * as chatsService from '../services/chats';
 
 const PAGE_SIZE = 30;
 
+interface ChatsSessionCache {
+    chats: Chat[];
+    selectedChatId: string | null;
+    totalCount: number | null;
+}
+
+const chatsSessionCache: ChatsSessionCache = {
+    chats: [],
+    selectedChatId: null,
+    totalCount: null,
+};
+
 interface UseChatsReturn {
     chats: Chat[];
     totalCount: number;
@@ -22,6 +34,8 @@ interface UseChatsReturn {
 }
 
 export function useChats(): UseChatsReturn {
+    const hasCachedChats = chatsSessionCache.chats.length > 0;
+
     const queryFn = useCallback(
         async (cursor: string | null, pageSize: number) => {
             const page = await chatsService.getChatsPage(cursor, pageSize);
@@ -46,23 +60,65 @@ export function useChats(): UseChatsReturn {
         pageSize: PAGE_SIZE,
     });
 
-    const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-    const [localChats, setLocalChats] = useState<Chat[]>([]);
-    const [totalCount, setTotalCount] = useState(0);
+    const [selectedChatId, setSelectedChatId] = useState<string | null>(
+        () => chatsSessionCache.selectedChatId
+    );
+    const [localChats, setLocalChats] = useState<Chat[]>(
+        () => chatsSessionCache.chats
+    );
+    const [totalCount, setTotalCount] = useState<number>(
+        () => chatsSessionCache.totalCount ?? 0
+    );
 
     useEffect(() => {
-        chatsService.getChatsCount().then(setTotalCount);
+        let cancelled = false;
+
+        chatsService.getChatsCount()
+            .then((count) => {
+                if (!cancelled) {
+                    setTotalCount(count);
+                }
+            })
+            .catch((error) => {
+                console.error('Failed to fetch chats count:', error);
+            });
+
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     useEffect(() => {
+        if (isLoading && chats.length === 0 && hasCachedChats) {
+            return;
+        }
         setLocalChats(chats);
-    }, [chats]);
+    }, [chats, hasCachedChats, isLoading]);
 
     useEffect(() => {
-        if (localChats.length > 0 && !selectedChatId) {
+        if (localChats.length === 0) {
+            if (selectedChatId !== null) {
+                setSelectedChatId(null);
+            }
+            return;
+        }
+
+        if (!selectedChatId || !localChats.some((chat) => chat.id === selectedChatId)) {
             setSelectedChatId(localChats[0].id);
         }
     }, [localChats, selectedChatId]);
+
+    useEffect(() => {
+        chatsSessionCache.chats = localChats;
+    }, [localChats]);
+
+    useEffect(() => {
+        chatsSessionCache.selectedChatId = selectedChatId;
+    }, [selectedChatId]);
+
+    useEffect(() => {
+        chatsSessionCache.totalCount = totalCount;
+    }, [totalCount]);
 
     const selectedChat = useMemo(
         () => localChats.find(c => c.id === selectedChatId) || null,

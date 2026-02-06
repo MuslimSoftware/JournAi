@@ -40,7 +40,7 @@ function DesktopChat() {
     await refreshChats();
   }, [refreshChats]);
 
-  if (isLoading) {
+  if (isLoading && chats.length === 0) {
     return (
       <div className="chat-layout" style={{ alignItems: 'center', justifyContent: 'center' }}>
         <Spinner size="lg" />
