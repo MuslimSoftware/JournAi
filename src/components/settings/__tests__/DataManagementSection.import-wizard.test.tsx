@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import DataManagementSection from '../DataManagementSection';
 import { renderWithProviders } from '../../../test/utils/render';
 
@@ -7,10 +7,18 @@ const mockSelectImportSource = vi.fn();
 const mockBuildImportPreview = vi.fn();
 const mockExecuteImportPlan = vi.fn();
 
+const mockSelectExportDestination = vi.fn();
+const mockExportData = vi.fn();
+
 vi.mock('../../../services/import', () => ({
   selectImportSource: (...args: unknown[]) => mockSelectImportSource(...args),
   buildImportPreview: (...args: unknown[]) => mockBuildImportPreview(...args),
   executeImportPlan: (...args: unknown[]) => mockExecuteImportPlan(...args),
+}));
+
+vi.mock('../../../services/export', () => ({
+  selectExportDestination: (...args: unknown[]) => mockSelectExportDestination(...args),
+  exportData: (...args: unknown[]) => mockExportData(...args),
 }));
 
 describe('DataManagementSection Import Wizard', () => {
@@ -24,6 +32,17 @@ describe('DataManagementSection Import Wizard', () => {
       todosCreated: 2,
       stickyNotesCreated: 1,
       duplicatesSkipped: 3,
+      errors: [],
+    });
+
+    mockSelectExportDestination.mockResolvedValue('/tmp/export.json');
+    mockExportData.mockResolvedValue({
+      format: 'json_bundle',
+      destinationPath: '/tmp/export.json',
+      entriesExported: 4,
+      todosExported: 5,
+      stickyNotesExported: 2,
+      files: ['/tmp/export.json'],
       errors: [],
     });
   });
@@ -127,5 +146,35 @@ describe('DataManagementSection Import Wizard', () => {
       expect(screen.getByText('Created sticky notes: 1')).toBeInTheDocument();
       expect(screen.getByText('Duplicates skipped: 3')).toBeInTheDocument();
     });
+  });
+
+  it('renders export results after successful execution', async () => {
+    renderWithProviders(<DataManagementSection />);
+
+    const exportSection = screen.getByTestId('export-section');
+
+    fireEvent.click(within(exportSection).getByRole('button', { name: /select json destination/i }));
+
+    await waitFor(() => {
+      expect(within(exportSection).getByText('/tmp/export.json')).toBeInTheDocument();
+    });
+
+    fireEvent.click(within(exportSection).getByRole('button', { name: /export data/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('export-result-panel')).toBeInTheDocument();
+      expect(screen.getByText('Exported entries: 4')).toBeInTheDocument();
+      expect(screen.getByText('Exported todos: 5')).toBeInTheDocument();
+      expect(screen.getByText('Exported sticky notes: 2')).toBeInTheDocument();
+      expect(screen.getByText('Files written: 1')).toBeInTheDocument();
+    });
+
+    expect(mockExportData).toHaveBeenCalledWith(
+      {
+        format: 'json_bundle',
+        destinationPath: '/tmp/export.json',
+      },
+      expect.any(Function)
+    );
   });
 });

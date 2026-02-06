@@ -532,6 +532,16 @@
   margin-top: var(--settings-spacing-md);
 }
 
+.settings-import-file-list {
+  margin-top: var(--settings-spacing-sm);
+  font-size: var(--settings-font-sm);
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  word-break: break-word;
+}
+
 .mobile-settings {
   position: fixed;
   inset: 0;
