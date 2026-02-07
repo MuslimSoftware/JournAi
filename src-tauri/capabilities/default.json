@@ -17,11 +17,13 @@
     "fs:default",
     "fs:allow-read-dir",
     "fs:allow-read-file",
+    "fs:allow-read-text-file",
     "fs:allow-mkdir",
     "fs:allow-write-file",
+    "fs:allow-write-text-file",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }]
+      "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }, { "path": "$DOWNLOAD/**" }, { "path": "$TEMP/**" }]
     },
     "mcp-bridge:default"
   ]

@@ -3,6 +3,7 @@ export type ImportFormat = 'json_bundle' | 'csv_folder';
 export interface ImportSourceSelection {
   format: ImportFormat;
   path: string;
+  content?: string;
 }
 
 export interface ImportEntryRecord {

@@ -169,14 +169,14 @@ function parseStickyNotes(rawNotes: unknown, errors: string[], warnings: string[
   return stickyNotes;
 }
 
-export async function parseJsonBundle(filePath: string): Promise<ParsedImportData> {
+export async function parseJsonBundle(filePath: string, preloadedContent?: string): Promise<ParsedImportData> {
   const errors: string[] = [];
   const warnings: string[] = [];
 
   let parsedJson: unknown;
 
   try {
-    const content = await readTextFile(filePath);
+    const content = preloadedContent ?? await readTextFile(filePath);
     parsedJson = JSON.parse(content);
   } catch (error) {
     errors.push(`Unable to read or parse JSON file: ${String(error)}`);

@@ -23,7 +23,6 @@ const GROUPS = [
 const SETTINGS_SECTIONS: Array<{
   id: SectionId;
   label: string;
-  description: string;
   group: string;
   hasAdvanced?: boolean;
   component: ComponentType;
@@ -31,14 +30,12 @@ const SETTINGS_SECTIONS: Array<{
   {
     id: 'personalization',
     label: 'Personalization',
-    description: 'Theme and display preferences',
     group: 'general',
     component: PersonalizationSection,
   },
   {
     id: 'ai',
     label: 'AI',
-    description: 'API key and model selection',
     group: 'ai',
     hasAdvanced: true,
     component: AISection,
@@ -46,7 +43,6 @@ const SETTINGS_SECTIONS: Array<{
   {
     id: 'memory',
     label: 'Memory & RAG',
-    description: 'Embeddings and entry analysis',
     group: 'ai',
     hasAdvanced: true,
     component: MemorySection,
@@ -54,7 +50,6 @@ const SETTINGS_SECTIONS: Array<{
   {
     id: 'data-management',
     label: 'Data Management',
-    description: 'Import and backups',
     group: 'data',
     component: DataManagementSection,
   },
@@ -80,7 +75,7 @@ export default function MobileSettings({ isOpen, onClose }: MobileSettingsProps)
     const query = searchQuery.trim().toLowerCase();
     const matches = (section: typeof SETTINGS_SECTIONS[number]) => {
       if (!query) return true;
-      const haystack = `${section.label} ${section.description} ${groupLabels[section.group]}`.toLowerCase();
+      const haystack = `${section.label} ${groupLabels[section.group]}`.toLowerCase();
       return haystack.includes(query);
     };
 
@@ -135,9 +130,6 @@ export default function MobileSettings({ isOpen, onClose }: MobileSettingsProps)
       <div className="mobile-settings__content">
         {activeSectionConfig && ActiveSectionComponent ? (
           <div className="mobile-settings__section">
-            <p className="mobile-settings__section-summary">
-              {activeSectionConfig.description}
-            </p>
             <div className="mobile-settings__section-content">
               <ActiveSectionComponent />
             </div>
@@ -175,7 +167,6 @@ export default function MobileSettings({ isOpen, onClose }: MobileSettingsProps)
                       >
                         <div className="mobile-settings__row-text">
                           <div className="mobile-settings__row-title">{section.label}</div>
-                          <div className="mobile-settings__row-description">{section.description}</div>
                         </div>
                         <IoChevronForward className="mobile-settings__chevron app-icon" size={16} />
                       </button>

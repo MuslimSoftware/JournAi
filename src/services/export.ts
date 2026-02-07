@@ -100,6 +100,47 @@ export async function selectExportDestination(format: ExportFormat): Promise<str
   return typeof selected === 'string' ? selected : null;
 }
 
+export interface GeneratedExportContent {
+  json: string;
+  filename: string;
+  entriesExported: number;
+  todosExported: number;
+  stickyNotesExported: number;
+}
+
+export async function generateJsonExportContent(
+  onProgress?: (current: number, total: number) => void
+): Promise<GeneratedExportContent> {
+  onProgress?.(0, 2);
+
+  const data = await loadExportData();
+  onProgress?.(1, 2);
+
+  const date = new Date().toISOString().slice(0, 10);
+  const payload = {
+    schemaVersion: 1,
+    exportedAt: new Date().toISOString(),
+    entries: data.entries,
+    todos: data.todos.map((todo) => ({
+      date: todo.date,
+      content: todo.content,
+      completed: todo.completed === 1,
+      scheduledTime: todo.scheduled_time,
+    })),
+    stickyNotes: data.stickyNotes,
+  };
+
+  onProgress?.(2, 2);
+
+  return {
+    json: `${JSON.stringify(payload, null, 2)}\n`,
+    filename: `journai-export-${date}.json`,
+    entriesExported: data.entries.length,
+    todosExported: data.todos.length,
+    stickyNotesExported: data.stickyNotes.length,
+  };
+}
+
 export async function exportData(
   request: ExportRequest,
   onProgress?: (current: number, total: number) => void

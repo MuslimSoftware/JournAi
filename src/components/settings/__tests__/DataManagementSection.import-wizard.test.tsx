@@ -21,6 +21,10 @@ vi.mock('../../../services/export', () => ({
   exportData: (...args: unknown[]) => mockExportData(...args),
 }));
 
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: vi.fn().mockResolvedValue(vi.fn()),
+}));
+
 describe('DataManagementSection Import Wizard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -67,7 +71,7 @@ describe('DataManagementSection Import Wizard', () => {
 
     renderWithProviders(<DataManagementSection />);
 
-    fireEvent.click(screen.getByRole('button', { name: /select json file/i }));
+    fireEvent.click(screen.getByRole('button', { name: /drag & drop or click to browse/i }));
 
     await waitFor(() => {
       expect(screen.getByText('/tmp/data.json')).toBeInTheDocument();
@@ -101,7 +105,7 @@ describe('DataManagementSection Import Wizard', () => {
 
     renderWithProviders(<DataManagementSection />);
 
-    fireEvent.click(screen.getByRole('button', { name: /select json file/i }));
+    fireEvent.click(screen.getByRole('button', { name: /drag & drop or click to browse/i }));
     await waitFor(() => expect(screen.getByText('/tmp/data.json')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: /generate preview/i }));
@@ -130,7 +134,7 @@ describe('DataManagementSection Import Wizard', () => {
 
     renderWithProviders(<DataManagementSection />);
 
-    fireEvent.click(screen.getByRole('button', { name: /select json file/i }));
+    fireEvent.click(screen.getByRole('button', { name: /drag & drop or click to browse/i }));
     await waitFor(() => expect(screen.getByText('/tmp/data.json')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: /generate preview/i }));
@@ -153,13 +157,13 @@ describe('DataManagementSection Import Wizard', () => {
 
     const exportSection = screen.getByTestId('export-section');
 
-    fireEvent.click(within(exportSection).getByRole('button', { name: /select json destination/i }));
+    fireEvent.click(within(exportSection).getByRole('button', { name: /export as json/i }));
 
     await waitFor(() => {
       expect(within(exportSection).getByText('/tmp/export.json')).toBeInTheDocument();
     });
 
-    fireEvent.click(within(exportSection).getByRole('button', { name: /export data/i }));
+    fireEvent.click(within(exportSection).getByRole('button', { name: /^export data$/i }));
 
     await waitFor(() => {
       expect(screen.getByTestId('export-result-panel')).toBeInTheDocument();

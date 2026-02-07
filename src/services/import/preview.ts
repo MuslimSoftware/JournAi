@@ -48,7 +48,7 @@ interface ExistingDatabaseState {
 
 async function parseImportSource(source: ImportSourceSelection): Promise<ParsedImportData> {
   if (source.format === 'json_bundle') {
-    return parseJsonBundle(source.path);
+    return parseJsonBundle(source.path, source.content);
   }
 
   return parseCsvFolder(source.path);
