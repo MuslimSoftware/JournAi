@@ -11,9 +11,13 @@ function rowToStickyNote(row: StickyNoteRow): StickyNote {
   };
 }
 
+function hasNonEmptyContent(content: string): boolean {
+  return content.trim().length > 0;
+}
+
 export async function getStickyNotesByDate(date: string): Promise<StickyNote[]> {
   const rows = await select<StickyNoteRow>(
-    'SELECT * FROM sticky_notes WHERE date = $1 ORDER BY created_at ASC',
+    "SELECT * FROM sticky_notes WHERE date = $1 AND TRIM(content) != '' ORDER BY created_at ASC",
     [date]
   );
   return rows.map(rowToStickyNote);
@@ -21,13 +25,17 @@ export async function getStickyNotesByDate(date: string): Promise<StickyNote[]> 
 
 export async function getStickyNotesByDateRange(startDate: string, endDate: string): Promise<StickyNote[]> {
   const rows = await select<StickyNoteRow>(
-    'SELECT * FROM sticky_notes WHERE date >= $1 AND date <= $2 ORDER BY date ASC, created_at ASC',
+    "SELECT * FROM sticky_notes WHERE date >= $1 AND date <= $2 AND TRIM(content) != '' ORDER BY date ASC, created_at ASC",
     [startDate, endDate]
   );
   return rows.map(rowToStickyNote);
 }
 
-export async function createStickyNote(date: string, content: string = ''): Promise<StickyNote> {
+export async function createStickyNote(date: string, content: string): Promise<StickyNote | null> {
+  if (!hasNonEmptyContent(content)) {
+    return null;
+  }
+
   const id = generateId();
   const timestamp = getTimestamp();
 
@@ -40,6 +48,11 @@ export async function createStickyNote(date: string, content: string = ''): Prom
 }
 
 export async function updateStickyNote(id: string, content: string): Promise<StickyNote | null> {
+  if (!hasNonEmptyContent(content)) {
+    await deleteStickyNote(id);
+    return null;
+  }
+
   const timestamp = getTimestamp();
 
   await execute(
@@ -58,7 +71,7 @@ export async function deleteStickyNote(id: string): Promise<boolean> {
 
 export async function getDatesWithStickyNotes(startDate: string, endDate: string): Promise<Set<string>> {
   const rows = await select<{ date: string }>(
-    "SELECT DISTINCT date FROM sticky_notes WHERE date >= $1 AND date <= $2 AND content != ''",
+    "SELECT DISTINCT date FROM sticky_notes WHERE date >= $1 AND date <= $2 AND TRIM(content) != ''",
     [startDate, endDate]
   );
   return new Set(rows.map(r => r.date));

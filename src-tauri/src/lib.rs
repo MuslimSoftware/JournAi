@@ -246,6 +246,28 @@ pub fn run() {
             ALTER TABLE journal_insights ADD COLUMN source_start INTEGER;
             ALTER TABLE journal_insights ADD COLUMN source_end INTEGER;",
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 18,
+            description: "enforce_non_empty_sticky_notes",
+            sql: "DELETE FROM sticky_notes WHERE TRIM(content) = '';
+
+            CREATE TRIGGER IF NOT EXISTS sticky_notes_validate_content_insert
+            BEFORE INSERT ON sticky_notes
+            FOR EACH ROW
+            WHEN TRIM(COALESCE(NEW.content, '')) = ''
+            BEGIN
+                SELECT RAISE(ABORT, 'sticky_notes.content cannot be empty');
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS sticky_notes_validate_content_update
+            BEFORE UPDATE OF content ON sticky_notes
+            FOR EACH ROW
+            WHEN TRIM(COALESCE(NEW.content, '')) = ''
+            BEGIN
+                SELECT RAISE(ABORT, 'sticky_notes.content cannot be empty');
+            END;",
+            kind: MigrationKind::Up,
         }
     ];
 

@@ -105,4 +105,38 @@ describe('Export Service', () => {
     expect(mockSave).toHaveBeenCalledOnce();
     expect(mockOpen).toHaveBeenCalledOnce();
   });
+
+  it('filters out empty sticky notes from export payloads', async () => {
+    mockSelect.mockImplementation((query: string) => {
+      if (query.includes('FROM entries')) {
+        return Promise.resolve([{ date: '2025-01-01', content: 'Entry one' }]);
+      }
+
+      if (query.includes('FROM todos')) {
+        return Promise.resolve([]);
+      }
+
+      if (query.includes('FROM sticky_notes')) {
+        return Promise.resolve([
+          { date: '2025-01-01', content: 'Valid note' },
+        ]);
+      }
+
+      return Promise.resolve([]);
+    });
+
+    await exportData({
+      format: 'json_bundle',
+      destinationPath: '/tmp/journai-export',
+    });
+
+    expect(mockSelect).toHaveBeenCalledWith(
+      "SELECT date, content FROM sticky_notes WHERE TRIM(content) != '' ORDER BY date ASC, created_at ASC"
+    );
+
+    const writtenJson = mockWriteTextFile.mock.calls[0][1];
+    const payload = JSON.parse(writtenJson);
+
+    expect(payload.stickyNotes).toEqual([{ date: '2025-01-01', content: 'Valid note' }]);
+  });
 });

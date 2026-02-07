@@ -1,16 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockSelect = vi.fn();
-const mockExecute = vi.fn();
-const mockUpdateEntry = vi.fn();
+const mockExecuteBatch = vi.fn();
 
 vi.mock('../../lib/db', () => ({
   select: (...args: unknown[]) => mockSelect(...args),
-  execute: (...args: unknown[]) => mockExecute(...args),
-}));
-
-vi.mock('../entries', () => ({
-  updateEntry: (...args: unknown[]) => mockUpdateEntry(...args),
+  executeBatch: (...args: unknown[]) => mockExecuteBatch(...args),
 }));
 
 import { executeImportPlan } from '../import';
@@ -107,51 +102,60 @@ describe('Import Execute', () => {
       return Promise.resolve([]);
     });
 
-    mockExecute.mockImplementation((query: string, values: unknown[] = []) => {
-      if (query === 'BEGIN IMMEDIATE' || query === 'COMMIT' || query === 'ROLLBACK') {
-        return Promise.resolve({ rowsAffected: 0 });
-      }
+    mockExecuteBatch.mockImplementation((statements: Array<{ query: string; values?: unknown[] }>) => {
+      const nextEntries = dbEntries.map((entry) => ({ ...entry }));
+      const nextTodos = dbTodos.map((todo) => ({ ...todo }));
+      const nextStickyNotes = dbStickyNotes.map((note) => ({ ...note }));
 
-      if (query.includes('INSERT INTO entries')) {
-        const [id, date, content] = values as [string, string, string];
-        dbEntries.push({ id, date, content });
-        return Promise.resolve({ rowsAffected: 1 });
-      }
+      for (const statement of statements) {
+        const values = statement.values ?? [];
 
-      if (query.includes('INSERT INTO todos')) {
-        if (failOnTodoInsert) {
-          return Promise.reject(new Error('forced todo insert failure'));
+        if (statement.query.includes('INSERT INTO entries')) {
+          const [id, date, content] = values as [string, string, string];
+          nextEntries.push({ id, date, content });
+          continue;
         }
 
-        const [id, date, content, scheduled_time, completed, position] = values as [
-          string,
-          string,
-          string,
-          string | null,
-          number,
-          number,
-        ];
-        dbTodos.push({ id, date, content, scheduled_time, completed, position });
-        return Promise.resolve({ rowsAffected: 1 });
+        if (statement.query.includes('UPDATE entries SET content =')) {
+          const [content, , id] = values as [string, string, string];
+          const target = nextEntries.find((entry) => entry.id === id);
+          if (!target) {
+            throw new Error('forced entry update failure');
+          }
+
+          target.content = content;
+          continue;
+        }
+
+        if (statement.query.includes('INSERT INTO todos')) {
+          if (failOnTodoInsert) {
+            throw new Error('forced todo insert failure');
+          }
+
+          const [id, date, content, scheduled_time, completed, position] = values as [
+            string,
+            string,
+            string,
+            string | null,
+            number,
+            number,
+          ];
+          nextTodos.push({ id, date, content, scheduled_time, completed, position });
+          continue;
+        }
+
+        if (statement.query.includes('INSERT INTO sticky_notes')) {
+          const [id, date, content] = values as [string, string, string];
+          nextStickyNotes.push({ id, date, content });
+          continue;
+        }
       }
 
-      if (query.includes('INSERT INTO sticky_notes')) {
-        const [id, date, content] = values as [string, string, string];
-        dbStickyNotes.push({ id, date, content });
-        return Promise.resolve({ rowsAffected: 1 });
-      }
+      dbEntries = nextEntries;
+      dbTodos = nextTodos;
+      dbStickyNotes = nextStickyNotes;
 
-      return Promise.resolve({ rowsAffected: 0 });
-    });
-
-    mockUpdateEntry.mockImplementation((id: string, updates: { content?: string }) => {
-      const target = dbEntries.find((entry) => entry.id === id);
-      if (!target || updates.content === undefined) {
-        return Promise.resolve(null);
-      }
-
-      target.content = updates.content;
-      return Promise.resolve({ id: target.id, date: target.date, content: target.content, preview: target.content });
+      return Promise.resolve();
     });
   });
 
@@ -235,7 +239,7 @@ describe('Import Execute', () => {
     expect(imported.map((todo) => todo.position)).toEqual([2, 3]);
   });
 
-  it('rolls back on execution failure', async () => {
+  it('reports execution failure without rollback', async () => {
     failOnTodoInsert = true;
 
     const preview = makePreview({
@@ -249,8 +253,8 @@ describe('Import Execute', () => {
     expect(result.entriesAppended).toBe(0);
     expect(result.todosCreated).toBe(0);
     expect(result.stickyNotesCreated).toBe(0);
-
-    expect(mockExecute).toHaveBeenCalledWith('ROLLBACK');
+    expect(result.errors[0]).toContain('Import failed:');
     expect(dbTodos).toHaveLength(0);
   });
+
 });

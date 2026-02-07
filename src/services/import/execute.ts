@@ -1,5 +1,4 @@
-import { select, execute } from '../../lib/db';
-import { updateEntry } from '../entries';
+import { select, executeBatch, type DbStatement } from '../../lib/db';
 import { getTimestamp } from '../../utils/date';
 import { generateId } from '../../utils/generators';
 import {
@@ -124,8 +123,6 @@ export async function executeImportPlan(
   let currentProgress = 0;
   onProgress?.(currentProgress, totalItems);
 
-  let transactionStarted = false;
-
   const result: ImportExecutionResult = {
     entriesCreated: 0,
     entriesAppended: 0,
@@ -136,10 +133,8 @@ export async function executeImportPlan(
   };
 
   try {
-    await execute('BEGIN IMMEDIATE');
-    transactionStarted = true;
-
     const state = await loadRuntimeState();
+    const writeStatements: DbStatement[] = [];
 
     for (const entry of preview.plan.records.entries) {
       const current = state.entriesByDate.get(entry.date);
@@ -147,10 +142,10 @@ export async function executeImportPlan(
       if (!current) {
         const id = generateId();
         const timestamp = getTimestamp();
-        await execute(
-          'INSERT INTO entries (id, date, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)',
-          [id, entry.date, entry.content, timestamp, timestamp]
-        );
+        writeStatements.push({
+          query: 'INSERT INTO entries (id, date, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)',
+          values: [id, entry.date, entry.content, timestamp, timestamp],
+        });
 
         state.entriesByDate.set(entry.date, {
           id,
@@ -183,10 +178,11 @@ export async function executeImportPlan(
       }
 
       const updatedContent = appendImportedContent(current.content, entry.content, contentHash);
-      const updatedEntry = await updateEntry(current.id, { content: updatedContent });
-      if (!updatedEntry) {
-        throw new Error(`Failed to update existing entry for date ${entry.date}`);
-      }
+      const timestamp = getTimestamp();
+      writeStatements.push({
+        query: 'UPDATE entries SET content = $1, updated_at = $2, last_content_update = $2, processed_at = NULL WHERE id = $3',
+        values: [updatedContent, timestamp, current.id],
+      });
 
       current.content = updatedContent;
       current.markers.add(contentHash);
@@ -212,9 +208,9 @@ export async function executeImportPlan(
 
       const id = generateId();
       const timestamp = getTimestamp();
-      await execute(
-        'INSERT INTO todos (id, date, content, scheduled_time, completed, position, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-        [
+      writeStatements.push({
+        query: 'INSERT INTO todos (id, date, content, scheduled_time, completed, position, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        values: [
           id,
           todo.date,
           todo.content,
@@ -223,8 +219,8 @@ export async function executeImportPlan(
           nextPosition,
           timestamp,
           timestamp,
-        ]
-      );
+        ],
+      });
 
       result.todosCreated += 1;
 
@@ -246,10 +242,10 @@ export async function executeImportPlan(
 
       const id = generateId();
       const timestamp = getTimestamp();
-      await execute(
-        'INSERT INTO sticky_notes (id, date, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)',
-        [id, note.date, note.content, timestamp, timestamp]
-      );
+      writeStatements.push({
+        query: 'INSERT INTO sticky_notes (id, date, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)',
+        values: [id, note.date, note.content, timestamp, timestamp],
+      });
 
       result.stickyNotesCreated += 1;
 
@@ -257,25 +253,16 @@ export async function executeImportPlan(
       onProgress?.(currentProgress, totalItems);
     }
 
-    await execute('COMMIT');
-    transactionStarted = false;
+    await executeBatch(writeStatements);
 
     return result;
   } catch (error) {
-    if (transactionStarted) {
-      try {
-        await execute('ROLLBACK');
-      } catch {
-        // Ignore rollback failures after an import failure.
-      }
-    }
-
     return {
+      ...result,
       entriesCreated: 0,
       entriesAppended: 0,
       todosCreated: 0,
       stickyNotesCreated: 0,
-      duplicatesSkipped: 0,
       errors: [`Import failed: ${String(error)}`],
     };
   }

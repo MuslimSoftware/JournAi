@@ -187,9 +187,13 @@ export function useCalendar() {
 
   const updateStickyNote = useCallback(async (id: string, content: string) => {
     if (!selectedDate) return null;
+    const trimmedContent = content.trim();
 
-    if (!id && content.length > 0) {
+    if (!id && trimmedContent.length > 0) {
       const newNote = await stickyNotesService.createStickyNote(selectedDate, content);
+      if (!newNote) {
+        return null;
+      }
       setStickyNote(newNote);
       setDayData(prev => {
         if (!prev) return prev;
@@ -201,7 +205,7 @@ export function useCalendar() {
       return newNote;
     }
 
-    if (id && content.length === 0) {
+    if (id && trimmedContent.length === 0) {
       await stickyNotesService.deleteStickyNote(id);
       setStickyNote({ id: '', date: selectedDate, content: '' });
       setDayData(prev => {

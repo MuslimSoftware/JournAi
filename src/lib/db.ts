@@ -2,16 +2,113 @@ import { invoke } from '@tauri-apps/api/core';
 import type { PaginatedResult, CursorConfig, PaginationOptions } from '../types/pagination';
 
 const DB_URL = 'sqlite:journai.db';
+const DB_LOCK_MAX_RETRIES = 10;
+const DB_LOCK_BASE_DELAY_MS = 40;
+
+let operationQueue: Promise<void> = Promise.resolve();
+
+export interface DbStatement {
+    query: string;
+    values?: unknown[];
+}
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
+
+function isDatabaseLockedError(error: unknown): boolean {
+    const message = String(error).toLowerCase();
+    return message.includes('database is locked') || message.includes('code: 5');
+}
+
+async function withDatabaseLockRetry<T>(operation: () => Promise<T>): Promise<T> {
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= DB_LOCK_MAX_RETRIES; attempt++) {
+        try {
+            return await operation();
+        } catch (error) {
+            lastError = error;
+
+            if (!isDatabaseLockedError(error) || attempt === DB_LOCK_MAX_RETRIES) {
+                throw error;
+            }
+
+            const backoffMs = DB_LOCK_BASE_DELAY_MS * (attempt + 1);
+            await sleep(backoffMs);
+        }
+    }
+
+    throw lastError;
+}
+
+async function runSerialized<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = operationQueue;
+    let release!: () => void;
+    operationQueue = new Promise<void>((resolve) => {
+        release = resolve;
+    });
+
+    await previous;
+
+    try {
+        return await operation();
+    } finally {
+        release();
+    }
+}
+
+async function invokeSelect(query: string, values: unknown[]): Promise<unknown> {
+    return invoke('plugin:sql|select', { db: DB_URL, query, values });
+}
+
+async function invokeExecute(query: string, values: unknown[]): Promise<{ rowsAffected: number }> {
+    const result = await invoke('plugin:sql|execute', { db: DB_URL, query, values });
+    const rowsAffected = Array.isArray(result) ? result[0] : (result as { rowsAffected: number }).rowsAffected;
+    return { rowsAffected };
+}
 
 export async function select<T>(query: string, values: unknown[] = []): Promise<T[]> {
-    const result = await invoke('plugin:sql|select', { db: DB_URL, query, values });
+    const result = await runSerialized(() => withDatabaseLockRetry(
+        () => invokeSelect(query, values)
+    ));
     return result as T[];
 }
 
 export async function execute(query: string, values: unknown[] = []): Promise<{ rowsAffected: number }> {
-    const result = await invoke('plugin:sql|execute', { db: DB_URL, query, values });
-    const rowsAffected = Array.isArray(result) ? result[0] : (result as { rowsAffected: number }).rowsAffected;
-    return { rowsAffected };
+    return runSerialized(() => withDatabaseLockRetry(
+        () => invokeExecute(query, values)
+    ));
+}
+
+export async function executeBatch(statements: DbStatement[]): Promise<void> {
+    if (statements.length === 0) {
+        return;
+    }
+
+    await runSerialized(async () => {
+        await withDatabaseLockRetry(() => invokeExecute('BEGIN IMMEDIATE', []));
+        let committed = false;
+
+        try {
+            for (const statement of statements) {
+                await withDatabaseLockRetry(() => invokeExecute(statement.query, statement.values ?? []));
+            }
+
+            await withDatabaseLockRetry(() => invokeExecute('COMMIT', []));
+            committed = true;
+        } finally {
+            if (!committed) {
+                try {
+                    await withDatabaseLockRetry(() => invokeExecute('ROLLBACK', []));
+                } catch {
+                    // Ignore rollback errors for already-failed batches.
+                }
+            }
+        }
+    });
 }
 
 export function parseCursor(cursor: string, config: CursorConfig): string[] {

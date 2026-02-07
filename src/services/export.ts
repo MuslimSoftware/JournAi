@@ -61,7 +61,7 @@ async function loadExportData(): Promise<ExportDataSet> {
   const [entries, todos, stickyNotes] = await Promise.all([
     select<EntryRow>('SELECT date, content FROM entries ORDER BY date ASC, created_at ASC'),
     select<TodoRow>('SELECT date, content, scheduled_time, completed FROM todos ORDER BY date ASC, position ASC'),
-    select<StickyNoteRow>('SELECT date, content FROM sticky_notes ORDER BY date ASC, created_at ASC'),
+    select<StickyNoteRow>("SELECT date, content FROM sticky_notes WHERE TRIM(content) != '' ORDER BY date ASC, created_at ASC"),
   ]);
 
   return {

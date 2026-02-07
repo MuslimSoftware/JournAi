@@ -183,6 +183,8 @@ export default function ImportCard() {
   };
 
   const importBlocked = !preview || preview.errors.length > 0 || isImporting;
+  const importCompleted = Boolean(importResult && importResult.errors.length === 0);
+  const importActionBlocked = importBlocked || importCompleted;
   const busy = isPreviewing || isImporting;
 
   return (
@@ -278,12 +280,15 @@ export default function ImportCard() {
             <Button
               variant="secondary"
               onClick={handleExecuteImport}
-              disabled={importBlocked}
+              disabled={importActionBlocked}
             >
-              {isImporting ? 'Importing...' : 'Confirm Import'}
+              {isImporting ? 'Importing...' : importCompleted ? 'Import Complete' : 'Confirm Import'}
             </Button>
           </div>
 
+          {importCompleted && (
+            <StatusMessage variant="success">Import complete. Your data was imported successfully.</StatusMessage>
+          )}
           {importResult && <ImportResultPanel result={importResult} />}
         </div>
       )}
