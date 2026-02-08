@@ -583,7 +583,7 @@
 }
 
 .chat-context-progress-fill--low {
-    background: #22c55e;
+    background: var(--text-muted);
 }
 
 .chat-context-progress-fill--medium {
