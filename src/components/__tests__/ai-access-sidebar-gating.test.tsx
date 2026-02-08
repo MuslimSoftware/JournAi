@@ -31,8 +31,15 @@ function LocationDisplay() {
 }
 
 function SettingsModalHarness() {
-  const { isOpen, closeSettings, initialSection } = useSettings();
-  return <SettingsModal isOpen={isOpen} onClose={closeSettings} initialSection={initialSection} />;
+  const { isOpen, closeSettings, initialSection, openSignal } = useSettings();
+  return (
+    <SettingsModal
+      isOpen={isOpen}
+      onClose={closeSettings}
+      initialSection={initialSection}
+      openSignal={openSignal}
+    />
+  );
 }
 
 function renderSidebar() {
@@ -87,6 +94,49 @@ describe('Sidebar AI Access Gating', () => {
     renderSidebar();
 
     fireEvent.click(screen.getByRole('link', { name: /insights/i }));
+
+    await screen.findByText('OpenAI API key required');
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Settings' }));
+
+    await screen.findByText('AI Configuration');
+    expect(screen.getByText('OpenAI API Key')).toBeInTheDocument();
+  });
+
+  it('locks Memory & RAG settings and opens the gate modal when API key is missing', async () => {
+    renderSidebar();
+
+    fireEvent.click(screen.getByRole('link', { name: /insights/i }));
+    await screen.findByText('OpenAI API key required');
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Settings' }));
+
+    const memoryLabel = await screen.findByText('Memory & RAG');
+    expect(memoryLabel.closest('.settings-sidebar-item')).toHaveClass('settings-sidebar-item--locked');
+
+    fireEvent.click(memoryLabel);
+
+    await screen.findByText('OpenAI API key required');
+    expect(screen.getByText(/Memory & RAG requires an OpenAI API key to use AI features/i)).toBeInTheDocument();
+    expect(screen.getByText('AI Configuration')).toBeInTheDocument();
+  });
+
+  it('go to settings redirects to AI even when settings is already open', async () => {
+    renderSidebar();
+
+    fireEvent.click(screen.getByRole('link', { name: /insights/i }));
+    await screen.findByText('OpenAI API key required');
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Settings' }));
+    await screen.findByText('AI Configuration');
+
+    const personalizationItem = Array.from(document.querySelectorAll('.settings-sidebar-item'))
+      .find((item) => item.textContent?.includes('Personalization')) as HTMLElement | undefined;
+    expect(personalizationItem).toBeTruthy();
+    fireEvent.click(personalizationItem!);
+    expect(screen.getByText('Theme')).toBeInTheDocument();
+
+    const memoryItem = Array.from(document.querySelectorAll('.settings-sidebar-item'))
+      .find((item) => item.textContent?.includes('Memory & RAG')) as HTMLElement | undefined;
+    expect(memoryItem).toBeTruthy();
+    fireEvent.click(memoryItem!);
 
     await screen.findByText('OpenAI API key required');
     fireEvent.click(screen.getByRole('button', { name: 'Go to Settings' }));

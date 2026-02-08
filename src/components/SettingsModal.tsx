@@ -1,4 +1,4 @@
-import { useEffect, useState, CSSProperties } from 'react';
+import { useEffect, useState, CSSProperties, useMemo } from 'react';
 import { IoClose } from 'react-icons/io5';
 import Modal from './Modal';
 import SettingsSidebar from './settings/SettingsSidebar';
@@ -11,17 +11,19 @@ import IconButton from './themed/IconButton';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import MobileSettings from './mobile/MobileSettings';
 import type { SettingsSection } from '../contexts/SettingsContext';
+import { useAiAccess } from '../contexts/AiAccessContext';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialSection?: SettingsSection;
+  openSignal?: number;
 }
 
 const SECTIONS = [
   { id: 'personalization', label: 'Personalization' },
   { id: 'ai', label: 'AI' },
-  { id: 'memory', label: 'Memory' },
+  { id: 'memory', label: 'Memory & RAG', requiresApiKey: true },
   { id: 'data-management', label: 'Data Management' },
 ];
 
@@ -29,16 +31,27 @@ export default function SettingsModal({
   isOpen,
   onClose,
   initialSection = 'personalization',
+  openSignal = 0,
 }: SettingsModalProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
   const { theme } = useTheme();
+  const { hasApiKey, requestAiAccess } = useAiAccess();
   const isMobile = useIsMobile();
+
+  const sectionItems = useMemo(
+    () =>
+      SECTIONS.map((section) => ({
+        ...section,
+        locked: Boolean(section.requiresApiKey && !hasApiKey),
+      })),
+    [hasApiKey],
+  );
 
   useEffect(() => {
     if (isOpen) {
       setActiveSection(initialSection);
     }
-  }, [initialSection, isOpen]);
+  }, [initialSection, isOpen, openSignal]);
 
   const contentStyle: CSSProperties = {
     display: 'flex',
@@ -67,15 +80,36 @@ export default function SettingsModal({
   };
 
   if (isMobile) {
-    return <MobileSettings isOpen={isOpen} onClose={onClose} initialSection={initialSection} />;
+    return (
+      <MobileSettings
+        isOpen={isOpen}
+        onClose={onClose}
+        initialSection={initialSection}
+        openSignal={openSignal}
+      />
+    );
   }
+
+  const handleSectionSelect = (sectionId: string) => {
+    const selectedSection = sectionItems.find((section) => section.id === sectionId);
+    if (!selectedSection) {
+      return;
+    }
+
+    if (selectedSection.locked) {
+      requestAiAccess(selectedSection.label);
+      return;
+    }
+
+    setActiveSection(sectionId as SettingsSection);
+  };
 
   const content = (
     <div style={contentStyle}>
       <SettingsSidebar
-        items={SECTIONS}
+        items={sectionItems}
         activeId={activeSection}
-        onSelect={(sectionId) => setActiveSection(sectionId as SettingsSection)}
+        onSelect={handleSectionSelect}
       />
       <div style={mainStyle}>
         {activeSection === 'personalization' && <PersonalizationSection />}

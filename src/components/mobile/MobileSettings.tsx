@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
-import { IoChevronBack, IoChevronForward, IoSearchOutline } from 'react-icons/io5';
+import { IoChevronBack, IoChevronForward, IoLockClosedOutline, IoSearchOutline } from 'react-icons/io5';
 import PersonalizationSection from '../settings/PersonalizationSection';
 import AISection from '../settings/AISection';
 import MemorySection from '../settings/MemorySection';
 import DataManagementSection from '../settings/DataManagementSection';
+import { useAiAccess } from '../../contexts/AiAccessContext';
 import '../../styles/settings.css';
 import '../../styles/themed.css';
 
@@ -11,6 +12,7 @@ interface MobileSettingsProps {
   isOpen: boolean;
   onClose: () => void;
   initialSection?: SectionId;
+  openSignal?: number;
 }
 
 type SectionId = 'personalization' | 'ai' | 'memory' | 'data-management';
@@ -26,6 +28,7 @@ const SETTINGS_SECTIONS: Array<{
   label: string;
   group: string;
   hasAdvanced?: boolean;
+  requiresApiKey?: boolean;
   component: ComponentType;
 }> = [
   {
@@ -46,6 +49,7 @@ const SETTINGS_SECTIONS: Array<{
     label: 'Memory & RAG',
     group: 'ai',
     hasAdvanced: true,
+    requiresApiKey: true,
     component: MemorySection,
   },
   {
@@ -65,9 +69,11 @@ export default function MobileSettings({
   isOpen,
   onClose,
   initialSection,
+  openSignal = 0,
 }: MobileSettingsProps) {
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const { hasApiKey, requestAiAccess } = useAiAccess();
 
   useEffect(() => {
     if (!isOpen) {
@@ -75,9 +81,11 @@ export default function MobileSettings({
       setSearchQuery('');
       return;
     }
-    setActiveSection(initialSection ?? null);
+    // On mobile, opening Settings from the nav should land on the section list.
+    // Keep explicit deep-links (e.g. openSettings('ai')) working.
+    setActiveSection(initialSection && initialSection !== 'personalization' ? initialSection : null);
     setSearchQuery('');
-  }, [initialSection, isOpen]);
+  }, [initialSection, isOpen, openSignal]);
 
   const filteredGroups = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -165,20 +173,34 @@ export default function MobileSettings({
                 <div key={group.id} className="mobile-settings__group">
                   <div className="mobile-settings__group-title">{group.label}</div>
                   <div className="mobile-settings__group-card">
-                    {group.sections.map((section) => (
-                      <button
-                        key={section.id}
-                        type="button"
-                        className="mobile-settings__row"
-                        onClick={() => setActiveSection(section.id)}
-                        aria-label={`Open ${section.label} settings`}
-                      >
-                        <div className="mobile-settings__row-text">
-                          <div className="mobile-settings__row-title">{section.label}</div>
-                        </div>
-                        <IoChevronForward className="mobile-settings__chevron app-icon" size={16} />
-                      </button>
-                    ))}
+                    {group.sections.map((section) => {
+                      const isLocked = Boolean(section.requiresApiKey && !hasApiKey);
+
+                      return (
+                        <button
+                          key={section.id}
+                          type="button"
+                          className={`mobile-settings__row${isLocked ? ' mobile-settings__row--locked' : ''}`}
+                          onClick={() => {
+                            if (isLocked) {
+                              requestAiAccess(section.label);
+                              return;
+                            }
+                            setActiveSection(section.id);
+                          }}
+                          aria-label={`Open ${section.label} settings`}
+                        >
+                          <div className="mobile-settings__row-text">
+                            <div className="mobile-settings__row-title">{section.label}</div>
+                          </div>
+                          {isLocked ? (
+                            <IoLockClosedOutline className="mobile-settings__lock-icon app-icon" size={16} />
+                          ) : (
+                            <IoChevronForward className="mobile-settings__chevron app-icon" size={16} />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ))

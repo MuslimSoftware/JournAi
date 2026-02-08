@@ -23,6 +23,7 @@ function LayoutContent() {
     closeSettings,
     openSettings,
     initialSection,
+    openSignal,
   } = useSettings();
 
   return (
@@ -38,6 +39,7 @@ function LayoutContent() {
         isOpen={isSettingsOpen}
         onClose={closeSettings}
         initialSection={initialSection}
+        openSignal={openSignal}
       />
       {isProcessing && progress && (
         <div className={`processing-toast ${cancelRequested ? 'cancelling' : ''}`}>
