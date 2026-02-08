@@ -26,6 +26,7 @@ function DesktopEntries() {
     selectedEntry,
     selectedEntryId,
     isLoading,
+    isResolvingTarget,
     isLoadingMore,
     hasMore,
     selectEntry,
@@ -60,6 +61,7 @@ function DesktopEntries() {
       <EntryDetail
         entry={selectedEntry}
         hasEntries={entries.length > 0}
+        isResolvingEntry={isResolvingTarget}
         recentEntries={entries}
         onUpdate={updateEntry}
         onCreateEntry={createEntry}

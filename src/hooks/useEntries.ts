@@ -12,6 +12,7 @@ interface UseEntriesReturn {
     selectedEntry: JournalEntry | null;
     selectedEntryId: string | null;
     isLoading: boolean;
+    isResolvingTarget: boolean;
     isLoadingMore: boolean;
     hasMore: boolean;
     selectEntry: (id: string | null) => void;
@@ -38,10 +39,11 @@ export function useEntries(): UseEntriesReturn {
         setInitialized,
     } = useEntriesState();
 
-    const { target } = useEntryNavigation();
+    const { target, clearTarget } = useEntryNavigation();
     const handledTargetId = useRef<string | null>(null);
     const isLoadingRef = useRef(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [isResolvingTarget, setIsResolvingTarget] = useState(false);
 
     const isLoading = !state.isInitialized;
 
@@ -66,35 +68,88 @@ export function useEntries(): UseEntriesReturn {
     }, [state.isInitialized, setEntries, setTotalCount, setHasMore, setCursor, setInitialized]);
 
     useEffect(() => {
-        if (!target || state.entries.length === 0) {
+        if (!target) {
+            setIsResolvingTarget(false);
+            return;
+        }
+
+        const existingEntry = state.entries.find((entry) => entry.id === target.entryId);
+        if (existingEntry) {
+            setIsResolvingTarget(false);
+            if (handledTargetId.current !== target.entryId || state.selectedEntryId !== target.entryId) {
+                handledTargetId.current = target.entryId;
+                setScrollOffset(0);
+                setSelectedEntryId(target.entryId);
+            }
+            if (!target.sourceRange) {
+                clearTarget();
+            }
+            return;
+        }
+
+        if (!state.isInitialized) {
+            setIsResolvingTarget(true);
             return;
         }
 
         if (handledTargetId.current === target.entryId) {
             return;
         }
+
         handledTargetId.current = target.entryId;
-
         setScrollOffset(0);
+        setIsResolvingTarget(true);
+        let cancelled = false;
 
-        const existsInList = state.entries.some(e => e.id === target.entryId);
-        if (existsInList) {
-            setSelectedEntryId(target.entryId);
-        } else {
-            entriesService.getEntriesByIds([target.entryId]).then(fetched => {
+        entriesService.getEntriesByIds([target.entryId])
+            .then((fetched) => {
+                if (cancelled) return;
+
                 if (fetched.length > 0) {
                     const newList = [fetched[0], ...state.entries];
                     newList.sort((a, b) => b.date.localeCompare(a.date));
                     setEntries(newList);
                     setSelectedEntryId(target.entryId);
                 }
+
+                if (!target.sourceRange) {
+                    clearTarget();
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setIsResolvingTarget(false);
+                }
             });
-        }
-    }, [state.entries, target, setSelectedEntryId, setEntries, setScrollOffset]);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        clearTarget,
+        state.entries,
+        state.isInitialized,
+        state.selectedEntryId,
+        target,
+        setSelectedEntryId,
+        setEntries,
+        setScrollOffset,
+    ]);
 
     const selectedEntry = useMemo(
-        () => state.entries.find(e => e.id === state.selectedEntryId) || null,
-        [state.entries, state.selectedEntryId]
+        () => {
+            const selected = state.entries.find((entry) => entry.id === state.selectedEntryId) || null;
+            if (selected) {
+                return selected;
+            }
+
+            if (target) {
+                return state.entries.find((entry) => entry.id === target.entryId) || null;
+            }
+
+            return null;
+        },
+        [state.entries, state.selectedEntryId, target]
     );
 
     const createEntry = useCallback(async (date?: string) => {
@@ -159,6 +214,7 @@ export function useEntries(): UseEntriesReturn {
         selectedEntry,
         selectedEntryId: state.selectedEntryId,
         isLoading,
+        isResolvingTarget,
         isLoadingMore,
         hasMore: state.hasMore,
         selectEntry,

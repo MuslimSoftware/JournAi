@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { FiPlus, FiEdit3, FiX } from 'react-icons/fi';
-import { Text, Button, IconButton, Card } from '../themed';
+import { Text, Button, IconButton, Card, Spinner } from '../themed';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ContentEditableEditor, ContentEditableEditorRef } from './ContentEditableEditor';
 import { JournalEntry, EntryUpdate } from '../../types/entry';
@@ -14,6 +14,7 @@ const { AUTOSAVE_DELAY_MS } = ENTRIES_CONSTANTS;
 interface EntryDetailProps {
   entry: JournalEntry | null;
   hasEntries: boolean;
+  isResolvingEntry?: boolean;
   recentEntries?: JournalEntry[];
   onUpdate: (id: string, updates: EntryUpdate) => void;
   onCreateEntry: () => void;
@@ -56,7 +57,16 @@ function findTextNodeAndOffset(
   return null;
 }
 
-export default function EntryDetail({ entry, hasEntries, recentEntries = [], onUpdate, onCreateEntry, onClearSelection, onSelectEntry }: EntryDetailProps) {
+export default function EntryDetail({
+  entry,
+  hasEntries,
+  isResolvingEntry = false,
+  recentEntries = [],
+  onUpdate,
+  onCreateEntry,
+  onClearSelection,
+  onSelectEntry,
+}: EntryDetailProps) {
   const [content, setContent] = useState('');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editorRef = useRef<ContentEditableEditorRef>(null);
@@ -193,6 +203,18 @@ export default function EntryDetail({ entry, hasEntries, recentEntries = [], onU
   }, [entry, saveContent, content]);
 
   if (!entry) {
+    if (isResolvingEntry) {
+      return (
+        <div
+          className="entries-empty-state"
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}
+        >
+          <Spinner size="md" />
+          <Text variant="muted">Loading entry...</Text>
+        </div>
+      );
+    }
+
     const displayedEntries = recentEntries.slice(0, 6);
 
     return (

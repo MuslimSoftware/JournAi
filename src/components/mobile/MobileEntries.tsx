@@ -27,7 +27,7 @@ const LONG_PRESS_DURATION = 400;
 export default function MobileEntries() {
   const { theme } = useTheme();
   const { target } = useEntryNavigation();
-  const [view, setView] = useState<View>('list');
+  const [view, setView] = useState<View>(() => (target ? 'editor' : 'list'));
   const handledTargetId = useRef<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,6 +44,7 @@ export default function MobileEntries() {
     selectedEntry,
     selectedEntryId,
     isLoading,
+    isResolvingTarget,
     selectEntry,
     createEntry,
     updateEntry,
@@ -198,7 +199,20 @@ export default function MobileEntries() {
 
   const groupedEntries = groupEntriesByDate(filteredEntries);
 
-  if (isLoading) {
+  const shouldOpenTargetEditor = Boolean(target && selectedEntry && target.entryId === selectedEntry.id);
+
+  if ((view === 'editor' || shouldOpenTargetEditor) && selectedEntry) {
+    return (
+      <MobileEntryEditor
+        entry={selectedEntry}
+        onBack={handleBack}
+        onUpdate={updateEntry}
+        onDelete={handleDelete}
+      />
+    );
+  }
+
+  if (isLoading || isResolvingTarget) {
     return (
       <div
         className="mobile-entries-container"
@@ -207,17 +221,6 @@ export default function MobileEntries() {
         <MobilePageHeader title="Entries" />
         <SkeletonEntryList count={6} />
       </div>
-    );
-  }
-
-  if (view === 'editor' && selectedEntry) {
-    return (
-      <MobileEntryEditor
-        entry={selectedEntry}
-        onBack={handleBack}
-        onUpdate={updateEntry}
-        onDelete={handleDelete}
-      />
     );
   }
 
