@@ -2,11 +2,13 @@ import { useRef, useEffect, useCallback, useMemo, useState, useLayoutEffect, for
 import type { MonthIndicators } from "../../services/calendar";
 import { toDateString, getTodayString } from "../../utils/date";
 import { hapticSelection } from "../../hooks/useHaptics";
+import CalendarIndicators from "../calendar/CalendarIndicators";
 
 interface WeekStripProps {
   selectedDate: string | null;
   indicators: MonthIndicators | null;
   onSelectDate: (date: string) => void;
+  onTodayPositionChange?: (position: 'visible' | 'above' | 'below') => void;
 }
 
 export interface WeekStripRef {
@@ -45,6 +47,7 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
   selectedDate,
   indicators,
   onSelectDate,
+  onTodayPositionChange,
 }, ref) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const todayStr = getTodayString();
@@ -54,6 +57,7 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasInitialScrolled = useRef(false);
   const pendingScrollAdjustment = useRef<number | null>(null);
+  const lastTodayPositionRef = useRef<'visible' | 'above' | 'below' | null>(null);
 
   const [weeks, setWeeks] = useState<Date[][]>(() => {
     const today = new Date(todayStr + "T12:00:00");
@@ -67,6 +71,30 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
       week.some((d) => toDateString(d) === effectiveDate),
     );
   }, [weeks, effectiveDate]);
+
+  const updateTodayVisibility = useCallback(() => {
+    if (!scrollRef.current || !onTodayPositionChange) return;
+
+    const containerRect = scrollRef.current.getBoundingClientRect();
+    const todayElement = scrollRef.current.querySelector<HTMLElement>(
+      `button[data-date="${todayStr}"]`,
+    );
+
+    let position: 'visible' | 'above' | 'below' = 'visible';
+    if (todayElement) {
+      const todayRect = todayElement.getBoundingClientRect();
+      if (todayRect.bottom <= containerRect.top) {
+        position = 'above';
+      } else if (todayRect.top >= containerRect.bottom) {
+        position = 'below';
+      }
+    }
+
+    if (lastTodayPositionRef.current !== position) {
+      lastTodayPositionRef.current = position;
+      onTodayPositionChange(position);
+    }
+  }, [onTodayPositionChange, todayStr]);
 
   useImperativeHandle(ref, () => ({
     scrollToDate: (dateStr: string) => {
@@ -96,6 +124,7 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
                 behavior: "auto",
               });
               hasInitialScrolled.current = true;
+              requestAnimationFrame(updateTodayVisibility);
             }
           });
         }
@@ -109,9 +138,10 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
           top: Math.max(0, targetScroll),
           behavior: "smooth",
         });
+        requestAnimationFrame(updateTodayVisibility);
       }
     },
-  }), [weeks]);
+  }), [weeks, updateTodayVisibility]);
 
   useEffect(() => {
     if (hasInitialScrolled.current) return;
@@ -124,15 +154,17 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
         behavior: "auto",
       });
       hasInitialScrolled.current = true;
+      requestAnimationFrame(updateTodayVisibility);
     }
-  }, [selectedWeekIndex, weeks.length]);
+  }, [selectedWeekIndex, weeks.length, updateTodayVisibility]);
 
   useLayoutEffect(() => {
     if (pendingScrollAdjustment.current !== null && scrollRef.current) {
       scrollRef.current.scrollTop += pendingScrollAdjustment.current;
       pendingScrollAdjustment.current = null;
+      requestAnimationFrame(updateTodayVisibility);
     }
-  }, [weeks]);
+  }, [weeks, updateTodayVisibility]);
 
   const loadMoreWeeks = useCallback((direction: "up" | "down") => {
     setWeeks((prevWeeks) => {
@@ -180,7 +212,8 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
         loadMoreWeeks("down");
       }
     }
-  }, [weeks.length, loadMoreWeeks]);
+    updateTodayVisibility();
+  }, [weeks.length, loadMoreWeeks, updateTodayVisibility]);
 
   const handleTouchStart = useCallback(() => {
     isTouchingRef.current = true;
@@ -201,6 +234,11 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
       }
     };
   }, []);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(updateTodayVisibility);
+    return () => cancelAnimationFrame(raf);
+  }, [weeks, effectiveDate, updateTodayVisibility]);
 
   const handleDayClick = useCallback(
     (date: Date) => {
@@ -245,16 +283,13 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
               const hasEntry = indicators?.entriesDates.has(dateStr) ?? false;
               const hasStickyNote = indicators?.stickyNotesDates.has(dateStr) ?? false;
               const todosCount = indicators?.todosCounts.get(dateStr);
-              const hasIndicator =
-                hasEntry ||
-                hasStickyNote ||
-                (todosCount && todosCount.total > 0);
 
               const isOddMonth = date.getMonth() % 2 === 1;
 
               return (
                 <button
                   key={dayIndex}
+                  data-date={dateStr}
                   className={[
                     "week-strip-day",
                     isSelected && "selected",
@@ -269,7 +304,11 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
                   <span className="week-strip-day-number">
                     {date.getDate()}
                   </span>
-                  {hasIndicator && <div className="week-strip-indicator" />}
+                  <CalendarIndicators
+                    hasEntry={hasEntry}
+                    hasStickyNote={hasStickyNote}
+                    todosCount={todosCount}
+                  />
                 </button>
               );
             })}

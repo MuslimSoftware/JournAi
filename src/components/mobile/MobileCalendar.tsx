@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, useRef } from "react";
+import { IoChevronDown, IoChevronUp } from "react-icons/io5";
 import { useCalendar } from "../../hooks/useCalendar";
 import { hapticSelection } from "../../hooks/useHaptics";
 import { getTodayString } from "../../utils/date";
@@ -22,6 +23,7 @@ export default function MobileCalendar() {
     dayData,
     stickyNote,
     isLoadingDayData,
+    goToToday,
     selectDate,
     setMonth,
     setYear,
@@ -35,16 +37,20 @@ export default function MobileCalendar() {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [pendingMonth, setPendingMonth] = useState(0);
   const [pendingYear, setPendingYear] = useState(2025);
+  const [todayPosition, setTodayPosition] = useState<"visible" | "above" | "below">("visible");
   const weekStripRef = useRef<WeekStripRef>(null);
 
   const handleSelectDate = useCallback(
     (date: string | null) => {
       if (date) {
+        const selected = new Date(date + "T12:00:00");
+        setMonth(selected.getMonth());
+        setYear(selected.getFullYear());
         hapticSelection();
       }
       selectDate(date);
     },
-    [selectDate],
+    [selectDate, setMonth, setYear],
   );
 
   const headerTitle = useMemo(() => {
@@ -96,13 +102,12 @@ export default function MobileCalendar() {
   }, []);
 
   const handleTodayPress = useCallback(() => {
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    selectDate(dateStr);
+    const dateStr = getTodayString();
+    goToToday();
     weekStripRef.current?.scrollToDate(dateStr);
     setIsDatePickerOpen(false);
     hapticSelection();
-  }, [selectDate]);
+  }, [goToToday]);
 
   return (
     <div className="mobile-calendar-page">
@@ -127,12 +132,25 @@ export default function MobileCalendar() {
           </button>
         }
       />
-      <WeekStrip
-        ref={weekStripRef}
-        selectedDate={selectedDate}
-        indicators={indicators}
-        onSelectDate={handleSelectDate}
-      />
+      <div className="mobile-calendar-strip-area">
+        <WeekStrip
+          ref={weekStripRef}
+          selectedDate={selectedDate}
+          indicators={indicators}
+          onSelectDate={handleSelectDate}
+          onTodayPositionChange={setTodayPosition}
+        />
+        {todayPosition !== "visible" && !isDatePickerOpen && (
+          <button
+            type="button"
+            className="mobile-calendar-today-jump"
+            onClick={handleTodayPress}
+            aria-label={todayPosition === "below" ? "Scroll down to today" : "Scroll up to today"}
+          >
+            {todayPosition === "below" ? <IoChevronDown size={16} /> : <IoChevronUp size={16} />}
+          </button>
+        )}
+      </div>
       <div className="mobile-calendar-detail">
         <DayDetail
           dayData={dayData}
