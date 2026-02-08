@@ -253,6 +253,10 @@
     font-weight: 700;
 }
 
+.calendar-day-cell.today {
+    box-shadow: inset 0 0 0 1px var(--border-primary);
+}
+
 .calendar-day-cell.selected {
     background-color: var(--bg-secondary);
 }
