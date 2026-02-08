@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { IoCalendarOutline, IoCalendar, IoBookOutline, IoBook, IoChatbubbleOutline, IoChatbubble, IoSparklesOutline, IoSparkles, IoSettingsOutline } from 'react-icons/io5';
+import { IoCalendarOutline, IoCalendar, IoBookOutline, IoBook, IoChatbubbleOutline, IoChatbubble, IoSparklesOutline, IoSparkles, IoSettingsOutline, IoLockClosedOutline } from 'react-icons/io5';
 import { useMobileNav } from '../../contexts/MobileNavContext';
 import { useSettings } from '../../contexts/SettingsContext';
+import { useAiAccess } from '../../contexts/AiAccessContext';
 import { hapticSelection } from '../../hooks/useHaptics';
 import SideDrawer from './SideDrawer';
 import { Text } from '../themed';
@@ -10,13 +11,14 @@ import { Text } from '../themed';
 const navItems = [
   { path: '/calendar', label: 'Calendar', icon: IoCalendarOutline, iconFilled: IoCalendar },
   { path: '/entries', label: 'Entries', icon: IoBookOutline, iconFilled: IoBook },
-  { path: '/chat', label: 'Chat', icon: IoChatbubbleOutline, iconFilled: IoChatbubble },
-  { path: '/insights', label: 'Insights', icon: IoSparklesOutline, iconFilled: IoSparkles },
+  { path: '/chat', label: 'Chat', icon: IoChatbubbleOutline, iconFilled: IoChatbubble, requiresApiKey: true },
+  { path: '/insights', label: 'Insights', icon: IoSparklesOutline, iconFilled: IoSparkles, requiresApiKey: true },
 ];
 
 export default function MobileNavDrawer() {
   const { isNavOpen, closeNav } = useMobileNav();
   const { openSettings } = useSettings();
+  const { hasApiKey, requestAiAccess } = useAiAccess();
   const location = useLocation();
 
   const handleNavClick = useCallback((path: string) => {
@@ -38,17 +40,31 @@ export default function MobileNavDrawer() {
         <nav className="mobile-nav-drawer__list">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
+            const isLocked = Boolean(item.requiresApiKey && !hasApiKey);
+
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
                 className={`mobile-nav-drawer__item${isActive ? ' mobile-nav-drawer__item--active' : ''}`}
-                onClick={() => handleNavClick(item.path)}
+                onClick={(event) => {
+                  if (isLocked) {
+                    event.preventDefault();
+                    hapticSelection();
+                    closeNav();
+                    requestAiAccess(item.label);
+                    return;
+                  }
+                  handleNavClick(item.path);
+                }}
               >
                 {isActive ? <item.iconFilled size={22} /> : <item.icon size={22} />}
-                <Text variant={isActive ? 'primary' : 'secondary'} className="mobile-nav-drawer__label">
-                  {item.label}
-                </Text>
+                <div className="mobile-nav-drawer__item-main">
+                  <Text variant={isActive ? 'primary' : 'secondary'} className="mobile-nav-drawer__label">
+                    {item.label}
+                  </Text>
+                  {isLocked && <IoLockClosedOutline size={14} className="mobile-nav-drawer__lock-icon" />}
+                </div>
               </NavLink>
             );
           })}

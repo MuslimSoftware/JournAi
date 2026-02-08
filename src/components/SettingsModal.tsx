@@ -1,4 +1,4 @@
-import { useState, CSSProperties } from 'react';
+import { useEffect, useState, CSSProperties } from 'react';
 import { IoClose } from 'react-icons/io5';
 import Modal from './Modal';
 import SettingsSidebar from './settings/SettingsSidebar';
@@ -10,10 +10,12 @@ import { useTheme } from '../contexts/ThemeContext';
 import IconButton from './themed/IconButton';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import MobileSettings from './mobile/MobileSettings';
+import type { SettingsSection } from '../contexts/SettingsContext';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialSection?: SettingsSection;
 }
 
 const SECTIONS = [
@@ -23,10 +25,20 @@ const SECTIONS = [
   { id: 'data-management', label: 'Data Management' },
 ];
 
-export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const [activeSection, setActiveSection] = useState('personalization');
+export default function SettingsModal({
+  isOpen,
+  onClose,
+  initialSection = 'personalization',
+}: SettingsModalProps) {
+  const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
   const { theme } = useTheme();
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveSection(initialSection);
+    }
+  }, [initialSection, isOpen]);
 
   const contentStyle: CSSProperties = {
     display: 'flex',
@@ -55,7 +67,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   };
 
   if (isMobile) {
-    return <MobileSettings isOpen={isOpen} onClose={onClose} />;
+    return <MobileSettings isOpen={isOpen} onClose={onClose} initialSection={initialSection} />;
   }
 
   const content = (
@@ -63,7 +75,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       <SettingsSidebar
         items={SECTIONS}
         activeId={activeSection}
-        onSelect={setActiveSection}
+        onSelect={(sectionId) => setActiveSection(sectionId as SettingsSection)}
       />
       <div style={mainStyle}>
         {activeSection === 'personalization' && <PersonalizationSection />}

@@ -83,6 +83,10 @@
   font-weight: 700;
 }
 
+.sidebar-nav-link--locked {
+  color: var(--text-secondary);
+}
+
 .sidebar-nav-icon {
   font-size: 1.25rem;
   flex-shrink: 0;
@@ -98,6 +102,12 @@
 .sidebar.pinned .sidebar-nav-label {
   display: inline;
   opacity: 1;
+}
+
+.sidebar-nav-lock-icon {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .sidebar-footer {

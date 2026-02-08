@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { IoCalendarOutline, IoCalendar, IoBookOutline, IoBook, IoChatbubbleOutline, IoChatbubble, IoSparklesOutline, IoSparkles, IoSync, IoClose } from "react-icons/io5";
 import Sidebar from "./Sidebar";
@@ -6,31 +5,39 @@ import SettingsModal from "./SettingsModal";
 import { SidebarProvider } from "../contexts/SidebarContext";
 import { FocusModeProvider, useFocusMode } from "../contexts/FocusModeContext";
 import { useProcessing } from "../contexts/ProcessingContext";
+import { SettingsProvider, useSettings } from "../contexts/SettingsContext";
+import { AiAccessProvider } from "../contexts/AiAccessContext";
 
 const mainNavItems = [
   { path: "/calendar", label: "Calendar", icon: IoCalendarOutline, iconFilled: IoCalendar },
   { path: "/entries", label: "Entries", icon: IoBookOutline, iconFilled: IoBook },
-  { path: "/chat", label: "Chat", icon: IoChatbubbleOutline, iconFilled: IoChatbubble },
-  { path: "/insights", label: "Insights", icon: IoSparklesOutline, iconFilled: IoSparkles },
+  { path: "/chat", label: "Chat", icon: IoChatbubbleOutline, iconFilled: IoChatbubble, requiresApiKey: true },
+  { path: "/insights", label: "Insights", icon: IoSparklesOutline, iconFilled: IoSparkles, requiresApiKey: true },
 ];
 
 function LayoutContent() {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { isFocusMode } = useFocusMode();
   const { isProcessing, progress, cancelRequested, requestCancel } = useProcessing();
+  const {
+    isOpen: isSettingsOpen,
+    closeSettings,
+    openSettings,
+    initialSection,
+  } = useSettings();
 
   return (
     <div className={`app-layout ${isFocusMode ? 'focus-mode-active' : ''}`}>
       <Sidebar
         items={mainNavItems}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={() => openSettings()}
       />
       <main className="main-content">
         <Outlet />
       </main>
       <SettingsModal
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={closeSettings}
+        initialSection={initialSection}
       />
       {isProcessing && progress && (
         <div className={`processing-toast ${cancelRequested ? 'cancelling' : ''}`}>
@@ -58,9 +65,13 @@ function LayoutContent() {
 export default function Layout() {
   return (
     <SidebarProvider>
-      <FocusModeProvider>
-        <LayoutContent />
-      </FocusModeProvider>
+      <SettingsProvider>
+        <AiAccessProvider>
+          <FocusModeProvider>
+            <LayoutContent />
+          </FocusModeProvider>
+        </AiAccessProvider>
+      </SettingsProvider>
     </SidebarProvider>
   );
 }

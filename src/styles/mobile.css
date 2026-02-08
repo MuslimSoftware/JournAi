@@ -918,6 +918,17 @@ html.keyboard-open .mobile-fab {
   font-weight: 500;
 }
 
+.mobile-nav-drawer__item-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-nav-drawer__lock-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
 .mobile-nav-drawer__footer {
   padding: 0 8px;
   border-top: 1px solid var(--border-primary);

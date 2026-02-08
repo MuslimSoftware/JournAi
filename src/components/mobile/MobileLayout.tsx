@@ -5,10 +5,11 @@ import SettingsModal from '../SettingsModal';
 import { SidebarProvider } from '../../contexts/SidebarContext';
 import { SettingsProvider, useSettings } from '../../contexts/SettingsContext';
 import { MobileNavProvider } from '../../contexts/MobileNavContext';
+import { AiAccessProvider } from '../../contexts/AiAccessContext';
 import '../../styles/mobile.css';
 
 function MobileLayoutInner() {
-  const { isOpen: isSettingsOpen, closeSettings } = useSettings();
+  const { isOpen: isSettingsOpen, closeSettings, initialSection } = useSettings();
   const location = useLocation();
 
   useLayoutEffect(() => {
@@ -27,6 +28,7 @@ function MobileLayoutInner() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={closeSettings}
+        initialSection={initialSection}
       />
     </div>
   );
@@ -36,9 +38,11 @@ export default function MobileLayout() {
   return (
     <SidebarProvider>
       <SettingsProvider>
-        <MobileNavProvider>
-          <MobileLayoutInner />
-        </MobileNavProvider>
+        <AiAccessProvider>
+          <MobileNavProvider>
+            <MobileLayoutInner />
+          </MobileNavProvider>
+        </AiAccessProvider>
       </SettingsProvider>
     </SidebarProvider>
   );

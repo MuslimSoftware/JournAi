@@ -250,6 +250,41 @@
   margin-bottom: var(--settings-spacing-xl);
 }
 
+.settings-api-key-summary {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-primary);
+  margin-bottom: var(--settings-spacing-lg);
+}
+
+.settings-api-key-summary__value {
+  margin: 0;
+  font-family: monospace;
+  font-size: var(--settings-font-md);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.settings-api-key-summary__mask {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
+.settings-api-key-summary__suffix {
+  white-space: nowrap;
+}
+
 .settings-label {
   display: block;
   margin-bottom: var(--settings-spacing-sm);

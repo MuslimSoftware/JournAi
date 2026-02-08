@@ -30,6 +30,14 @@ class SecureStorage {
 export const secureStorage = new SecureStorage();
 
 const API_KEY_STORAGE_KEY = 'journai.apiKey';
+const API_KEY_CHANGE_EVENT = 'journai:api-key-change';
+
+function notifyApiKeyChanged(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.dispatchEvent(new Event(API_KEY_CHANGE_EVENT));
+}
 
 export function getApiKey(): string | null {
   return localStorage.getItem(API_KEY_STORAGE_KEY);
@@ -37,8 +45,30 @@ export function getApiKey(): string | null {
 
 export function setApiKey(apiKey: string): void {
   localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+  notifyApiKeyChanged();
 }
 
 export function deleteApiKey(): void {
   localStorage.removeItem(API_KEY_STORAGE_KEY);
+  notifyApiKeyChanged();
+}
+
+export function subscribeToApiKeyChanges(listener: () => void): () => void {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === API_KEY_STORAGE_KEY || event.key === null) {
+      listener();
+    }
+  };
+
+  window.addEventListener(API_KEY_CHANGE_EVENT, listener);
+  window.addEventListener('storage', handleStorage);
+
+  return () => {
+    window.removeEventListener(API_KEY_CHANGE_EVENT, listener);
+    window.removeEventListener('storage', handleStorage);
+  };
 }

@@ -10,6 +10,7 @@ import '../../styles/themed.css';
 interface MobileSettingsProps {
   isOpen: boolean;
   onClose: () => void;
+  initialSection?: SectionId;
 }
 
 type SectionId = 'personalization' | 'ai' | 'memory' | 'data-management';
@@ -60,7 +61,11 @@ const groupLabels = GROUPS.reduce<Record<string, string>>((acc, group) => {
   return acc;
 }, {});
 
-export default function MobileSettings({ isOpen, onClose }: MobileSettingsProps) {
+export default function MobileSettings({
+  isOpen,
+  onClose,
+  initialSection,
+}: MobileSettingsProps) {
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -68,8 +73,11 @@ export default function MobileSettings({ isOpen, onClose }: MobileSettingsProps)
     if (!isOpen) {
       setActiveSection(null);
       setSearchQuery('');
+      return;
     }
-  }, [isOpen]);
+    setActiveSection(initialSection ?? null);
+    setSearchQuery('');
+  }, [initialSection, isOpen]);
 
   const filteredGroups = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
