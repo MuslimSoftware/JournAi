@@ -46,7 +46,7 @@ export default function MobileNavDrawer() {
               <NavLink
                 key={item.path}
                 to={item.path}
-                className={`mobile-nav-drawer__item${isActive ? ' mobile-nav-drawer__item--active' : ''}`}
+                className={`mobile-nav-drawer__item${isActive ? ' mobile-nav-drawer__item--active' : ''}${isLocked ? ' mobile-nav-drawer__item--locked' : ''}`}
                 onClick={(event) => {
                   if (isLocked) {
                     event.preventDefault();
@@ -58,12 +58,17 @@ export default function MobileNavDrawer() {
                   handleNavClick(item.path);
                 }}
               >
-                {isActive ? <item.iconFilled size={22} /> : <item.icon size={22} />}
+                {isLocked ? (
+                  <IoLockClosedOutline size={22} className="mobile-nav-drawer__lock-icon" />
+                ) : isActive ? (
+                  <item.iconFilled size={22} />
+                ) : (
+                  <item.icon size={22} />
+                )}
                 <div className="mobile-nav-drawer__item-main">
-                  <Text variant={isActive ? 'primary' : 'secondary'} className="mobile-nav-drawer__label">
+                  <Text variant={isLocked ? 'muted' : isActive ? 'primary' : 'secondary'} className="mobile-nav-drawer__label">
                     {item.label}
                   </Text>
-                  {isLocked && <IoLockClosedOutline size={14} className="mobile-nav-drawer__lock-icon" />}
                 </div>
               </NavLink>
             );

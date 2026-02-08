@@ -84,7 +84,13 @@
 }
 
 .sidebar-nav-link--locked {
-  color: var(--text-secondary);
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+
+.sidebar-nav-link--locked:hover {
+  color: var(--text-muted);
+  background-color: transparent;
 }
 
 .sidebar-nav-icon {
@@ -105,7 +111,7 @@
 }
 
 .sidebar-nav-lock-icon {
-  font-size: 0.875rem;
+  font-size: 1.25rem;
   color: var(--text-muted);
   flex-shrink: 0;
 }

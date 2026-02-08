@@ -913,6 +913,11 @@ html.keyboard-open .mobile-fab {
   background-color: var(--bg-secondary);
 }
 
+.mobile-nav-drawer__item--locked {
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+
 .mobile-nav-drawer__label {
   font-size: 1rem;
   font-weight: 500;

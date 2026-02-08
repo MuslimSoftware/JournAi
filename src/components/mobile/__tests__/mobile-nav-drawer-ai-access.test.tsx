@@ -63,10 +63,13 @@ describe('Mobile Nav Drawer AI Access Gating', () => {
   it('shows lock icons and blocks navigation when API key is missing', async () => {
     renderDrawer();
 
-    await screen.findByRole('link', { name: /chat/i });
+    const chatLink = await screen.findByRole('link', { name: /chat/i });
+    const insightsLink = screen.getByRole('link', { name: /insights/i });
     expect(document.querySelectorAll('.mobile-nav-drawer__lock-icon')).toHaveLength(2);
+    expect(chatLink.querySelectorAll('svg')).toHaveLength(1);
+    expect(insightsLink.querySelectorAll('svg')).toHaveLength(1);
 
-    fireEvent.click(screen.getByRole('link', { name: /chat/i }));
+    fireEvent.click(chatLink);
 
     await screen.findByText('OpenAI API key required');
     expect(screen.getByTestId('location')).toHaveTextContent('/calendar');

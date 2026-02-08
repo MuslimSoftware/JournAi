@@ -70,6 +70,7 @@ export default function MobileEntries() {
     isRefreshing,
     isPulling,
     canRelease,
+    containerRef,
     handlers: pullHandlers,
   } = usePullToRefresh({
     onRefresh: handleRefresh,
@@ -340,7 +341,7 @@ export default function MobileEntries() {
             </Text>
           </div>
         ) : (
-          <div className="mobile-entries-list">
+          <div className="mobile-entries-list" ref={containerRef}>
             {filteredEntries.length === 0 && searchQuery ? (
               <div className="mobile-no-results">
                 <Text variant="muted">No entries found for "{searchQuery}"</Text>

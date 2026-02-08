@@ -71,6 +71,8 @@ describe('Sidebar AI Access Gating', () => {
     expect(chatLink).toHaveClass('sidebar-nav-link--locked');
     expect(insightsLink).toHaveClass('sidebar-nav-link--locked');
     expect(document.querySelectorAll('.sidebar-nav-lock-icon')).toHaveLength(2);
+    expect(chatLink.querySelectorAll('svg')).toHaveLength(1);
+    expect(insightsLink.querySelectorAll('svg')).toHaveLength(1);
 
     fireEvent.click(chatLink);
 

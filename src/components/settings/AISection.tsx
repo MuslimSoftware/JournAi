@@ -6,7 +6,6 @@ import { Text, Button } from '../themed';
 import { appStore, STORE_KEYS } from '../../lib/store';
 import { deleteApiKey, getApiKey, setApiKey } from '../../lib/secureStorage';
 import type { OpenAIModel } from '../../types/chat';
-import { useIsMobile } from '../../hooks/useMediaQuery';
 import '../../styles/settings.css';
 
 const MODELS: { value: OpenAIModel; label: string }[] = [
@@ -37,7 +36,6 @@ function getMaskedKeyPreview(apiKey: string): { mask: string; suffix: string } {
 
 export default function AISection() {
   const { mode } = useTheme();
-  const isMobile = useIsMobile();
   const [apiKeyValue, setApiKeyValue] = useState('');
   const [hasSavedApiKey, setHasSavedApiKey] = useState(false);
   const [savedKeyMask, setSavedKeyMask] = useState('');
@@ -181,35 +179,19 @@ export default function AISection() {
                 className="settings-input"
                 style={{ backgroundColor: inputBg }}
               />
-              {!isMobile && (
-                <button
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  className="settings-toggle-button"
-                  aria-label={showKey ? 'Hide API key' : 'Show API key'}
-                >
-                  {showKey ? <IoEyeOff size={14} /> : <IoEye size={14} />}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="settings-toggle-button"
+                aria-label={showKey ? 'Hide API key' : 'Show API key'}
+              >
+                {showKey ? <IoEyeOff size={14} /> : <IoEye size={14} />}
+              </button>
             </div>
             <p className="settings-hint">Get your API key from platform.openai.com</p>
           </>
         )}
       </div>
-
-      {isMobile && (isEditingApiKey || !hasSavedApiKey) && (
-        <div className="settings-toggle-row">
-          <span className="settings-toggle-label">Show API key</span>
-          <label className="settings-switch">
-            <input
-              type="checkbox"
-              checked={showKey}
-              onChange={(event) => setShowKey(event.target.checked)}
-            />
-            <span className="settings-switch__slider" />
-          </label>
-        </div>
-      )}
 
       <div className="settings-field settings-advanced">
         <label className="settings-label">Model</label>
