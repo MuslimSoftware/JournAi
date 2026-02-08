@@ -23,6 +23,7 @@ type View = 'list' | 'editor';
 
 const PULL_THRESHOLD = 70;
 const LONG_PRESS_DURATION = 400;
+const LOAD_MORE_THRESHOLD_PX = 120;
 
 export default function MobileEntries() {
   const { theme } = useTheme();
@@ -45,12 +46,17 @@ export default function MobileEntries() {
     selectedEntryId,
     isLoading,
     isResolvingTarget,
+    isLoadingMore,
+    hasMore,
     selectEntry,
     createEntry,
     updateEntry,
     deleteEntry,
+    loadMore,
     refreshEntries,
   } = useEntries();
+
+  const isPaginating = useRef(false);
 
   useEffect(() => {
     if (!target || !selectedEntry) return;
@@ -199,6 +205,29 @@ export default function MobileEntries() {
     : entries;
 
   const groupedEntries = groupEntriesByDate(filteredEntries);
+  const isFiltering = searchQuery.trim().length > 0;
+
+  const triggerLoadMore = useCallback(() => {
+    if (isPaginating.current || isLoadingMore || !hasMore || isFiltering) return;
+
+    isPaginating.current = true;
+    void loadMore().finally(() => {
+      isPaginating.current = false;
+    });
+  }, [hasMore, isFiltering, isLoadingMore, loadMore]);
+
+  const maybeLoadMore = useCallback((element: HTMLDivElement | null) => {
+    if (!element || isFiltering || !hasMore) return;
+
+    const remainingScroll = element.scrollHeight - element.scrollTop - element.clientHeight;
+    if (remainingScroll <= LOAD_MORE_THRESHOLD_PX) {
+      triggerLoadMore();
+    }
+  }, [hasMore, isFiltering, triggerLoadMore]);
+
+  const handleListScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    maybeLoadMore(event.currentTarget);
+  }, [maybeLoadMore]);
 
   const shouldOpenTargetEditor = Boolean(target && selectedEntry && target.entryId === selectedEntry.id);
 
@@ -341,7 +370,11 @@ export default function MobileEntries() {
             </Text>
           </div>
         ) : (
-          <div className="mobile-entries-list" ref={containerRef}>
+          <div
+            className="mobile-entries-list"
+            ref={containerRef}
+            onScroll={handleListScroll}
+          >
             {filteredEntries.length === 0 && searchQuery ? (
               <div className="mobile-no-results">
                 <Text variant="muted">No entries found for "{searchQuery}"</Text>
@@ -380,6 +413,12 @@ export default function MobileEntries() {
                   ))}
                 </div>
               ))
+            )}
+
+            {isLoadingMore && !isFiltering && (
+              <div className="mobile-entries-loading-more">
+                <Text variant="muted">Loading more entries...</Text>
+              </div>
             )}
           </div>
         )}

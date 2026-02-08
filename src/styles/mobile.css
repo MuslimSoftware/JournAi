@@ -325,6 +325,11 @@ html.keyboard-open .mobile-fab {
   text-align: center;
 }
 
+.mobile-entries-loading-more {
+  padding: 16px 24px;
+  text-align: center;
+}
+
 .mobile-editor-container {
   height: 100%;
   display: flex;
