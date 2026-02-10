@@ -309,6 +309,7 @@ pub fn run() {
             app_lock::app_lock_lock,
             app_lock::app_lock_disable,
             app_lock::app_lock_change_passphrase,
+            app_lock::app_lock_backup_and_reset_secure_db,
             secure_storage::secure_storage_set,
             secure_storage::secure_storage_get,
             secure_storage::secure_storage_delete,

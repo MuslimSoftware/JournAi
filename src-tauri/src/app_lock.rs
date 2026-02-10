@@ -1,6 +1,7 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Nonce};
@@ -11,13 +12,14 @@ use base64::Engine;
 use rand::rngs::OsRng;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::secure_storage;
 
 const APP_LOCK_KEYSET_STORAGE_KEY: &str = "journai.app_lock.keyset";
 const APP_LOCK_PASSPHRASE_MIN_LENGTH: usize = 8;
 const SQLCIPHER_KEY_ENV_VAR: &str = "JOURNAI_SQLCIPHER_KEY_HEX";
+const SECURE_DB_FILE_NAME: &str = "journai_secure.db";
 const KEY_LENGTH: usize = 32;
 const SALT_LENGTH: usize = 16;
 const NONCE_LENGTH: usize = 12;
@@ -110,6 +112,11 @@ fn parse_keyset(raw: &str) -> Result<Keyset, String> {
     serde_json::from_str(raw).map_err(|e| format!("Invalid stored app lock keyset: {e}"))
 }
 
+fn write_keyset_fallback_file(raw: &str) -> Result<(), String> {
+    let path = keyset_fallback_path()?;
+    fs::write(&path, raw).map_err(|e| format!("Failed to write fallback keyset {}: {e}", path.display()))
+}
+
 fn read_keyset_fallback_file() -> Result<Option<Keyset>, String> {
     let path = keyset_fallback_path()?;
     if !path.exists() {
@@ -126,6 +133,7 @@ fn read_keyset() -> Result<Option<Keyset>, String> {
     match secure_storage::secure_storage_get(APP_LOCK_KEYSET_STORAGE_KEY.to_string()) {
         Ok(Some(raw)) => {
             let keyset = parse_keyset(&raw)?;
+            let _ = write_keyset_fallback_file(&raw);
             Ok(Some(keyset))
         }
         Ok(None) => read_keyset_fallback_file(),
@@ -135,15 +143,9 @@ fn read_keyset() -> Result<Option<Keyset>, String> {
 
 fn write_keyset(keyset: &Keyset) -> Result<(), String> {
     let raw = serde_json::to_string(keyset).map_err(|e| format!("Failed to serialize keyset: {e}"))?;
-    if secure_storage::secure_storage_set(APP_LOCK_KEYSET_STORAGE_KEY.to_string(), raw.clone()).is_ok() {
-        if let Ok(path) = keyset_fallback_path() {
-            let _ = fs::remove_file(path);
-        }
-        return Ok(());
-    }
-
-    let path = keyset_fallback_path()?;
-    fs::write(&path, raw).map_err(|e| format!("Failed to write fallback keyset {}: {e}", path.display()))
+    write_keyset_fallback_file(&raw)?;
+    let _ = secure_storage::secure_storage_set(APP_LOCK_KEYSET_STORAGE_KEY.to_string(), raw);
+    Ok(())
 }
 
 fn verify_passphrase(keyset: &Keyset, passphrase: &str) -> Result<(), String> {
@@ -260,6 +262,67 @@ fn clear_sqlcipher_session_key() {
     std::env::remove_var(SQLCIPHER_KEY_ENV_VAR);
 }
 
+fn secure_db_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let mut app_config_dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("Failed to resolve app config directory: {e}"))?;
+    fs::create_dir_all(&app_config_dir).map_err(|e| {
+        format!(
+            "Failed to create app config directory {}: {e}",
+            app_config_dir.display()
+        )
+    })?;
+    app_config_dir.push(SECURE_DB_FILE_NAME);
+    Ok(app_config_dir)
+}
+
+fn append_path_suffix(path: &Path, suffix: &str) -> PathBuf {
+    let mut output = path.as_os_str().to_os_string();
+    output.push(suffix);
+    PathBuf::from(output)
+}
+
+fn move_to_backup(path: &Path, backup_suffix: &str) -> Result<Option<PathBuf>, String> {
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+        return Err(format!(
+            "Unable to determine backup file name for path {}",
+            path.display()
+        ));
+    };
+
+    let backup_path = path.with_file_name(format!("{file_name}.backup-{backup_suffix}"));
+    fs::rename(path, &backup_path).map_err(|e| {
+        format!(
+            "Failed to move {} to backup {}: {e}",
+            path.display(),
+            backup_path.display()
+        )
+    })?;
+    Ok(Some(backup_path))
+}
+
+fn backup_and_reset_secure_database(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
+    let db_path = secure_db_path(app)?;
+    let backup_suffix = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+        .to_string();
+
+    let db_backup_path = move_to_backup(&db_path, &backup_suffix)?;
+    let wal_path = append_path_suffix(&db_path, "-wal");
+    let shm_path = append_path_suffix(&db_path, "-shm");
+    let _ = move_to_backup(&wal_path, &backup_suffix)?;
+    let _ = move_to_backup(&shm_path, &backup_suffix)?;
+
+    Ok(db_backup_path)
+}
+
 fn set_runtime_unlocked(runtime: &State<'_, AppLockRuntimeState>, value: bool) -> Result<(), String> {
     let mut guard = runtime
         .unlocked
@@ -300,12 +363,27 @@ pub fn app_lock_status(runtime: State<'_, AppLockRuntimeState>) -> Result<AppLoc
 }
 
 #[tauri::command]
-pub fn app_lock_configure(passphrase: String, runtime: State<'_, AppLockRuntimeState>) -> Result<(), String> {
+pub fn app_lock_configure(
+    passphrase: String,
+    runtime: State<'_, AppLockRuntimeState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    if read_keyset()?.is_some() {
+        return Err("App lock is already configured. Unlock with your existing passphrase.".to_string());
+    }
+
+    backup_and_reset_secure_database(&app)?;
     let keyset = build_keyset_from_passphrase(&passphrase, None)?;
     let dek = unwrap_dek(&keyset, &passphrase)?;
     write_keyset(&keyset)?;
     set_sqlcipher_session_key(&dek);
     set_runtime_unlocked(&runtime, true)
+}
+
+#[tauri::command]
+pub fn app_lock_backup_and_reset_secure_db(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let backup_path = backup_and_reset_secure_database(&app)?;
+    Ok(backup_path.map(|path| path.to_string_lossy().to_string()))
 }
 
 #[tauri::command]

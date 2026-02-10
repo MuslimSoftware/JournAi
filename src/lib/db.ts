@@ -9,6 +9,7 @@ const APP_LOCK_REQUIRED_EVENT = 'app-lock-required';
 let operationQueue: Promise<void> = Promise.resolve();
 let loadPromise: Promise<void> | null = null;
 let dbLoaded = false;
+let attemptedInvalidDatabaseRecovery = false;
 
 export interface DbStatement {
     query: string;
@@ -31,12 +32,41 @@ function isMissingSqlCipherKeyError(error: unknown): boolean {
     return message.includes('missing sqlcipher key');
 }
 
+function isInvalidDatabaseFormatError(error: unknown): boolean {
+    const message = String(error).toLowerCase();
+    return message.includes('file is not a database') || message.includes('code: 26');
+}
+
 function notifyAppLockRequired() {
     if (typeof window === 'undefined') {
         return;
     }
 
     window.dispatchEvent(new CustomEvent(APP_LOCK_REQUIRED_EVENT));
+}
+
+async function recoverInvalidDatabaseFile(): Promise<boolean> {
+    if (attemptedInvalidDatabaseRecovery) {
+        return false;
+    }
+
+    attemptedInvalidDatabaseRecovery = true;
+    loadPromise = null;
+    dbLoaded = false;
+
+    try {
+        await invoke('plugin:sql|close', { db: DB_URL }).catch(() => undefined);
+        const backupPath = await invoke<string | null>('app_lock_backup_and_reset_secure_db');
+        if (backupPath) {
+            console.warn('[DB] Existing secure database was backed up after invalid format error:', backupPath);
+        } else {
+            console.warn('[DB] Secure database reset requested after invalid format error.');
+        }
+        return true;
+    } catch (error) {
+        console.error('[DB] Failed to recover from invalid secure database format:', error);
+        return false;
+    }
 }
 
 async function withDatabaseLockRetry<T>(operation: () => Promise<T>): Promise<T> {
@@ -47,6 +77,10 @@ async function withDatabaseLockRetry<T>(operation: () => Promise<T>): Promise<T>
             return await operation();
         } catch (error) {
             lastError = error;
+
+            if (isInvalidDatabaseFormatError(error) && await recoverInvalidDatabaseFile()) {
+                continue;
+            }
 
             if (isMissingSqlCipherKeyError(error)) {
                 notifyAppLockRequired();
@@ -89,6 +123,7 @@ async function ensureDatabaseLoaded(): Promise<void> {
         loadPromise = (async () => {
             await invoke('plugin:sql|load', { db: DB_URL });
             dbLoaded = true;
+            attemptedInvalidDatabaseRecovery = false;
         })();
     }
 
@@ -97,6 +132,10 @@ async function ensureDatabaseLoaded(): Promise<void> {
     } catch (error) {
         loadPromise = null;
         dbLoaded = false;
+        if (isInvalidDatabaseFormatError(error) && await recoverInvalidDatabaseFile()) {
+            await ensureDatabaseLoaded();
+            return;
+        }
         if (isMissingSqlCipherKeyError(error)) {
             notifyAppLockRequired();
         }

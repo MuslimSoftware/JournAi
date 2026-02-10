@@ -96,4 +96,42 @@ describe('Database Lock Retry', () => {
     expect(mockInvoke).toHaveBeenNthCalledWith(2, 'plugin:sql|execute', expect.objectContaining({ query: 'BEGIN IMMEDIATE' }));
     expect(mockInvoke).toHaveBeenNthCalledWith(5, 'plugin:sql|execute', expect.objectContaining({ query: 'COMMIT' }));
   });
+
+  it('backs up and resets secure db once when load reports invalid database format', async () => {
+    let loadAttempts = 0;
+    mockInvoke.mockImplementation((command: string) => {
+      if (command === 'plugin:sql|load') {
+        loadAttempts += 1;
+        if (loadAttempts === 1) {
+          return Promise.reject(new Error('error returned from database: (code: 26) file is not a database'));
+        }
+        return Promise.resolve('sqlite:journai_secure.db');
+      }
+      if (command === 'plugin:sql|close') {
+        return Promise.resolve(undefined);
+      }
+      if (command === 'app_lock_backup_and_reset_secure_db') {
+        return Promise.resolve('/tmp/journai_secure.db.backup-123');
+      }
+      if (command === 'plugin:sql|select') {
+        return Promise.resolve([{ id: 'entry-1' }]);
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const { select } = await import('../db');
+    const rows = await select<{ id: string }>('SELECT id FROM entries');
+
+    expect(rows).toEqual([{ id: 'entry-1' }]);
+    expect(mockInvoke).toHaveBeenCalledTimes(5);
+    expect(mockInvoke).toHaveBeenNthCalledWith(1, 'plugin:sql|load', { db: 'sqlite:journai_secure.db' });
+    expect(mockInvoke).toHaveBeenNthCalledWith(2, 'plugin:sql|close', { db: 'sqlite:journai_secure.db' });
+    expect(mockInvoke).toHaveBeenNthCalledWith(3, 'app_lock_backup_and_reset_secure_db');
+    expect(mockInvoke).toHaveBeenNthCalledWith(4, 'plugin:sql|load', { db: 'sqlite:journai_secure.db' });
+    expect(mockInvoke).toHaveBeenNthCalledWith(5, 'plugin:sql|select', {
+      db: 'sqlite:journai_secure.db',
+      query: 'SELECT id FROM entries',
+      values: [],
+    });
+  });
 });

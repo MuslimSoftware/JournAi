@@ -47,5 +47,11 @@ Thumbs.db
 # Ralph PRD
 ralph/
 
+# Local markdown notes
+markdowns/
+
+# Local documentation notes
+docs/
+
 # Bun
 bun.lockb

@@ -51,7 +51,7 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [configured, setConfigured] = useState(false);
   const [unlocked, setUnlocked] = useState(true);
-  const [lockTimeoutSeconds, setLockTimeoutSeconds] = useState(0);
+  const [lockTimeoutSeconds, setLockTimeoutSeconds] = useState(DEFAULT_LOCK_TIMEOUT_SECONDS);
   const pendingLockTimerRef = useRef<number | null>(null);
 
   const clearPendingLock = useCallback(() => {
