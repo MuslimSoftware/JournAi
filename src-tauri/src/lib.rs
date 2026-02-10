@@ -5,7 +5,10 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 #[cfg(target_os = "ios")]
 mod ios_webview;
 
+mod app_lock;
 mod secure_storage;
+
+const SECURE_DB_URL: &str = "sqlite:journai_secure.db";
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -278,7 +281,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
-                .add_migrations("sqlite:journai.db", migrations)
+                .add_migrations(SECURE_DB_URL, migrations)
                 .build(),
         );
 
@@ -288,6 +291,7 @@ pub fn run() {
     }
 
     builder
+        .manage(app_lock::AppLockRuntimeState::default())
         .setup(|_app| {
             #[cfg(target_os = "ios")]
             {
@@ -299,6 +303,12 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             greet,
+            app_lock::app_lock_status,
+            app_lock::app_lock_configure,
+            app_lock::app_lock_unlock,
+            app_lock::app_lock_lock,
+            app_lock::app_lock_disable,
+            app_lock::app_lock_change_passphrase,
             secure_storage::secure_storage_set,
             secure_storage::secure_storage_get,
             secure_storage::secure_storage_delete,

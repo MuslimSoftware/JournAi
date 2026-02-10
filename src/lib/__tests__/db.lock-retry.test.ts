@@ -13,35 +13,76 @@ describe('Database Lock Retry', () => {
   });
 
   it('retries execute when sqlite reports a lock', async () => {
-    mockInvoke
-      .mockRejectedValueOnce(new Error('error returned from database: (code: 5) database is locked'))
-      .mockResolvedValueOnce({ rowsAffected: 1 });
+    let executeAttempts = 0;
+    mockInvoke.mockImplementation((command: string) => {
+      if (command === 'plugin:sql|load') {
+        return Promise.resolve('sqlite:journai_secure.db');
+      }
+      if (command === 'plugin:sql|execute') {
+        executeAttempts += 1;
+        if (executeAttempts === 1) {
+          return Promise.reject(new Error('error returned from database: (code: 5) database is locked'));
+        }
+        return Promise.resolve({ rowsAffected: 1 });
+      }
+      return Promise.resolve(undefined);
+    });
 
     const { execute } = await import('../db');
     const result = await execute('DELETE FROM todos WHERE id = $1', ['todo-1']);
 
     expect(result).toEqual({ rowsAffected: 1 });
-    expect(mockInvoke).toHaveBeenCalledTimes(2);
+    expect(mockInvoke).toHaveBeenCalledTimes(3);
   });
 
   it('retries select when sqlite reports a lock', async () => {
-    mockInvoke
-      .mockRejectedValueOnce(new Error('database is locked'))
-      .mockResolvedValueOnce([{ id: 'entry-1' }]);
+    let selectAttempts = 0;
+    mockInvoke.mockImplementation((command: string) => {
+      if (command === 'plugin:sql|load') {
+        return Promise.resolve('sqlite:journai_secure.db');
+      }
+      if (command === 'plugin:sql|select') {
+        selectAttempts += 1;
+        if (selectAttempts === 1) {
+          return Promise.reject(new Error('database is locked'));
+        }
+        return Promise.resolve([{ id: 'entry-1' }]);
+      }
+      return Promise.resolve(undefined);
+    });
 
     const { select } = await import('../db');
     const rows = await select<{ id: string }>('SELECT id FROM entries');
 
     expect(rows).toEqual([{ id: 'entry-1' }]);
-    expect(mockInvoke).toHaveBeenCalledTimes(2);
+    expect(mockInvoke).toHaveBeenCalledTimes(3);
   });
 
   it('executes a batch inside one transaction with lock retry', async () => {
-    mockInvoke
-      .mockResolvedValueOnce({ rowsAffected: 0 }) // BEGIN
-      .mockRejectedValueOnce(new Error('database is locked')) // statement attempt 1
-      .mockResolvedValueOnce({ rowsAffected: 1 }) // statement retry
-      .mockResolvedValueOnce({ rowsAffected: 0 }); // COMMIT
+    let insertAttempts = 0;
+    mockInvoke.mockImplementation((command: string, payload?: { query?: string }) => {
+      if (command === 'plugin:sql|load') {
+        return Promise.resolve('sqlite:journai_secure.db');
+      }
+
+      if (command === 'plugin:sql|execute') {
+        if (payload?.query === 'BEGIN IMMEDIATE') {
+          return Promise.resolve({ rowsAffected: 0 });
+        }
+        if (payload?.query?.startsWith('INSERT INTO todos')) {
+          insertAttempts += 1;
+          if (insertAttempts === 1) {
+            return Promise.reject(new Error('database is locked'));
+          }
+          return Promise.resolve({ rowsAffected: 1 });
+        }
+        if (payload?.query === 'COMMIT') {
+          return Promise.resolve({ rowsAffected: 0 });
+        }
+      }
+
+      return Promise.resolve({ rowsAffected: 0 });
+    });
 
     const { executeBatch } = await import('../db');
     await executeBatch([
@@ -51,8 +92,8 @@ describe('Database Lock Retry', () => {
       },
     ]);
 
-    expect(mockInvoke).toHaveBeenCalledTimes(4);
-    expect(mockInvoke).toHaveBeenNthCalledWith(1, 'plugin:sql|execute', expect.objectContaining({ query: 'BEGIN IMMEDIATE' }));
-    expect(mockInvoke).toHaveBeenNthCalledWith(4, 'plugin:sql|execute', expect.objectContaining({ query: 'COMMIT' }));
+    expect(mockInvoke).toHaveBeenCalledTimes(5);
+    expect(mockInvoke).toHaveBeenNthCalledWith(2, 'plugin:sql|execute', expect.objectContaining({ query: 'BEGIN IMMEDIATE' }));
+    expect(mockInvoke).toHaveBeenNthCalledWith(5, 'plugin:sql|execute', expect.objectContaining({ query: 'COMMIT' }));
   });
 });
