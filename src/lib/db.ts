@@ -1,11 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { PaginatedResult, CursorConfig, PaginationOptions } from '../types/pagination';
 
-const DB_URL = 'sqlite:journai.db';
+const DB_URL = 'sqlite:journai_secure.db';
 const DB_LOCK_MAX_RETRIES = 10;
 const DB_LOCK_BASE_DELAY_MS = 40;
 
 let operationQueue: Promise<void> = Promise.resolve();
+let loadPromise: Promise<void> | null = null;
+let dbLoaded = false;
 
 export interface DbStatement {
     query: string;
@@ -60,14 +62,59 @@ async function runSerialized<T>(operation: () => Promise<T>): Promise<T> {
     }
 }
 
+async function ensureDatabaseLoaded(): Promise<void> {
+    if (dbLoaded) {
+        return;
+    }
+
+    if (!loadPromise) {
+        loadPromise = (async () => {
+            await invoke('plugin:sql|load', { db: DB_URL });
+            dbLoaded = true;
+        })();
+    }
+
+    try {
+        await loadPromise;
+    } catch (error) {
+        loadPromise = null;
+        dbLoaded = false;
+        throw error;
+    }
+}
+
 async function invokeSelect(query: string, values: unknown[]): Promise<unknown> {
+    await ensureDatabaseLoaded();
     return invoke('plugin:sql|select', { db: DB_URL, query, values });
 }
 
 async function invokeExecute(query: string, values: unknown[]): Promise<{ rowsAffected: number }> {
+    await ensureDatabaseLoaded();
     const result = await invoke('plugin:sql|execute', { db: DB_URL, query, values });
     const rowsAffected = Array.isArray(result) ? result[0] : (result as { rowsAffected: number }).rowsAffected;
     return { rowsAffected };
+}
+
+export async function closeDatabaseConnection(): Promise<void> {
+    await runSerialized(async () => {
+        if (loadPromise) {
+            try {
+                await loadPromise;
+            } catch {
+                loadPromise = null;
+                dbLoaded = false;
+                return;
+            }
+        }
+
+        if (!dbLoaded) {
+            return;
+        }
+
+        await invoke('plugin:sql|close', { db: DB_URL });
+        loadPromise = null;
+        dbLoaded = false;
+    });
 }
 
 export async function select<T>(query: string, values: unknown[] = []): Promise<T[]> {

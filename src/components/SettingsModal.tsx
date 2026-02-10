@@ -3,6 +3,7 @@ import { IoClose } from 'react-icons/io5';
 import Modal from './Modal';
 import SettingsSidebar from './settings/SettingsSidebar';
 import PersonalizationSection from './settings/PersonalizationSection';
+import SecuritySection from './settings/SecuritySection';
 import AISection from './settings/AISection';
 import MemorySection from './settings/MemorySection';
 import DataManagementSection from './settings/DataManagementSection';
@@ -22,6 +23,7 @@ interface SettingsModalProps {
 
 const SECTIONS = [
   { id: 'personalization', label: 'Personalization' },
+  { id: 'security', label: 'Security' },
   { id: 'ai', label: 'AI' },
   { id: 'memory', label: 'Memory & RAG', requiresApiKey: true },
   { id: 'data-management', label: 'Data Management' },
@@ -113,6 +115,7 @@ export default function SettingsModal({
       />
       <div style={mainStyle}>
         {activeSection === 'personalization' && <PersonalizationSection />}
+        {activeSection === 'security' && <SecuritySection />}
         {activeSection === 'ai' && <AISection />}
         {activeSection === 'memory' && <MemorySection />}
         {activeSection === 'data-management' && <DataManagementSection />}

@@ -4,6 +4,7 @@ export const STORE_KEYS = {
   AI_API_KEY: 'ai.apiKey',
   AI_MODEL: 'ai.model',
   THEME_MODE: 'theme.mode',
+  SECURITY_LOCK_TIMEOUT_SECONDS: 'security.lockTimeoutSeconds',
 } as const;
 
 class AppStore {

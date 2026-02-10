@@ -1,0 +1,361 @@
+use std::fs;
+use std::path::PathBuf;
+use std::sync::Mutex;
+
+use aes_gcm::aead::{Aead, KeyInit};
+use aes_gcm::{Aes256Gcm, Nonce};
+use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use argon2::{Algorithm, Argon2, Params, Version};
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine;
+use rand::rngs::OsRng;
+use rand::RngCore;
+use serde::{Deserialize, Serialize};
+use tauri::State;
+
+use crate::secure_storage;
+
+const APP_LOCK_KEYSET_STORAGE_KEY: &str = "journai.app_lock.keyset";
+const APP_LOCK_PASSPHRASE_MIN_LENGTH: usize = 8;
+const SQLCIPHER_KEY_ENV_VAR: &str = "JOURNAI_SQLCIPHER_KEY_HEX";
+const KEY_LENGTH: usize = 32;
+const SALT_LENGTH: usize = 16;
+const NONCE_LENGTH: usize = 12;
+
+#[derive(Default)]
+pub struct AppLockRuntimeState {
+    unlocked: Mutex<bool>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppLockStatus {
+    pub configured: bool,
+    pub unlocked: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Keyset {
+    version: u8,
+    password_hash: String,
+    salt_b64: String,
+    memory_kib: u32,
+    iterations: u32,
+    parallelism: u32,
+    wrapped_dek_b64: String,
+    nonce_b64: String,
+}
+
+fn platform_kdf_memory_kib() -> u32 {
+    #[cfg(any(target_os = "ios", target_os = "android"))]
+    {
+        32 * 1024
+    }
+
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    {
+        64 * 1024
+    }
+}
+
+fn kdf_parameters() -> Result<(u32, u32, u32, Params), String> {
+    let memory_kib = platform_kdf_memory_kib();
+    let iterations = 3;
+    let parallelism = 1;
+    let params = Params::new(memory_kib, iterations, parallelism, Some(KEY_LENGTH))
+        .map_err(|e| format!("Failed to build Argon2 parameters: {e}"))?;
+
+    Ok((memory_kib, iterations, parallelism, params))
+}
+
+fn decode_base64<const N: usize>(value: &str, label: &str) -> Result<[u8; N], String> {
+    let bytes = BASE64
+        .decode(value)
+        .map_err(|e| format!("Invalid base64 for {label}: {e}"))?;
+    if bytes.len() != N {
+        return Err(format!(
+            "Invalid decoded length for {label}: expected {N}, got {}",
+            bytes.len()
+        ));
+    }
+    let mut output = [0u8; N];
+    output.copy_from_slice(&bytes);
+    Ok(output)
+}
+
+fn derive_kek(passphrase: &str, salt: &[u8], params: &Params) -> Result<[u8; KEY_LENGTH], String> {
+    let mut key = [0u8; KEY_LENGTH];
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params.clone());
+    argon2
+        .hash_password_into(passphrase.as_bytes(), salt, &mut key)
+        .map_err(|e| format!("Failed to derive key with Argon2id: {e}"))?;
+    Ok(key)
+}
+
+fn keyset_fallback_path() -> Result<PathBuf, String> {
+    let mut base = dirs::data_local_dir()
+        .or_else(dirs::data_dir)
+        .ok_or_else(|| "Unable to resolve app data directory for app lock keyset".to_string())?;
+    base.push("journai");
+
+    fs::create_dir_all(&base)
+        .map_err(|e| format!("Failed to create keyset directory {}: {e}", base.display()))?;
+
+    base.push("app_lock_keyset.json");
+    Ok(base)
+}
+
+fn parse_keyset(raw: &str) -> Result<Keyset, String> {
+    serde_json::from_str(raw).map_err(|e| format!("Invalid stored app lock keyset: {e}"))
+}
+
+fn read_keyset_fallback_file() -> Result<Option<Keyset>, String> {
+    let path = keyset_fallback_path()?;
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let raw = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read fallback keyset {}: {e}", path.display()))?;
+    let keyset = parse_keyset(&raw)?;
+    Ok(Some(keyset))
+}
+
+fn read_keyset() -> Result<Option<Keyset>, String> {
+    match secure_storage::secure_storage_get(APP_LOCK_KEYSET_STORAGE_KEY.to_string()) {
+        Ok(Some(raw)) => {
+            let keyset = parse_keyset(&raw)?;
+            Ok(Some(keyset))
+        }
+        Ok(None) => read_keyset_fallback_file(),
+        Err(_) => read_keyset_fallback_file(),
+    }
+}
+
+fn write_keyset(keyset: &Keyset) -> Result<(), String> {
+    let raw = serde_json::to_string(keyset).map_err(|e| format!("Failed to serialize keyset: {e}"))?;
+    if secure_storage::secure_storage_set(APP_LOCK_KEYSET_STORAGE_KEY.to_string(), raw.clone()).is_ok() {
+        if let Ok(path) = keyset_fallback_path() {
+            let _ = fs::remove_file(path);
+        }
+        return Ok(());
+    }
+
+    let path = keyset_fallback_path()?;
+    fs::write(&path, raw).map_err(|e| format!("Failed to write fallback keyset {}: {e}", path.display()))
+}
+
+fn verify_passphrase(keyset: &Keyset, passphrase: &str) -> Result<(), String> {
+    let parsed_hash = PasswordHash::new(&keyset.password_hash)
+        .map_err(|e| format!("Invalid stored password hash: {e}"))?;
+    let params = Params::new(
+        keyset.memory_kib,
+        keyset.iterations,
+        keyset.parallelism,
+        Some(KEY_LENGTH),
+    )
+    .map_err(|e| format!("Invalid stored Argon2 params: {e}"))?;
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+
+    argon2
+        .verify_password(passphrase.as_bytes(), &parsed_hash)
+        .map_err(|_| "Invalid passphrase".to_string())
+}
+
+fn build_keyset_from_passphrase(passphrase: &str, existing_dek: Option<[u8; KEY_LENGTH]>) -> Result<Keyset, String> {
+    if passphrase.chars().count() < APP_LOCK_PASSPHRASE_MIN_LENGTH {
+        return Err(format!(
+            "Passphrase must be at least {APP_LOCK_PASSPHRASE_MIN_LENGTH} characters"
+        ));
+    }
+
+    let (memory_kib, iterations, parallelism, params) = kdf_parameters()?;
+
+    let mut salt = [0u8; SALT_LENGTH];
+    OsRng.fill_bytes(&mut salt);
+    let salt_string = SaltString::encode_b64(&salt)
+        .map_err(|e| format!("Failed to encode Argon2 salt: {e}"))?;
+
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params.clone());
+    let password_hash = argon2
+        .hash_password(passphrase.as_bytes(), &salt_string)
+        .map_err(|e| format!("Failed to hash passphrase: {e}"))?
+        .to_string();
+
+    let kek = derive_kek(passphrase, &salt, &params)?;
+
+    let mut dek = existing_dek.unwrap_or([0u8; KEY_LENGTH]);
+    if existing_dek.is_none() {
+        OsRng.fill_bytes(&mut dek);
+    }
+
+    let mut nonce = [0u8; NONCE_LENGTH];
+    OsRng.fill_bytes(&mut nonce);
+
+    let cipher = Aes256Gcm::new_from_slice(&kek)
+        .map_err(|e| format!("Failed to initialize cipher: {e}"))?;
+    let wrapped_dek = cipher
+        .encrypt(Nonce::from_slice(&nonce), dek.as_ref())
+        .map_err(|e| format!("Failed to wrap DEK: {e}"))?;
+
+    Ok(Keyset {
+        version: 1,
+        password_hash,
+        salt_b64: BASE64.encode(salt),
+        memory_kib,
+        iterations,
+        parallelism,
+        wrapped_dek_b64: BASE64.encode(wrapped_dek),
+        nonce_b64: BASE64.encode(nonce),
+    })
+}
+
+fn unwrap_dek(keyset: &Keyset, passphrase: &str) -> Result<[u8; KEY_LENGTH], String> {
+    verify_passphrase(keyset, passphrase)?;
+
+    let params = Params::new(
+        keyset.memory_kib,
+        keyset.iterations,
+        keyset.parallelism,
+        Some(KEY_LENGTH),
+    )
+    .map_err(|e| format!("Invalid stored Argon2 params: {e}"))?;
+    let salt = decode_base64::<SALT_LENGTH>(&keyset.salt_b64, "salt")?;
+    let kek = derive_kek(passphrase, &salt, &params)?;
+
+    let wrapped_dek = BASE64
+        .decode(&keyset.wrapped_dek_b64)
+        .map_err(|e| format!("Invalid wrapped DEK encoding: {e}"))?;
+    let nonce = decode_base64::<NONCE_LENGTH>(&keyset.nonce_b64, "nonce")?;
+
+    let cipher = Aes256Gcm::new_from_slice(&kek)
+        .map_err(|e| format!("Failed to initialize cipher: {e}"))?;
+    let unwrapped = cipher
+        .decrypt(Nonce::from_slice(&nonce), wrapped_dek.as_ref())
+        .map_err(|_| "Invalid passphrase".to_string())?;
+
+    if unwrapped.len() != KEY_LENGTH {
+        return Err("Invalid unwrapped DEK length".to_string());
+    }
+
+    let mut dek = [0u8; KEY_LENGTH];
+    dek.copy_from_slice(&unwrapped);
+    Ok(dek)
+}
+
+fn encode_hex(bytes: &[u8]) -> String {
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push_str(&format!("{byte:02x}"));
+    }
+    output
+}
+
+fn set_sqlcipher_session_key(dek: &[u8; KEY_LENGTH]) {
+    std::env::set_var(SQLCIPHER_KEY_ENV_VAR, encode_hex(dek));
+}
+
+fn clear_sqlcipher_session_key() {
+    std::env::remove_var(SQLCIPHER_KEY_ENV_VAR);
+}
+
+fn set_runtime_unlocked(runtime: &State<'_, AppLockRuntimeState>, value: bool) -> Result<(), String> {
+    let mut guard = runtime
+        .unlocked
+        .lock()
+        .map_err(|_| "Failed to acquire app lock state".to_string())?;
+    *guard = value;
+    Ok(())
+}
+
+fn runtime_is_unlocked(runtime: &State<'_, AppLockRuntimeState>) -> Result<bool, String> {
+    let guard = runtime
+        .unlocked
+        .lock()
+        .map_err(|_| "Failed to acquire app lock state".to_string())?;
+    Ok(*guard)
+}
+
+#[tauri::command]
+pub fn app_lock_status(runtime: State<'_, AppLockRuntimeState>) -> Result<AppLockStatus, String> {
+    let configured = read_keyset()?.is_some();
+    if !configured {
+        clear_sqlcipher_session_key();
+        set_runtime_unlocked(&runtime, true)?;
+        return Ok(AppLockStatus {
+            configured: false,
+            unlocked: true,
+        });
+    }
+
+    let unlocked = runtime_is_unlocked(&runtime)?;
+    if !unlocked {
+        clear_sqlcipher_session_key();
+    }
+    Ok(AppLockStatus {
+        configured: true,
+        unlocked,
+    })
+}
+
+#[tauri::command]
+pub fn app_lock_configure(passphrase: String, runtime: State<'_, AppLockRuntimeState>) -> Result<(), String> {
+    let keyset = build_keyset_from_passphrase(&passphrase, None)?;
+    let dek = unwrap_dek(&keyset, &passphrase)?;
+    write_keyset(&keyset)?;
+    set_sqlcipher_session_key(&dek);
+    set_runtime_unlocked(&runtime, true)
+}
+
+#[tauri::command]
+pub fn app_lock_unlock(passphrase: String, runtime: State<'_, AppLockRuntimeState>) -> Result<bool, String> {
+    let Some(keyset) = read_keyset()? else {
+        clear_sqlcipher_session_key();
+        return Ok(true);
+    };
+
+    match unwrap_dek(&keyset, &passphrase) {
+        Ok(dek) => {
+            set_sqlcipher_session_key(&dek);
+            set_runtime_unlocked(&runtime, true)?;
+            Ok(true)
+        }
+        Err(_) => Ok(false),
+    }
+}
+
+#[tauri::command]
+pub fn app_lock_lock(runtime: State<'_, AppLockRuntimeState>) -> Result<(), String> {
+    clear_sqlcipher_session_key();
+    set_runtime_unlocked(&runtime, false)
+}
+
+#[tauri::command]
+pub fn app_lock_disable(passphrase: String, runtime: State<'_, AppLockRuntimeState>) -> Result<(), String> {
+    let Some(keyset) = read_keyset()? else {
+        return Ok(());
+    };
+
+    unwrap_dek(&keyset, &passphrase)?;
+    set_runtime_unlocked(&runtime, true)?;
+    Err("Disabling app lock is not supported once encrypted database protection is enabled."
+        .to_string())
+}
+
+#[tauri::command]
+pub fn app_lock_change_passphrase(
+    current_passphrase: String,
+    new_passphrase: String,
+    runtime: State<'_, AppLockRuntimeState>,
+) -> Result<(), String> {
+    let Some(existing_keyset) = read_keyset()? else {
+        return Err("App lock is not enabled".to_string());
+    };
+
+    let dek = unwrap_dek(&existing_keyset, &current_passphrase)?;
+    let new_keyset = build_keyset_from_passphrase(&new_passphrase, Some(dek))?;
+    set_sqlcipher_session_key(&dek);
+    write_keyset(&new_keyset)?;
+    set_runtime_unlocked(&runtime, true)
+}

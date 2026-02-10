@@ -11,6 +11,8 @@ const mockEntryRow = {
   date: '2025-12-20',
   content: 'Test content',
   created_at: '2025-12-20T12:00:00Z',
+  processed_at: null,
+  content_hash: null,
 };
 
 describe('Entries Service', () => {
@@ -27,8 +29,8 @@ describe('Entries Service', () => {
       const entries = await getEntries();
 
       expect(mockInvoke).toHaveBeenCalledWith('plugin:sql|select', {
-        db: 'sqlite:journai.db',
-        query: 'SELECT id, date, content, created_at FROM entries ORDER BY date DESC, created_at DESC',
+        db: 'sqlite:journai_secure.db',
+        query: 'SELECT id, date, content, created_at, processed_at, content_hash FROM entries ORDER BY date DESC, created_at DESC',
         values: [],
       });
       expect(entries).toHaveLength(1);
@@ -37,6 +39,8 @@ describe('Entries Service', () => {
         date: '2025-12-20',
         content: 'Test content',
         preview: 'Test content',
+        processedAt: null,
+        contentHash: null,
       });
     });
 
@@ -106,9 +110,23 @@ describe('Entries Service', () => {
 
   describe('updateEntry', () => {
     it('updates content', async () => {
-      mockInvoke
-        .mockResolvedValueOnce({ rowsAffected: 1 })
-        .mockResolvedValueOnce([{ ...mockEntryRow, content: 'Updated content' }]);
+      const selectResults = [
+        [mockEntryRow],
+        [{ ...mockEntryRow, content: 'Updated content' }],
+      ];
+
+      mockInvoke.mockImplementation((command: string, payload?: { db?: string }) => {
+        if (command === 'plugin:sql|load') {
+          return Promise.resolve(payload?.db ?? 'sqlite:journai_secure.db');
+        }
+        if (command === 'plugin:sql|select') {
+          return Promise.resolve(selectResults.shift() ?? []);
+        }
+        if (command === 'plugin:sql|execute') {
+          return Promise.resolve({ rowsAffected: 1 });
+        }
+        return Promise.resolve(undefined);
+      });
 
       const updated = await updateEntry('test-123', { content: 'Updated content' });
 
@@ -119,9 +137,20 @@ describe('Entries Service', () => {
     });
 
     it('updates date', async () => {
-      mockInvoke
-        .mockResolvedValueOnce({ rowsAffected: 1 })
-        .mockResolvedValueOnce([{ ...mockEntryRow, date: '2025-01-01' }]);
+      const selectResults = [[{ ...mockEntryRow, date: '2025-01-01' }]];
+
+      mockInvoke.mockImplementation((command: string, payload?: { db?: string }) => {
+        if (command === 'plugin:sql|load') {
+          return Promise.resolve(payload?.db ?? 'sqlite:journai_secure.db');
+        }
+        if (command === 'plugin:sql|select') {
+          return Promise.resolve(selectResults.shift() ?? []);
+        }
+        if (command === 'plugin:sql|execute') {
+          return Promise.resolve({ rowsAffected: 1 });
+        }
+        return Promise.resolve(undefined);
+      });
 
       const updated = await updateEntry('test-123', { date: '2025-01-01' });
 
@@ -129,9 +158,18 @@ describe('Entries Service', () => {
     });
 
     it('returns null for non-existent entry', async () => {
-      mockInvoke
-        .mockResolvedValueOnce({ rowsAffected: 0 })
-        .mockResolvedValueOnce([]);
+      mockInvoke.mockImplementation((command: string, payload?: { db?: string }) => {
+        if (command === 'plugin:sql|load') {
+          return Promise.resolve(payload?.db ?? 'sqlite:journai_secure.db');
+        }
+        if (command === 'plugin:sql|select') {
+          return Promise.resolve([]);
+        }
+        if (command === 'plugin:sql|execute') {
+          return Promise.resolve({ rowsAffected: 0 });
+        }
+        return Promise.resolve(undefined);
+      });
 
       const updated = await updateEntry('nonexistent', { content: 'test' });
 
@@ -147,7 +185,7 @@ describe('Entries Service', () => {
 
       expect(result).toBe(true);
       expect(mockInvoke).toHaveBeenCalledWith('plugin:sql|execute', {
-        db: 'sqlite:journai.db',
+        db: 'sqlite:journai_secure.db',
         query: 'DELETE FROM entries WHERE id = $1',
         values: ['test-123'],
       });

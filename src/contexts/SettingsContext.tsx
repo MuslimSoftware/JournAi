@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 
-export type SettingsSection = 'personalization' | 'ai' | 'memory' | 'data-management';
+export type SettingsSection = 'personalization' | 'security' | 'ai' | 'memory' | 'data-management';
 
 interface SettingsContextType {
   isOpen: boolean;
