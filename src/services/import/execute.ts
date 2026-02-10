@@ -102,9 +102,11 @@ async function loadRuntimeState(): Promise<RuntimeState> {
   };
 }
 
+const WRITE_CHUNK_SIZE = 50;
+
 export async function executeImportPlan(
   preview: ImportPreview,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number, phase?: 'processing' | 'writing') => void
 ): Promise<ImportExecutionResult> {
   if (preview.errors.length > 0) {
     return {
@@ -121,7 +123,7 @@ export async function executeImportPlan(
     + preview.plan.records.todos.length
     + preview.plan.records.stickyNotes.length;
   let currentProgress = 0;
-  onProgress?.(currentProgress, totalItems);
+  onProgress?.(currentProgress, totalItems, 'processing');
 
   const result: ImportExecutionResult = {
     entriesCreated: 0,
@@ -155,7 +157,7 @@ export async function executeImportPlan(
         result.entriesCreated += 1;
 
         currentProgress += 1;
-        onProgress?.(currentProgress, totalItems);
+        onProgress?.(currentProgress, totalItems, 'processing');
         continue;
       }
 
@@ -164,7 +166,7 @@ export async function executeImportPlan(
         result.duplicatesSkipped += 1;
 
         currentProgress += 1;
-        onProgress?.(currentProgress, totalItems);
+        onProgress?.(currentProgress, totalItems, 'processing');
         continue;
       }
 
@@ -173,7 +175,7 @@ export async function executeImportPlan(
         result.duplicatesSkipped += 1;
 
         currentProgress += 1;
-        onProgress?.(currentProgress, totalItems);
+        onProgress?.(currentProgress, totalItems, 'processing');
         continue;
       }
 
@@ -189,7 +191,7 @@ export async function executeImportPlan(
       result.entriesAppended += 1;
 
       currentProgress += 1;
-      onProgress?.(currentProgress, totalItems);
+      onProgress?.(currentProgress, totalItems, 'processing');
     }
 
     for (const todo of preview.plan.records.todos) {
@@ -198,7 +200,7 @@ export async function executeImportPlan(
         result.duplicatesSkipped += 1;
 
         currentProgress += 1;
-        onProgress?.(currentProgress, totalItems);
+        onProgress?.(currentProgress, totalItems, 'processing');
         continue;
       }
 
@@ -225,7 +227,7 @@ export async function executeImportPlan(
       result.todosCreated += 1;
 
       currentProgress += 1;
-      onProgress?.(currentProgress, totalItems);
+      onProgress?.(currentProgress, totalItems, 'processing');
     }
 
     for (const note of preview.plan.records.stickyNotes) {
@@ -234,7 +236,7 @@ export async function executeImportPlan(
         result.duplicatesSkipped += 1;
 
         currentProgress += 1;
-        onProgress?.(currentProgress, totalItems);
+        onProgress?.(currentProgress, totalItems, 'processing');
         continue;
       }
 
@@ -250,10 +252,24 @@ export async function executeImportPlan(
       result.stickyNotesCreated += 1;
 
       currentProgress += 1;
-      onProgress?.(currentProgress, totalItems);
+      onProgress?.(currentProgress, totalItems, 'processing');
     }
 
-    await executeBatch(writeStatements);
+    const writeChunks: DbStatement[][] = [];
+    for (let i = 0; i < writeStatements.length; i += WRITE_CHUNK_SIZE) {
+      writeChunks.push(writeStatements.slice(i, i + WRITE_CHUNK_SIZE));
+    }
+
+    const grandTotal = writeChunks.length > 0 ? totalItems + writeChunks.length : totalItems;
+
+    if (writeChunks.length > 0) {
+      onProgress?.(totalItems, grandTotal, 'writing');
+    }
+
+    for (let i = 0; i < writeChunks.length; i++) {
+      await executeBatch(writeChunks[i]);
+      onProgress?.(totalItems + i + 1, grandTotal, 'writing');
+    }
 
     return result;
   } catch (error) {

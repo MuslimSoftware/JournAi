@@ -260,6 +260,15 @@ export function useCalendar() {
     }
   }, [loadIndicators, loadDayData, selectedDate]);
 
+  useEffect(() => {
+    const handler = () => {
+      dayDataCacheRef.current.clear();
+      refreshData();
+    };
+    window.addEventListener('import-complete', handler);
+    return () => window.removeEventListener('import-complete', handler);
+  }, [refreshData]);
+
   return {
     currentMonth,
     currentYear,

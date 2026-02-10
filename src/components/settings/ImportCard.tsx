@@ -93,7 +93,7 @@ export default function ImportCard() {
   const [preview, setPreview] = useState<ImportPreview | null>(null);
 
   const [isImporting, setIsImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number; phase?: 'processing' | 'writing' } | null>(null);
   const [importResult, setImportResult] = useState<ImportExecutionResult | null>(null);
   const [importRuntimeError, setImportRuntimeError] = useState<string | null>(null);
 
@@ -171,9 +171,12 @@ export default function ImportCard() {
     try {
       const executionResult = await executeImportPlan(
         preview,
-        (current, total) => setImportProgress({ current, total })
+        (current, total, phase) => setImportProgress({ current, total, phase })
       );
       setImportResult(executionResult);
+      if (executionResult.errors.length === 0) {
+        window.dispatchEvent(new CustomEvent('import-complete'));
+      }
     } catch (error) {
       setImportRuntimeError(`Import failed: ${String(error)}`);
     } finally {
@@ -265,7 +268,9 @@ export default function ImportCard() {
             <ProgressBar
               current={importProgress.current}
               total={importProgress.total}
-              label={`Importing... (${importProgress.current}/${importProgress.total})`}
+              label={importProgress.phase === 'writing'
+                ? `Writing to database... (${importProgress.current}/${importProgress.total})`
+                : `Processing... (${importProgress.current}/${importProgress.total})`}
             />
           )}
 

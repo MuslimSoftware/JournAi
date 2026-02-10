@@ -37,11 +37,13 @@ export function useEntries(): UseEntriesReturn {
         setCursor,
         setScrollOffset,
         setInitialized,
+        resetState,
     } = useEntriesState();
 
     const { target, clearTarget } = useEntryNavigation();
     const handledTargetId = useRef<string | null>(null);
     const isLoadingRef = useRef(false);
+    const loadVersionRef = useRef(0);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [isResolvingTarget, setIsResolvingTarget] = useState(false);
 
@@ -50,6 +52,7 @@ export function useEntries(): UseEntriesReturn {
     useEffect(() => {
         if (state.isInitialized || isLoadingRef.current) return;
         isLoadingRef.current = true;
+        const version = ++loadVersionRef.current;
 
         const loadInitial = async () => {
             try {
@@ -58,24 +61,39 @@ export function useEntries(): UseEntriesReturn {
                     entriesService.getEntriesCount(),
                 ]);
 
+                if (loadVersionRef.current !== version) return;
+
                 setEntries(page.entries);
                 setTotalCount(count);
                 setHasMore(page.hasMore);
                 setCursor(page.nextCursor);
             } catch (error) {
+                if (loadVersionRef.current !== version) return;
                 console.error('Failed to load initial entries:', error);
                 setEntries([]);
                 setTotalCount(0);
                 setHasMore(false);
                 setCursor(null);
             } finally {
-                setInitialized(true);
+                if (loadVersionRef.current === version) {
+                    setInitialized(true);
+                }
                 isLoadingRef.current = false;
             }
         };
 
         void loadInitial();
     }, [state.isInitialized, setEntries, setTotalCount, setHasMore, setCursor, setInitialized]);
+
+    useEffect(() => {
+        const handler = () => {
+            loadVersionRef.current++;
+            isLoadingRef.current = false;
+            resetState();
+        };
+        window.addEventListener('import-complete', handler);
+        return () => window.removeEventListener('import-complete', handler);
+    }, [resetState]);
 
     useEffect(() => {
         if (!target) {
