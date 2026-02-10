@@ -325,6 +325,11 @@ html.keyboard-open .mobile-fab {
   text-align: center;
 }
 
+.mobile-entries-loading-more {
+  padding: 16px 24px;
+  text-align: center;
+}
+
 .mobile-editor-container {
   height: 100%;
   display: flex;
@@ -911,6 +916,11 @@ html.keyboard-open .mobile-fab {
 .mobile-nav-drawer__item--active {
   color: var(--text-primary);
   background-color: var(--bg-secondary);
+}
+
+.mobile-nav-drawer__item--locked {
+  color: var(--text-muted);
+  opacity: 0.65;
 }
 
 .mobile-nav-drawer__label {

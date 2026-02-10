@@ -391,6 +391,10 @@
 }
 
 .settings-sidebar-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--settings-spacing-sm);
   padding: var(--settings-spacing-md) var(--settings-spacing-lg);
   cursor: pointer;
   border-radius: 6px;
@@ -408,6 +412,20 @@
 .settings-sidebar-item--active {
   background-color: var(--bg-subtle);
   color: var(--text-emphasis);
+}
+
+.settings-sidebar-item--locked {
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+
+.settings-sidebar-item--locked:hover {
+  background-color: transparent;
+}
+
+.settings-sidebar-lock-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .settings-section-header {
@@ -586,12 +604,24 @@
 
 .mobile-settings__header {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: var(--settings-spacing-md);
-  padding: calc(var(--mobile-safe-area-top) + 12px) 16px 12px;
+  padding:
+    calc(var(--mobile-safe-area-top) + 12px)
+    calc(16px + var(--mobile-safe-area-right))
+    12px
+    calc(16px + var(--mobile-safe-area-left));
   border-bottom: 1px solid var(--border-secondary);
   background-color: var(--bg-primary);
+}
+
+.mobile-settings__header > :first-child {
+  justify-self: start;
+}
+
+.mobile-settings__header > :last-child {
+  justify-self: end;
 }
 
 .mobile-settings__title {
@@ -599,6 +629,8 @@
   font-size: 1.05rem;
   font-weight: 600;
   text-align: center;
+  justify-self: center;
+  min-width: 0;
 }
 
 .mobile-settings__text-button {
@@ -710,12 +742,26 @@
   color: var(--text-primary);
 }
 
+.mobile-settings__row--locked {
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+
+.mobile-settings__row--locked .mobile-settings__row-title {
+  color: var(--text-muted);
+}
+
 .mobile-settings__row-description {
   font-size: var(--settings-font-sm);
   color: var(--text-muted);
 }
 
 .mobile-settings__chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mobile-settings__lock-icon {
   color: var(--text-muted);
   flex-shrink: 0;
 }

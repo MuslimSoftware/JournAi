@@ -56,13 +56,14 @@ export default function Sidebar({ items, onOpenSettings }: SidebarProps) {
                 >
                   {({ isActive }) => (
                     <>
-                      {isActive ? (
+                      {isLocked ? (
+                        <IoLockClosedOutline className="sidebar-nav-icon sidebar-nav-lock-icon" />
+                      ) : isActive ? (
                         <item.iconFilled className="sidebar-nav-icon" />
                       ) : (
                         <item.icon className="sidebar-nav-icon" />
                       )}
                       <span className="sidebar-nav-label">{item.label}</span>
-                      {isLocked && <IoLockClosedOutline className="sidebar-nav-lock-icon" />}
                     </>
                   )}
                 </NavLink>

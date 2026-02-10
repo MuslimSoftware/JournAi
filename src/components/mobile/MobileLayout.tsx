@@ -9,7 +9,7 @@ import { AiAccessProvider } from '../../contexts/AiAccessContext';
 import '../../styles/mobile.css';
 
 function MobileLayoutInner() {
-  const { isOpen: isSettingsOpen, closeSettings, initialSection } = useSettings();
+  const { isOpen: isSettingsOpen, closeSettings, initialSection, openSignal } = useSettings();
   const location = useLocation();
 
   useLayoutEffect(() => {
@@ -29,6 +29,7 @@ function MobileLayoutInner() {
         isOpen={isSettingsOpen}
         onClose={closeSettings}
         initialSection={initialSection}
+        openSignal={openSignal}
       />
     </div>
   );
