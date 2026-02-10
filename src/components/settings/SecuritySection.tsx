@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { IoCheckmarkCircle, IoLockClosed, IoWarning } from 'react-icons/io5';
+import { IoCheckmarkCircle, IoKeyOutline, IoLockClosed, IoWarning } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppLock } from '../../contexts/AppLockContext';
 import { Button, Text } from '../themed';
@@ -34,6 +34,7 @@ export default function SecuritySection() {
   const [currentPassphrase, setCurrentPassphrase] = useState('');
   const [newPassphrase, setNewPassphrase] = useState('');
   const [newPassphraseConfirm, setNewPassphraseConfirm] = useState('');
+  const [showChangeForm, setShowChangeForm] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'saving'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
 
@@ -90,6 +91,7 @@ export default function SecuritySection() {
       setCurrentPassphrase('');
       setNewPassphrase('');
       setNewPassphraseConfirm('');
+      setShowChangeForm(false);
       showStatus('success', 'Passphrase updated.');
     } catch (error) {
       showStatus('error', error instanceof Error ? error.message : 'Failed to update passphrase.');
@@ -203,52 +205,66 @@ export default function SecuritySection() {
 
           <div className="settings-section-divider" />
 
-          <div className="settings-field">
-            <label className="settings-label">Current passphrase</label>
-            <input
-              type="password"
-              value={currentPassphrase}
-              onChange={(event) => setCurrentPassphrase(event.target.value)}
-              className="settings-input settings-input--full-padding"
-              style={{ backgroundColor: inputBg }}
-              autoComplete="current-password"
-            />
-          </div>
+          {!showChangeForm ? (
+            <div className="settings-field">
+              <Button
+                variant="secondary"
+                icon={<IoKeyOutline size={14} />}
+                onClick={() => setShowChangeForm(true)}
+              >
+                Change Passphrase
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="settings-field">
+                <label className="settings-label">Current passphrase</label>
+                <input
+                  type="password"
+                  value={currentPassphrase}
+                  onChange={(event) => setCurrentPassphrase(event.target.value)}
+                  className="settings-input settings-input--full-padding"
+                  style={{ backgroundColor: inputBg }}
+                  autoComplete="current-password"
+                />
+              </div>
 
-          <div className="settings-field">
-            <label className="settings-label">New passphrase</label>
-            <input
-              type="password"
-              value={newPassphrase}
-              onChange={(event) => setNewPassphrase(event.target.value)}
-              className="settings-input settings-input--full-padding"
-              style={{ backgroundColor: inputBg }}
-              autoComplete="new-password"
-            />
-          </div>
+              <div className="settings-field">
+                <label className="settings-label">New passphrase</label>
+                <input
+                  type="password"
+                  value={newPassphrase}
+                  onChange={(event) => setNewPassphrase(event.target.value)}
+                  className="settings-input settings-input--full-padding"
+                  style={{ backgroundColor: inputBg }}
+                  autoComplete="new-password"
+                />
+              </div>
 
-          <div className="settings-field">
-            <label className="settings-label">Confirm new passphrase</label>
-            <input
-              type="password"
-              value={newPassphraseConfirm}
-              onChange={(event) => setNewPassphraseConfirm(event.target.value)}
-              className="settings-input settings-input--full-padding"
-              style={{ backgroundColor: inputBg }}
-              autoComplete="new-password"
-            />
-          </div>
+              <div className="settings-field">
+                <label className="settings-label">Confirm new passphrase</label>
+                <input
+                  type="password"
+                  value={newPassphraseConfirm}
+                  onChange={(event) => setNewPassphraseConfirm(event.target.value)}
+                  className="settings-input settings-input--full-padding"
+                  style={{ backgroundColor: inputBg }}
+                  autoComplete="new-password"
+                />
+              </div>
 
-          <div className="settings-footer settings-security-actions">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleChangePassphrase}
-              disabled={!canChangePassphrase || status === 'saving'}
-            >
-              {status === 'saving' ? 'Saving...' : 'Update Passphrase'}
-            </Button>
-          </div>
+              <div className="settings-footer settings-security-actions">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleChangePassphrase}
+                  disabled={!canChangePassphrase || status === 'saving'}
+                >
+                  {status === 'saving' ? 'Saving...' : 'Update Passphrase'}
+                </Button>
+              </div>
+            </>
+          )}
         </>
       )}
 
