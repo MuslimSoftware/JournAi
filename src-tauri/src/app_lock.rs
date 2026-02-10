@@ -312,7 +312,8 @@ pub fn app_lock_configure(passphrase: String, runtime: State<'_, AppLockRuntimeS
 pub fn app_lock_unlock(passphrase: String, runtime: State<'_, AppLockRuntimeState>) -> Result<bool, String> {
     let Some(keyset) = read_keyset()? else {
         clear_sqlcipher_session_key();
-        return Ok(true);
+        set_runtime_unlocked(&runtime, false)?;
+        return Err("App lock is configured but key material is unavailable.".to_string());
     };
 
     match unwrap_dek(&keyset, &passphrase) {

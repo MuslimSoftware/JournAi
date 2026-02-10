@@ -5,11 +5,26 @@ export interface AppLockStatus {
   unlocked: boolean;
 }
 
+function isTauriRuntime(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return '__TAURI_INTERNALS__' in window;
+}
+
 export async function getAppLockStatus(): Promise<AppLockStatus> {
   try {
     return await invoke<AppLockStatus>('app_lock_status');
-  } catch {
-    return { configured: false, unlocked: true };
+  } catch (error) {
+    // Browser/unit-test environments may not expose Tauri commands.
+    if (!isTauriRuntime()) {
+      return { configured: false, unlocked: true };
+    }
+
+    // Fail closed in Tauri runtime if status cannot be resolved.
+    console.error('Failed to read app lock status:', error);
+    return { configured: true, unlocked: false };
   }
 }
 

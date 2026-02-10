@@ -73,7 +73,7 @@ export default function Sidebar({ items, onOpenSettings }: SidebarProps) {
       </nav>
       <div className="sidebar-footer">
         <IconButton
-          icon={<IoSettingsOutline size="1.25rem" />}
+          icon={<IoSettingsOutline size={20} />}
           label="Settings"
           onClick={onOpenSettings}
           variant="ghost"

@@ -40,11 +40,13 @@ export default function AppLockScreen() {
           setPassphrase('');
         }
       }
-    } catch {
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : null;
       setError(
-        configured
-          ? 'Unable to unlock JournAi right now.'
-          : 'Unable to configure app lock right now.',
+        message
+          || (configured
+            ? 'Unable to unlock JournAi right now.'
+            : 'Unable to configure app lock right now.'),
       );
     } finally {
       setSubmitting(false);
