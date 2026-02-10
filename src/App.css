@@ -85,10 +85,16 @@ button:active {
 
 .app-lock-screen {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 24px)
+    calc(env(safe-area-inset-right, 0px) + 24px)
+    calc(env(safe-area-inset-bottom, 0px) + 24px)
+    calc(env(safe-area-inset-left, 0px) + 24px);
   background-color: var(--bg-primary);
 }
 
@@ -122,7 +128,7 @@ button:active {
   border: 1px solid var(--border-primary);
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-family: inherit;
   box-sizing: border-box;
 }
