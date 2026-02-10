@@ -29,8 +29,8 @@ export default function DataManagementSection() {
         </Text>
         <p className="settings-section-description">
           {isMobile
-            ? 'Export all journal data as a JSON file.'
-            : 'Export all journal data as a JSON bundle or CSV files.'}
+            ? 'Export entries, todos, and sticky notes as a JSON file. Chats and insights are not included.'
+            : 'Export entries, todos, and sticky notes as a JSON bundle or CSV files. Chats and insights are not included.'}
         </p>
         <ExportCard />
       </div>
