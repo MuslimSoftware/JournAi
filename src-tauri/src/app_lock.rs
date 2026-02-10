@@ -363,7 +363,7 @@ pub fn app_lock_status(runtime: State<'_, AppLockRuntimeState>) -> Result<AppLoc
 }
 
 #[tauri::command]
-pub fn app_lock_configure(
+pub async fn app_lock_configure(
     passphrase: String,
     runtime: State<'_, AppLockRuntimeState>,
     app: tauri::AppHandle,
@@ -373,8 +373,16 @@ pub fn app_lock_configure(
     }
 
     backup_and_reset_secure_database(&app)?;
-    let keyset = build_keyset_from_passphrase(&passphrase, None)?;
-    let dek = unwrap_dek(&keyset, &passphrase)?;
+
+    let pp = passphrase.clone();
+    let (keyset, dek) = tauri::async_runtime::spawn_blocking(move || {
+        let ks = build_keyset_from_passphrase(&pp, None)?;
+        let dk = unwrap_dek(&ks, &pp)?;
+        Ok::<_, String>((ks, dk))
+    })
+    .await
+    .map_err(|e| format!("Configure task failed: {e}"))??;
+
     write_keyset(&keyset)?;
     set_sqlcipher_session_key(&dek);
     set_runtime_unlocked(&runtime, true)
@@ -387,14 +395,20 @@ pub fn app_lock_backup_and_reset_secure_db(app: tauri::AppHandle) -> Result<Opti
 }
 
 #[tauri::command]
-pub fn app_lock_unlock(passphrase: String, runtime: State<'_, AppLockRuntimeState>) -> Result<bool, String> {
+pub async fn app_lock_unlock(passphrase: String, runtime: State<'_, AppLockRuntimeState>) -> Result<bool, String> {
     let Some(keyset) = read_keyset()? else {
         clear_sqlcipher_session_key();
         set_runtime_unlocked(&runtime, false)?;
         return Err("App lock is configured but key material is unavailable.".to_string());
     };
 
-    match unwrap_dek(&keyset, &passphrase) {
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        unwrap_dek(&keyset, &passphrase)
+    })
+    .await
+    .map_err(|e| format!("Unlock task failed: {e}"))?;
+
+    match result {
         Ok(dek) => {
             set_sqlcipher_session_key(&dek);
             set_runtime_unlocked(&runtime, true)?;
@@ -423,7 +437,7 @@ pub fn app_lock_disable(passphrase: String, runtime: State<'_, AppLockRuntimeSta
 }
 
 #[tauri::command]
-pub fn app_lock_change_passphrase(
+pub async fn app_lock_change_passphrase(
     current_passphrase: String,
     new_passphrase: String,
     runtime: State<'_, AppLockRuntimeState>,
@@ -432,8 +446,14 @@ pub fn app_lock_change_passphrase(
         return Err("App lock is not enabled".to_string());
     };
 
-    let dek = unwrap_dek(&existing_keyset, &current_passphrase)?;
-    let new_keyset = build_keyset_from_passphrase(&new_passphrase, Some(dek))?;
+    let (new_keyset, dek) = tauri::async_runtime::spawn_blocking(move || {
+        let dk = unwrap_dek(&existing_keyset, &current_passphrase)?;
+        let nk = build_keyset_from_passphrase(&new_passphrase, Some(dk))?;
+        Ok::<_, String>((nk, dk))
+    })
+    .await
+    .map_err(|e| format!("Change passphrase task failed: {e}"))??;
+
     set_sqlcipher_session_key(&dek);
     write_keyset(&new_keyset)?;
     set_runtime_unlocked(&runtime, true)
