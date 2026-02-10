@@ -4,6 +4,7 @@ import type { PaginatedResult, CursorConfig, PaginationOptions } from '../types/
 const DB_URL = 'sqlite:journai_secure.db';
 const DB_LOCK_MAX_RETRIES = 10;
 const DB_LOCK_BASE_DELAY_MS = 40;
+const APP_LOCK_REQUIRED_EVENT = 'app-lock-required';
 
 let operationQueue: Promise<void> = Promise.resolve();
 let loadPromise: Promise<void> | null = null;
@@ -25,6 +26,19 @@ function isDatabaseLockedError(error: unknown): boolean {
     return message.includes('database is locked') || message.includes('code: 5');
 }
 
+function isMissingSqlCipherKeyError(error: unknown): boolean {
+    const message = String(error).toLowerCase();
+    return message.includes('missing sqlcipher key');
+}
+
+function notifyAppLockRequired() {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.dispatchEvent(new CustomEvent(APP_LOCK_REQUIRED_EVENT));
+}
+
 async function withDatabaseLockRetry<T>(operation: () => Promise<T>): Promise<T> {
     let lastError: unknown;
 
@@ -33,6 +47,10 @@ async function withDatabaseLockRetry<T>(operation: () => Promise<T>): Promise<T>
             return await operation();
         } catch (error) {
             lastError = error;
+
+            if (isMissingSqlCipherKeyError(error)) {
+                notifyAppLockRequired();
+            }
 
             if (!isDatabaseLockedError(error) || attempt === DB_LOCK_MAX_RETRIES) {
                 throw error;
@@ -79,6 +97,9 @@ async function ensureDatabaseLoaded(): Promise<void> {
     } catch (error) {
         loadPromise = null;
         dbLoaded = false;
+        if (isMissingSqlCipherKeyError(error)) {
+            notifyAppLockRequired();
+        }
         throw error;
     }
 }

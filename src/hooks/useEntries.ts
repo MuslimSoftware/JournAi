@@ -50,19 +50,29 @@ export function useEntries(): UseEntriesReturn {
         isLoadingRef.current = true;
 
         const loadInitial = async () => {
-            const [page, count] = await Promise.all([
-                entriesService.getEntriesPage(null, PAGE_SIZE),
-                entriesService.getEntriesCount(),
-            ]);
+            try {
+                const [page, count] = await Promise.all([
+                    entriesService.getEntriesPage(null, PAGE_SIZE),
+                    entriesService.getEntriesCount(),
+                ]);
 
-            setEntries(page.entries);
-            setTotalCount(count);
-            setHasMore(page.hasMore);
-            setCursor(page.nextCursor);
-            setInitialized(true);
+                setEntries(page.entries);
+                setTotalCount(count);
+                setHasMore(page.hasMore);
+                setCursor(page.nextCursor);
+            } catch (error) {
+                console.error('Failed to load initial entries:', error);
+                setEntries([]);
+                setTotalCount(0);
+                setHasMore(false);
+                setCursor(null);
+            } finally {
+                setInitialized(true);
+                isLoadingRef.current = false;
+            }
         };
 
-        loadInitial();
+        void loadInitial();
     }, [state.isInitialized, setEntries, setTotalCount, setHasMore, setCursor, setInitialized]);
 
     useEffect(() => {
@@ -81,13 +91,15 @@ export function useEntries(): UseEntriesReturn {
         if (existsInList) {
             setSelectedEntryId(target.entryId);
         } else {
-            entriesService.getEntriesByIds([target.entryId]).then(fetched => {
+            void entriesService.getEntriesByIds([target.entryId]).then(fetched => {
                 if (fetched.length > 0) {
                     const newList = [fetched[0], ...state.entries];
                     newList.sort((a, b) => b.date.localeCompare(a.date));
                     setEntries(newList);
                     setSelectedEntryId(target.entryId);
                 }
+            }).catch((error) => {
+                console.error('Failed to load target entry for navigation:', error);
             });
         }
     }, [state.entries, target, setSelectedEntryId, setEntries, setScrollOffset]);
@@ -132,11 +144,16 @@ export function useEntries(): UseEntriesReturn {
         if (isLoadingMore || !state.hasMore || !state.cursor) return;
 
         setIsLoadingMore(true);
-        const page = await entriesService.getEntriesPage(state.cursor, PAGE_SIZE);
-        appendEntries(page.entries);
-        setHasMore(page.hasMore);
-        setCursor(page.nextCursor);
-        setIsLoadingMore(false);
+        try {
+            const page = await entriesService.getEntriesPage(state.cursor, PAGE_SIZE);
+            appendEntries(page.entries);
+            setHasMore(page.hasMore);
+            setCursor(page.nextCursor);
+        } catch (error) {
+            console.error('Failed to load more entries:', error);
+        } finally {
+            setIsLoadingMore(false);
+        }
     }, [isLoadingMore, state.hasMore, state.cursor, appendEntries, setHasMore, setCursor]);
 
     const refreshEntries = useCallback(async () => {

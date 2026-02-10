@@ -41,9 +41,14 @@ export function useCalendar() {
 
   const loadIndicators = useCallback(async () => {
     setIsLoadingIndicators(true);
-    const data = await getMonthIndicators(currentYear, currentMonth);
-    setIndicators(data);
-    setIsLoadingIndicators(false);
+    try {
+      const data = await getMonthIndicators(currentYear, currentMonth);
+      setIndicators(data);
+    } catch (error) {
+      console.error('Failed to load calendar indicators:', error);
+    } finally {
+      setIsLoadingIndicators(false);
+    }
   }, [currentYear, currentMonth]);
 
   const loadDayData = useCallback(async (date: string) => {
@@ -53,9 +58,17 @@ export function useCalendar() {
       setDayDataWithStickyNote(cached);
     }
 
-    const data = await getDayData(date);
-    setDayDataWithStickyNote(data);
-    setIsLoadingDayData(false);
+    try {
+      const data = await getDayData(date);
+      setDayDataWithStickyNote(data);
+    } catch (error) {
+      console.error('Failed to load calendar day data:', error);
+      if (!cached) {
+        setDayDataWithStickyNote(null);
+      }
+    } finally {
+      setIsLoadingDayData(false);
+    }
   }, [setDayDataWithStickyNote]);
 
   const prefetchDayData = useCallback(async (date: string) => {
@@ -63,8 +76,12 @@ export function useCalendar() {
       return;
     }
 
-    const data = await getDayData(date);
-    dayDataCacheRef.current.set(date, data);
+    try {
+      const data = await getDayData(date);
+      dayDataCacheRef.current.set(date, data);
+    } catch (error) {
+      console.error('Failed to prefetch calendar day data:', error);
+    }
   }, []);
 
   useEffect(() => {

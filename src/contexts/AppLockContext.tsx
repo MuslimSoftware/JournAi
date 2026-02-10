@@ -20,6 +20,8 @@ import { closeDatabaseConnection } from '../lib/db';
 import { appStore, STORE_KEYS } from '../lib/store';
 
 const LOCK_TIMEOUT_OPTIONS = new Set([0, 60, 300]);
+const DEFAULT_LOCK_TIMEOUT_SECONDS = 300;
+const APP_LOCK_REQUIRED_EVENT = 'app-lock-required';
 
 interface AppLockContextType {
   isReady: boolean;
@@ -42,7 +44,7 @@ function normalizeTimeout(value: number | null): number {
   if (value !== null && LOCK_TIMEOUT_OPTIONS.has(value)) {
     return value;
   }
-  return 0;
+  return DEFAULT_LOCK_TIMEOUT_SECONDS;
 }
 
 export function AppLockProvider({ children }: { children: ReactNode }) {
@@ -68,7 +70,16 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
     setConfigured(status.configured);
     setUnlocked(status.unlocked);
     setLockTimeoutSeconds(normalizeTimeout(timeoutSetting));
-  }, []);
+
+    if (!status.unlocked) {
+      clearPendingLock();
+      try {
+        await closeDatabaseConnection();
+      } catch (error) {
+        console.error('Failed to close database while refreshing app lock status:', error);
+      }
+    }
+  }, [clearPendingLock]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,6 +101,50 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       clearPendingLock();
+    };
+  }, [clearPendingLock, refreshStatus]);
+
+  useEffect(() => {
+    const syncStatus = () => {
+      void refreshStatus().catch((error) => {
+        console.error('Failed to refresh app lock status after window resume:', error);
+      });
+    };
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        syncStatus();
+      }
+    };
+
+    window.addEventListener('focus', syncStatus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', syncStatus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [refreshStatus]);
+
+  useEffect(() => {
+    const onAppLockRequired = () => {
+      clearPendingLock();
+      setConfigured(true);
+      setUnlocked(false);
+
+      void closeDatabaseConnection().catch((error) => {
+        console.error('Failed to close database after lock-required event:', error);
+      });
+
+      void refreshStatus().catch((error) => {
+        console.error('Failed to refresh lock status after lock-required event:', error);
+      });
+    };
+
+    window.addEventListener(APP_LOCK_REQUIRED_EVENT, onAppLockRequired);
+
+    return () => {
+      window.removeEventListener(APP_LOCK_REQUIRED_EVENT, onAppLockRequired);
     };
   }, [clearPendingLock, refreshStatus]);
 
