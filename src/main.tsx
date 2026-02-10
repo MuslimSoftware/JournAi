@@ -18,7 +18,7 @@ function AppBootstrap() {
     return <div className="app-lock-screen">Loading security state...</div>;
   }
 
-  if (!configured || isLocked) {
+  if (isLocked) {
     return <AppLockScreen />;
   }
 
