@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { IoCalendarOutline, IoCalendar, IoBookOutline, IoBook, IoChatbubbleOutline, IoChatbubble, IoSparklesOutline, IoSparkles, IoSync, IoClose } from "react-icons/io5";
+import { listen } from "@tauri-apps/api/event";
 import Sidebar from "./Sidebar";
 import SettingsModal from "./SettingsModal";
 import { SidebarProvider } from "../contexts/SidebarContext";
@@ -25,6 +27,11 @@ function LayoutContent() {
     initialSection,
     openSignal,
   } = useSettings();
+
+  useEffect(() => {
+    const unlisten = listen("open-settings", () => openSettings());
+    return () => { unlisten.then(fn => fn()); };
+  }, [openSettings]);
 
   return (
     <div className={`app-layout ${isFocusMode ? 'focus-mode-active' : ''}`}>

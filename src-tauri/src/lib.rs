@@ -1,5 +1,7 @@
 #[cfg(target_os = "ios")]
 use tauri::Manager;
+#[cfg(desktop)]
+use tauri::Emitter;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 #[cfg(target_os = "ios")]
@@ -292,13 +294,68 @@ pub fn run() {
 
     builder
         .manage(app_lock::AppLockRuntimeState::default())
-        .setup(|_app| {
+        .setup(|app| {
             #[cfg(target_os = "ios")]
             {
-                if let Some(webview_window) = _app.get_webview_window("main") {
+                if let Some(webview_window) = app.get_webview_window("main") {
                     ios_webview::configure_webview_for_fullscreen(&webview_window);
                 }
             }
+
+            #[cfg(desktop)]
+            {
+                use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+
+                let settings = MenuItem::with_id(app, "settings", "Settings...", true, Some("CmdOrCtrl+,"))?;
+
+                let app_menu = Submenu::with_items(
+                    app,
+                    "journai",
+                    true,
+                    &[
+                        &PredefinedMenuItem::about(app, Some("About journai"), None)?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &settings,
+                        &PredefinedMenuItem::separator(app)?,
+                        &PredefinedMenuItem::quit(app, Some("Quit journai"))?,
+                    ],
+                )?;
+
+                let edit_menu = Submenu::with_items(
+                    app,
+                    "Edit",
+                    true,
+                    &[
+                        &PredefinedMenuItem::undo(app, None)?,
+                        &PredefinedMenuItem::redo(app, None)?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &PredefinedMenuItem::cut(app, None)?,
+                        &PredefinedMenuItem::copy(app, None)?,
+                        &PredefinedMenuItem::paste(app, None)?,
+                        &PredefinedMenuItem::select_all(app, None)?,
+                    ],
+                )?;
+
+                let window_menu = Submenu::with_items(
+                    app,
+                    "Window",
+                    true,
+                    &[
+                        &PredefinedMenuItem::minimize(app, None)?,
+                        &PredefinedMenuItem::close_window(app, None)?,
+                    ],
+                )?;
+
+                let menu = Menu::with_items(app, &[&app_menu, &edit_menu, &window_menu])?;
+                app.set_menu(menu)?;
+
+                app.on_menu_event(|app, event| {
+                    if event.id() == "settings" {
+                        let _ = app.emit("open-settings", ());
+                    }
+                });
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
