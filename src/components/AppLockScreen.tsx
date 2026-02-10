@@ -1,6 +1,9 @@
 import { FormEvent, useState } from 'react';
 import { IoLockClosedOutline } from 'react-icons/io5';
 import { useAppLock } from '../contexts/AppLockContext';
+import Text from './themed/Text';
+import Button from './themed/Button';
+import Spinner from './themed/Spinner';
 
 const MIN_PASSPHRASE_LENGTH = 8;
 
@@ -57,18 +60,22 @@ export default function AppLockScreen() {
     <div className="app-lock-screen">
       <form className="app-lock-card" onSubmit={handleSubmit}>
         <div className="app-lock-icon" aria-hidden="true">
-          <IoLockClosedOutline size={24} />
+          <IoLockClosedOutline size={22} />
         </div>
-        <h1 className="app-lock-title">{configured ? 'JournAi is locked' : 'Secure JournAi'}</h1>
-        <p className="app-lock-subtitle">
+        <Text as="h3" style={{ margin: 0 }}>
+          {configured ? 'JournAi is locked' : 'Secure JournAi'}
+        </Text>
+        <Text as="p" variant="secondary" style={{ margin: 0, fontSize: '0.9rem' }}>
           {configured
             ? 'Enter your app passphrase to continue.'
             : 'Set a passphrase to unlock the encrypted local database.'}
-        </p>
+        </Text>
 
-        <label className="app-lock-label" htmlFor="app-lock-passphrase">
-          {configured ? 'Passphrase' : 'Create passphrase'}
-        </label>
+        <Text as="span" variant="secondary" style={{ marginTop: '4px', fontSize: '0.85rem' }}>
+          <label htmlFor="app-lock-passphrase">
+            {configured ? 'Passphrase' : 'Create passphrase'}
+          </label>
+        </Text>
         <input
           id="app-lock-passphrase"
           type="password"
@@ -82,9 +89,11 @@ export default function AppLockScreen() {
 
         {!configured && (
           <>
-            <label className="app-lock-label" htmlFor="app-lock-passphrase-confirm">
-              Confirm passphrase
-            </label>
+            <Text as="span" variant="secondary" style={{ marginTop: '4px', fontSize: '0.85rem' }}>
+              <label htmlFor="app-lock-passphrase-confirm">
+                Confirm passphrase
+              </label>
+            </Text>
             <input
               id="app-lock-passphrase-confirm"
               type="password"
@@ -97,19 +106,28 @@ export default function AppLockScreen() {
           </>
         )}
 
-        {error && <p className="app-lock-error">{error}</p>}
+        {error && (
+          <Text as="p" style={{ margin: 0, fontSize: '0.85rem', color: 'var(--status-error)' }}>
+            {error}
+          </Text>
+        )}
 
-        <button
+        <Button
           type="submit"
-          className="app-lock-submit"
+          variant="secondary"
+          size="lg"
+          fullWidth
+          style={{ marginTop: '4px' }}
           disabled={
             submitting
             || passphrase.trim().length === 0
             || (!configured && confirmPassphrase.trim().length === 0)
           }
         >
-          {submitting ? (configured ? 'Unlocking...' : 'Saving...') : configured ? 'Unlock' : 'Set Passphrase'}
-        </button>
+          {submitting
+            ? <Spinner size="sm" />
+            : configured ? 'Unlock' : 'Set Passphrase'}
+        </Button>
       </form>
     </div>
   );
