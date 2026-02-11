@@ -103,6 +103,17 @@ async function loadRuntimeState(): Promise<RuntimeState> {
 }
 
 const WRITE_CHUNK_SIZE = 50;
+const PROCESSING_YIELD_INTERVAL = 250;
+
+function shouldYieldToEventLoop(processedItems: number): boolean {
+  return processedItems > 0 && processedItems % PROCESSING_YIELD_INTERVAL === 0;
+}
+
+async function yieldToEventLoop(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+}
 
 export async function executeImportPlan(
   preview: ImportPreview,
@@ -124,6 +135,15 @@ export async function executeImportPlan(
     + preview.plan.records.stickyNotes.length;
   let currentProgress = 0;
   onProgress?.(currentProgress, totalItems, 'processing');
+
+  const reportProcessingProgress = async (): Promise<void> => {
+    currentProgress += 1;
+    onProgress?.(currentProgress, totalItems, 'processing');
+
+    if (shouldYieldToEventLoop(currentProgress)) {
+      await yieldToEventLoop();
+    }
+  };
 
   const result: ImportExecutionResult = {
     entriesCreated: 0,
@@ -155,27 +175,21 @@ export async function executeImportPlan(
           markers: new Set<string>(),
         });
         result.entriesCreated += 1;
-
-        currentProgress += 1;
-        onProgress?.(currentProgress, totalItems, 'processing');
+        await reportProcessingProgress();
         continue;
       }
 
       const normalizedExisting = normalizeContent(current.content);
       if (normalizedExisting === entry.content) {
         result.duplicatesSkipped += 1;
-
-        currentProgress += 1;
-        onProgress?.(currentProgress, totalItems, 'processing');
+        await reportProcessingProgress();
         continue;
       }
 
       const contentHash = generateImportContentHash(entry.content);
       if (current.markers.has(contentHash)) {
         result.duplicatesSkipped += 1;
-
-        currentProgress += 1;
-        onProgress?.(currentProgress, totalItems, 'processing');
+        await reportProcessingProgress();
         continue;
       }
 
@@ -189,18 +203,14 @@ export async function executeImportPlan(
       current.content = updatedContent;
       current.markers.add(contentHash);
       result.entriesAppended += 1;
-
-      currentProgress += 1;
-      onProgress?.(currentProgress, totalItems, 'processing');
+      await reportProcessingProgress();
     }
 
     for (const todo of preview.plan.records.todos) {
       const dedupeKey = buildTodoDedupeKey(todo);
       if (state.todoKeySet.has(dedupeKey)) {
         result.duplicatesSkipped += 1;
-
-        currentProgress += 1;
-        onProgress?.(currentProgress, totalItems, 'processing');
+        await reportProcessingProgress();
         continue;
       }
 
@@ -225,18 +235,14 @@ export async function executeImportPlan(
       });
 
       result.todosCreated += 1;
-
-      currentProgress += 1;
-      onProgress?.(currentProgress, totalItems, 'processing');
+      await reportProcessingProgress();
     }
 
     for (const note of preview.plan.records.stickyNotes) {
       const dedupeKey = buildStickyNoteDedupeKey(note);
       if (state.stickyNoteKeySet.has(dedupeKey)) {
         result.duplicatesSkipped += 1;
-
-        currentProgress += 1;
-        onProgress?.(currentProgress, totalItems, 'processing');
+        await reportProcessingProgress();
         continue;
       }
 
@@ -250,9 +256,7 @@ export async function executeImportPlan(
       });
 
       result.stickyNotesCreated += 1;
-
-      currentProgress += 1;
-      onProgress?.(currentProgress, totalItems, 'processing');
+      await reportProcessingProgress();
     }
 
     const writeChunks: DbStatement[][] = [];

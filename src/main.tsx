@@ -12,7 +12,7 @@ import AppLockScreen from "./components/AppLockScreen";
 import App from "./App";
 
 function AppBootstrap() {
-  const { isReady, configured, isLocked } = useAppLock();
+  const { isReady, isLocked } = useAppLock();
 
   if (!isReady) {
     return <div className="app-lock-screen">Loading security state...</div>;

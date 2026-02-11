@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import Button from '../themed/Button';
 import DropZone from './DropZone';
@@ -13,19 +13,58 @@ import {
   type ImportPreview,
 } from '../../services/import';
 
-function pickFileViaInput(accept: string): Promise<{ name: string; content: string } | null> {
+type MobileFilePickResult =
+  | { status: 'selected'; name: string; content: string }
+  | { status: 'cancelled' }
+  | { status: 'error'; message: string };
+
+function pickFileViaInput(accept: string): Promise<MobileFilePickResult> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = accept;
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) { resolve(null); return; }
-      const reader = new FileReader();
-      reader.onload = () => resolve({ name: file.name, content: reader.result as string });
-      reader.onerror = () => resolve(null);
-      reader.readAsText(file);
+
+    // Keep the input attached to the DOM for better mobile WebView reliability.
+    input.style.position = 'fixed';
+    input.style.left = '-9999px';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+
+    let settled = false;
+
+    const settle = (result: MobileFilePickResult) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      input.onchange = null;
+      input.remove();
+      resolve(result);
     };
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) {
+        settle({ status: 'cancelled' });
+        return;
+      }
+
+      try {
+        const content = await file.text();
+        settle({ status: 'selected', name: file.name, content });
+      } catch (error) {
+        settle({
+          status: 'error',
+          message: `Unable to read selected file: ${String(error)}`,
+        });
+      }
+    };
+
+    input.addEventListener('cancel', () => {
+      settle({ status: 'cancelled' });
+    });
+
+    input.value = '';
     input.click();
   });
 }
@@ -83,10 +122,10 @@ function ImportResultPanel({ result }: { result: ImportExecutionResult }) {
 
 export default function ImportCard() {
   const isMobile = useIsMobile();
+  const activePreviewRequestId = useRef(0);
   const [step, setStep] = useState<1 | 2>(1);
-  const [importFormat, setImportFormat] = useState<ImportFormat>('json_bundle');
   const [sourcePath, setSourcePath] = useState<string | null>(null);
-  const [fileContent, setFileContent] = useState<string | null>(null);
+  const [isSelectingMobileFile, setIsSelectingMobileFile] = useState(false);
 
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [previewProgress, setPreviewProgress] = useState<{ current: number; total: number } | null>(null);
@@ -98,24 +137,24 @@ export default function ImportCard() {
   const [importRuntimeError, setImportRuntimeError] = useState<string | null>(null);
 
   const resetSource = () => {
+    activePreviewRequestId.current += 1;
     setSourcePath(null);
-    setFileContent(null);
+    setIsSelectingMobileFile(false);
     setPreview(null);
     setImportResult(null);
     setImportRuntimeError(null);
     setStep(1);
   };
 
-  const setSource = (path: string, format: ImportFormat, content?: string) => {
-    setImportFormat(format);
+  const setSource = (path: string) => {
     setSourcePath(path);
-    setFileContent(content ?? null);
     setPreview(null);
     setImportResult(null);
     setImportRuntimeError(null);
   };
 
   const generatePreview = async (format: ImportFormat, path: string, content?: string) => {
+    const requestId = ++activePreviewRequestId.current;
     setImportRuntimeError(null);
     setImportResult(null);
     setPreview(null);
@@ -127,11 +166,20 @@ export default function ImportCard() {
         { format, path, content },
         (current, total) => setPreviewProgress({ current, total })
       );
+      if (activePreviewRequestId.current !== requestId) {
+        return;
+      }
       setPreview(previewResult);
       setStep(2);
     } catch (error) {
+      if (activePreviewRequestId.current !== requestId) {
+        return;
+      }
       setImportRuntimeError(`Preview failed: ${String(error)}`);
     } finally {
+      if (activePreviewRequestId.current !== requestId) {
+        return;
+      }
       setIsPreviewing(false);
       setPreviewProgress(null);
     }
@@ -139,25 +187,36 @@ export default function ImportCard() {
 
   const handleDrop = (path: string) => {
     const format = detectFormat(path);
-    setSource(path, format);
-    generatePreview(format, path);
+    setSource(path);
+    void generatePreview(format, path);
   };
 
   const handleBrowse = async () => {
     setImportRuntimeError(null);
 
     if (isMobile) {
-      const picked = await pickFileViaInput('.json');
-      if (!picked) return;
-      setSource(picked.name, 'json_bundle', picked.content);
-      generatePreview('json_bundle', picked.name, picked.content);
+      setIsSelectingMobileFile(true);
+      const picked = await pickFileViaInput('.json,application/json,text/json');
+      setIsSelectingMobileFile(false);
+
+      if (picked.status === 'cancelled') {
+        return;
+      }
+
+      if (picked.status === 'error') {
+        setImportRuntimeError(picked.message);
+        return;
+      }
+
+      setSource(picked.name);
+      void generatePreview('json_bundle', picked.name, picked.content);
       return;
     }
 
     const selected = await selectImportSource('json_bundle');
     if (!selected) return;
-    setSource(selected, 'json_bundle');
-    generatePreview('json_bundle', selected);
+    setSource(selected);
+    void generatePreview('json_bundle', selected);
   };
 
   const handleExecuteImport = async () => {
@@ -188,7 +247,7 @@ export default function ImportCard() {
   const importBlocked = !preview || preview.errors.length > 0 || isImporting;
   const importCompleted = Boolean(importResult && importResult.errors.length === 0);
   const importActionBlocked = importBlocked || importCompleted;
-  const busy = isPreviewing || isImporting;
+  const busy = isSelectingMobileFile || isPreviewing || isImporting;
 
   return (
     <div>
@@ -233,6 +292,10 @@ export default function ImportCard() {
               </div>
             )}
           </div>
+
+          {isSelectingMobileFile && (
+            <StatusMessage variant="info">Reading selected file...</StatusMessage>
+          )}
 
           {isPreviewing && previewProgress && (
             <ProgressBar

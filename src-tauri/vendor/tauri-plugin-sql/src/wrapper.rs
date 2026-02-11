@@ -24,6 +24,8 @@ use sqlx::Postgres;
 #[cfg(feature = "sqlite")]
 use sqlx::sqlite::SqliteConnectOptions;
 #[cfg(feature = "sqlite")]
+use sqlx::sqlite::SqlitePoolOptions;
+#[cfg(feature = "sqlite")]
 use sqlx::Sqlite;
 
 use crate::LastInsertId;
@@ -112,7 +114,14 @@ impl DbPool {
                 let quoted_hex = format!("\"x'{}'\"", trimmed);
                 connect_options = connect_options.pragma("key", quoted_hex);
 
-                Ok(Self::Sqlite(Pool::connect_with(connect_options).await?))
+                let pool = SqlitePoolOptions::new()
+                    // Keep a single SQLite connection so explicit BEGIN/COMMIT sequences
+                    // are guaranteed to run on the same connection.
+                    .max_connections(1)
+                    .connect_with(connect_options)
+                    .await?;
+
+                Ok(Self::Sqlite(pool))
             }
             #[cfg(feature = "mysql")]
             "mysql" => {
