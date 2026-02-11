@@ -129,8 +129,6 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onAppLockRequired = () => {
       clearPendingLock();
-      setConfigured(true);
-      setUnlocked(false);
 
       void closeDatabaseConnection().catch((error) => {
         console.error('Failed to close database after lock-required event:', error);

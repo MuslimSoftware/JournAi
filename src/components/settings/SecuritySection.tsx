@@ -21,9 +21,9 @@ export default function SecuritySection() {
   const { mode } = useTheme();
   const {
     configured,
-    unlocked,
     lockNow,
     configure,
+    disable,
     changePassphrase,
     lockTimeoutSeconds,
     setLockTimeout,
@@ -34,7 +34,9 @@ export default function SecuritySection() {
   const [currentPassphrase, setCurrentPassphrase] = useState('');
   const [newPassphrase, setNewPassphrase] = useState('');
   const [newPassphraseConfirm, setNewPassphraseConfirm] = useState('');
+  const [disablePassphrase, setDisablePassphrase] = useState('');
   const [showChangeForm, setShowChangeForm] = useState(false);
+  const [showDisableForm, setShowDisableForm] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'saving'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
 
@@ -54,6 +56,10 @@ export default function SecuritySection() {
 
     return current.length > 0 && next.length >= MIN_PASSPHRASE_LENGTH && next === confirm;
   }, [currentPassphrase, newPassphrase, newPassphraseConfirm]);
+
+  const canDisableLock = useMemo(() => {
+    return normalizeInput(disablePassphrase).length > 0;
+  }, [disablePassphrase]);
 
   const showStatus = (nextStatus: 'success' | 'error', message: string) => {
     setStatus(nextStatus);
@@ -75,6 +81,21 @@ export default function SecuritySection() {
       showStatus('success', 'App lock enabled.');
     } catch (error) {
       showStatus('error', error instanceof Error ? error.message : 'Failed to enable app lock.');
+    }
+  };
+
+  const handleDisable = async () => {
+    if (!canDisableLock) return;
+
+    setStatus('saving');
+    setStatusMessage('');
+    try {
+      await disable(normalizeInput(disablePassphrase));
+      setDisablePassphrase('');
+      setShowDisableForm(false);
+      showStatus('success', 'App lock disabled.');
+    } catch (error) {
+      showStatus('error', typeof error === 'string' ? error : error instanceof Error ? error.message : 'Incorrect passphrase.');
     }
   };
 
@@ -125,22 +146,6 @@ export default function SecuritySection() {
       <p className="settings-section__description">
         Protect access to JournAi with a passphrase lock. While locked, journal content stays hidden until unlocked.
       </p>
-
-      <div className="settings-security-status">
-        <span className="settings-security-status__icon">
-          {configured ? <IoLockClosed size={14} /> : <IoWarning size={14} />}
-        </span>
-        <div>
-          <div className="settings-security-status__label">
-            {configured ? 'App lock is enabled' : 'App lock is disabled'}
-          </div>
-          {configured && (
-            <div className="settings-security-status__value">
-              Session status: {unlocked ? 'Unlocked' : 'Locked'}
-            </div>
-          )}
-        </div>
-      </div>
 
       {!configured ? (
         <>
@@ -197,24 +202,66 @@ export default function SecuritySection() {
             </select>
           </div>
 
-          <div className="settings-field">
-            <Button variant="secondary" size="sm" onClick={handleLockNow}>
+          <div className="settings-field settings-security-actions">
+            <Button variant="secondary" size="sm" icon={<IoLockClosed size={13} />} onClick={handleLockNow}>
               Lock Now
             </Button>
+            {!showDisableForm ? (
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => { setShowDisableForm(true); setShowChangeForm(false); }}
+              >
+                Disable
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setShowDisableForm(false); setDisablePassphrase(''); }}
+              >
+                Cancel
+              </Button>
+            )}
           </div>
+
+          {showDisableForm && (
+            <>
+              <div className="settings-field">
+                <label className="settings-label">Enter passphrase to disable</label>
+                <input
+                  type="password"
+                  value={disablePassphrase}
+                  onChange={(event) => setDisablePassphrase(event.target.value)}
+                  className="settings-input settings-input--full-padding"
+                  style={{ backgroundColor: inputBg }}
+                  autoComplete="current-password"
+                />
+              </div>
+              <div className="settings-footer">
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={handleDisable}
+                  disabled={!canDisableLock || status === 'saving'}
+                >
+                  {status === 'saving' ? 'Disabling...' : 'Confirm Disable'}
+                </Button>
+              </div>
+            </>
+          )}
 
           <div className="settings-section-divider" />
 
           {!showChangeForm ? (
-            <div className="settings-field">
-              <Button
-                variant="secondary"
-                icon={<IoKeyOutline size={14} />}
-                onClick={() => setShowChangeForm(true)}
-              >
-                Change Passphrase
-              </Button>
-            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<IoKeyOutline size={14} />}
+              onClick={() => { setShowChangeForm(true); setShowDisableForm(false); }}
+            >
+              Change Passphrase
+            </Button>
           ) : (
             <>
               <div className="settings-field">
@@ -261,6 +308,18 @@ export default function SecuritySection() {
                   disabled={!canChangePassphrase || status === 'saving'}
                 >
                   {status === 'saving' ? 'Saving...' : 'Update Passphrase'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowChangeForm(false);
+                    setCurrentPassphrase('');
+                    setNewPassphrase('');
+                    setNewPassphraseConfirm('');
+                  }}
+                >
+                  Cancel
                 </Button>
               </div>
             </>

@@ -17,6 +17,7 @@ use tauri::{Manager, State};
 use crate::secure_storage;
 
 const APP_LOCK_KEYSET_STORAGE_KEY: &str = "journai.app_lock.keyset";
+const APP_LOCK_OPEN_DEK_STORAGE_KEY: &str = "journai.app_lock.open_dek";
 const APP_LOCK_PASSPHRASE_MIN_LENGTH: usize = 8;
 const SQLCIPHER_KEY_ENV_VAR: &str = "JOURNAI_SQLCIPHER_KEY_HEX";
 const SECURE_DB_FILE_NAME: &str = "journai_secure.db";
@@ -24,9 +25,18 @@ const KEY_LENGTH: usize = 32;
 const SALT_LENGTH: usize = 16;
 const NONCE_LENGTH: usize = 12;
 
-#[derive(Default)]
 pub struct AppLockRuntimeState {
     unlocked: Mutex<bool>,
+    configured_cache: Mutex<Option<bool>>,
+}
+
+impl Default for AppLockRuntimeState {
+    fn default() -> Self {
+        Self {
+            unlocked: Mutex::new(false),
+            configured_cache: Mutex::new(None),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -262,6 +272,30 @@ fn clear_sqlcipher_session_key() {
     std::env::remove_var(SQLCIPHER_KEY_ENV_VAR);
 }
 
+fn is_sqlcipher_key_set() -> bool {
+    std::env::var(SQLCIPHER_KEY_ENV_VAR)
+        .map(|v| !v.trim().is_empty())
+        .unwrap_or(false)
+}
+
+fn ensure_sqlcipher_key_set() -> Result<(), String> {
+    if is_sqlcipher_key_set() {
+        return Ok(());
+    }
+
+    let dek = match read_open_dek()? {
+        Some(dek) => dek,
+        None => {
+            let mut dek = [0u8; KEY_LENGTH];
+            OsRng.fill_bytes(&mut dek);
+            write_open_dek(&dek)?;
+            dek
+        }
+    };
+    set_sqlcipher_session_key(&dek);
+    Ok(())
+}
+
 fn secure_db_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let mut app_config_dir = app
         .path()
@@ -323,6 +357,35 @@ fn backup_and_reset_secure_database(app: &tauri::AppHandle) -> Result<Option<Pat
     Ok(db_backup_path)
 }
 
+fn set_runtime_configured(runtime: &State<'_, AppLockRuntimeState>, value: bool) -> Result<(), String> {
+    let mut guard = runtime
+        .configured_cache
+        .lock()
+        .map_err(|_| "Failed to acquire app lock state".to_string())?;
+    *guard = Some(value);
+    Ok(())
+}
+
+fn is_configured(runtime: &State<'_, AppLockRuntimeState>) -> Result<bool, String> {
+    let guard = runtime
+        .configured_cache
+        .lock()
+        .map_err(|_| "Failed to acquire app lock state".to_string())?;
+    if let Some(cached) = *guard {
+        return Ok(cached);
+    }
+    drop(guard);
+
+    let result = read_keyset()?.is_some();
+
+    let mut guard = runtime
+        .configured_cache
+        .lock()
+        .map_err(|_| "Failed to acquire app lock state".to_string())?;
+    *guard = Some(result);
+    Ok(result)
+}
+
 fn set_runtime_unlocked(runtime: &State<'_, AppLockRuntimeState>, value: bool) -> Result<(), String> {
     let mut guard = runtime
         .unlocked
@@ -342,9 +405,9 @@ fn runtime_is_unlocked(runtime: &State<'_, AppLockRuntimeState>) -> Result<bool,
 
 #[tauri::command]
 pub fn app_lock_status(runtime: State<'_, AppLockRuntimeState>) -> Result<AppLockStatus, String> {
-    let configured = read_keyset()?.is_some();
+    let configured = is_configured(&runtime)?;
     if !configured {
-        clear_sqlcipher_session_key();
+        ensure_sqlcipher_key_set()?;
         set_runtime_unlocked(&runtime, true)?;
         return Ok(AppLockStatus {
             configured: false,
@@ -372,11 +435,15 @@ pub async fn app_lock_configure(
         return Err("App lock is already configured. Unlock with your existing passphrase.".to_string());
     }
 
-    backup_and_reset_secure_database(&app)?;
+    let existing_dek = read_open_dek()?;
+
+    if existing_dek.is_none() {
+        backup_and_reset_secure_database(&app)?;
+    }
 
     let pp = passphrase.clone();
     let (keyset, dek) = tauri::async_runtime::spawn_blocking(move || {
-        let ks = build_keyset_from_passphrase(&pp, None)?;
+        let ks = build_keyset_from_passphrase(&pp, existing_dek)?;
         let dk = unwrap_dek(&ks, &pp)?;
         Ok::<_, String>((ks, dk))
     })
@@ -384,7 +451,9 @@ pub async fn app_lock_configure(
     .map_err(|e| format!("Configure task failed: {e}"))??;
 
     write_keyset(&keyset)?;
+    let _ = delete_open_dek();
     set_sqlcipher_session_key(&dek);
+    set_runtime_configured(&runtime, true)?;
     set_runtime_unlocked(&runtime, true)
 }
 
@@ -424,16 +493,107 @@ pub fn app_lock_lock(runtime: State<'_, AppLockRuntimeState>) -> Result<(), Stri
     set_runtime_unlocked(&runtime, false)
 }
 
+fn delete_keyset() -> Result<(), String> {
+    let _ = secure_storage::secure_storage_delete(APP_LOCK_KEYSET_STORAGE_KEY.to_string());
+
+    if let Ok(path) = keyset_fallback_path() {
+        if path.exists() {
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to remove fallback keyset {}: {e}", path.display()))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn open_dek_fallback_path() -> Result<PathBuf, String> {
+    let mut base = dirs::data_local_dir()
+        .or_else(dirs::data_dir)
+        .ok_or_else(|| "Unable to resolve app data directory for open DEK".to_string())?;
+    base.push("journai");
+
+    fs::create_dir_all(&base)
+        .map_err(|e| format!("Failed to create open DEK directory {}: {e}", base.display()))?;
+
+    base.push("app_lock_open_dek.txt");
+    Ok(base)
+}
+
+fn write_open_dek(dek: &[u8; KEY_LENGTH]) -> Result<(), String> {
+    let hex = encode_hex(dek);
+    let path = open_dek_fallback_path()?;
+    fs::write(&path, &hex)
+        .map_err(|e| format!("Failed to write open DEK {}: {e}", path.display()))?;
+    let _ = secure_storage::secure_storage_set(APP_LOCK_OPEN_DEK_STORAGE_KEY.to_string(), hex);
+    Ok(())
+}
+
+fn decode_hex_key(hex: &str) -> Option<[u8; KEY_LENGTH]> {
+    let trimmed = hex.trim();
+    if trimmed.len() != KEY_LENGTH * 2 || !trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+
+    let mut key = [0u8; KEY_LENGTH];
+    for i in 0..KEY_LENGTH {
+        key[i] = u8::from_str_radix(&trimmed[i * 2..i * 2 + 2], 16).ok()?;
+    }
+    Some(key)
+}
+
+fn read_open_dek() -> Result<Option<[u8; KEY_LENGTH]>, String> {
+    let hex = match secure_storage::secure_storage_get(APP_LOCK_OPEN_DEK_STORAGE_KEY.to_string()) {
+        Ok(Some(val)) => Some(val),
+        _ => {
+            let path = open_dek_fallback_path()?;
+            if path.exists() {
+                Some(
+                    fs::read_to_string(&path)
+                        .map_err(|e| format!("Failed to read open DEK {}: {e}", path.display()))?,
+                )
+            } else {
+                None
+            }
+        }
+    };
+
+    match hex {
+        Some(val) => Ok(decode_hex_key(&val)),
+        None => Ok(None),
+    }
+}
+
+fn delete_open_dek() -> Result<(), String> {
+    let _ = secure_storage::secure_storage_delete(APP_LOCK_OPEN_DEK_STORAGE_KEY.to_string());
+
+    if let Ok(path) = open_dek_fallback_path() {
+        if path.exists() {
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to remove open DEK {}: {e}", path.display()))?;
+        }
+    }
+
+    Ok(())
+}
+
 #[tauri::command]
-pub fn app_lock_disable(passphrase: String, runtime: State<'_, AppLockRuntimeState>) -> Result<(), String> {
+pub async fn app_lock_disable(
+    passphrase: String,
+    runtime: State<'_, AppLockRuntimeState>,
+) -> Result<(), String> {
     let Some(keyset) = read_keyset()? else {
         return Ok(());
     };
 
-    unwrap_dek(&keyset, &passphrase)?;
-    set_runtime_unlocked(&runtime, true)?;
-    Err("Disabling app lock is not supported once encrypted database protection is enabled."
-        .to_string())
+    let dek = tauri::async_runtime::spawn_blocking(move || unwrap_dek(&keyset, &passphrase))
+        .await
+        .map_err(|e| format!("Disable task failed: {e}"))??;
+
+    write_open_dek(&dek)?;
+    delete_keyset()?;
+    set_sqlcipher_session_key(&dek);
+    set_runtime_configured(&runtime, false)?;
+    set_runtime_unlocked(&runtime, true)
 }
 
 #[tauri::command]
