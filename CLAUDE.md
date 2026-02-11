@@ -1,4 +1,4 @@
-# CLAUDE.md
+# [CLAUDE.md](http://CLAUDE.md)
 
 ## Overview
 
@@ -15,86 +15,88 @@ bun run tauri build  # Production build
 
 ### Frontend (`/src`)
 
-| Directory            | Responsibility                                                |
-| -------------------- | ------------------------------------------------------------- |
-| `pages/`             | Route-level components (Entries, Calendar, Chat, Insights)    |
-| `components/`        | Reusable UI components                                        |
-| `components/themed/` | Design system primitives (Button, Card, Text, Container)      |
-| `components/mobile/` | Mobile-specific components                                    |
-| `contexts/`          | React contexts (8 total - see Contexts section)               |
-| `hooks/`             | Custom hooks (15 total - see Hooks section)                   |
-| `services/`          | Business logic and data operations                            |
-| `ai/`                | AI agent runtime, modules, providers, and evaluation          |
-| `lib/`               | Infrastructure (db.ts, store.ts, secureStorage.ts)            |
-| `styles/`            | CSS files per feature                                         |
-| `theme/`             | Design tokens                                                 |
-| `types/`             | TypeScript interfaces                                         |
+| Directory | Responsibility |
+| --- | --- |
+| `pages/` | Route-level components (Entries, Calendar, Chat, Insights) |
+| `components/` | Reusable UI components |
+| `components/themed/` | Design system primitives (Button, Card, Text, Container) |
+| `components/mobile/` | Mobile-specific components |
+| `contexts/` | React contexts (8 total - see Contexts section) |
+| `hooks/` | Custom hooks (15 total - see Hooks section) |
+| `services/` | Business logic and data operations |
+| `ai/` | AI agent runtime, modules, providers, and evaluation |
+| `lib/` | Infrastructure (db.ts, store.ts, secureStorage.ts) |
+| `styles/` | CSS files per feature |
+| `theme/` | Design tokens |
+| `types/` | TypeScript interfaces |
 
 ### Project Root Directories
 
-| Directory  | Responsibility                                      |
-| ---------- | --------------------------------------------------- |
-| `/evals`   | AI agent evaluation framework and test datasets     |
-| `/plans`   | Planning documents                                  |
-| `/scripts` | Utility scripts                                     |
+| Directory | Responsibility |
+| --- | --- |
+| `/evals` | AI agent evaluation framework and test datasets |
+| `/plans` | Planning documents |
+| `/scripts` | Utility scripts |
 
 ### Backend (`/src-tauri`)
 
-| File              | Responsibility                         |
-| ----------------- | -------------------------------------- |
-| `src/lib.rs`      | Tauri app builder and command handlers |
-| `src/main.rs`     | Application launcher                   |
-| `tauri.conf.json` | App configuration                      |
+| File | Responsibility |
+| --- | --- |
+| `src/lib.rs` | Tauri app builder and command handlers |
+| `src/main.rs` | Application launcher |
+| `tauri.conf.json` | App configuration |
 
 SQLite database via `tauri-plugin-sql`. Settings persisted via `tauri-plugin-store`.
 
 ## Contexts
 
-| Context                  | Responsibility                                         |
-| ------------------------ | ------------------------------------------------------ |
-| `ThemeContext`           | Theme state (light/dark mode)                          |
-| `FocusModeContext`       | Focus mode toggle and keyboard shortcuts               |
-| `SidebarContext`         | Sidebar visibility state                               |
-| `CalendarContext`        | Calendar view state and navigation                     |
-| `EntriesStateContext`    | Paginated entries state, CRUD operations, navigation   |
-| `EntryNavigationContext` | Cross-page entry navigation tracking                   |
-| `InsightsContext`        | Analytics state, time/sentiment filters, insights data |
-| `MemoryContext`          | AI memory and context management                       |
+| Context | Responsibility |
+| --- | --- |
+| `ThemeContext` | Theme state (light/dark mode) |
+| `FocusModeContext` | Focus mode toggle and keyboard shortcuts |
+| `SidebarContext` | Sidebar visibility state |
+| `CalendarContext` | Calendar view state and navigation |
+| `EntriesStateContext` | Paginated entries state, CRUD operations, navigation |
+| `EntryNavigationContext` | Cross-page entry navigation tracking |
+| `InsightsContext` | Analytics state, time/sentiment filters, insights data |
+| `MemoryContext` | AI memory and context management |
 
 ## Hooks
 
-| Hook               | Purpose                                                    |
-| ------------------ | ---------------------------------------------------------- |
-| `useEntries`       | Entry CRUD operations and state management                 |
-| `useMediaQuery`    | Breakpoint detection (mobile < 768px)                      |
-| `useIsMobile`      | Mobile platform detection                                  |
-| `useKeyboard`      | Soft keyboard state (`{ isOpen, height }`)                 |
-| `useKeyPress`      | Centralized keyboard shortcut handler                      |
-| `useEscapeKey`     | Escape key shortcut (wrapper around useKeyPress)           |
-| `useSwipeAction`   | Horizontal swipe gesture handling with threshold detection |
-| `useAutoScroll`    | Automatic scrolling for chat messages                      |
-| `useChat`          | Chat state management and AI agent integration             |
-| `useDebounce`      | Debounced value updates                                    |
+| Hook | Purpose |
+| --- | --- |
+| `useEntries` | Entry CRUD operations and state management |
+| `useMediaQuery` | Breakpoint detection (mobile &lt; 768px) |
+| `useIsMobile` | Mobile platform detection |
+| `useKeyboard` | Soft keyboard state (`{ isOpen, height }`) |
+| `useKeyPress` | Centralized keyboard shortcut handler |
+| `useEscapeKey` | Escape key shortcut (wrapper around useKeyPress) |
+| `useSwipeAction` | Horizontal swipe gesture handling with threshold detection |
+| `useAutoScroll` | Automatic scrolling for chat messages |
+| `useChat` | Chat state management and AI agent integration |
+| `useDebounce` | Debounced value updates |
 
 ## AI Agent System
 
 ### Architecture (`/src/ai`)
 
-| File         | Purpose                                      |
-| ------------ | -------------------------------------------- |
-| `prompts.ts` | System prompt and analysis prompt templates  |
-| `index.ts`   | Module exports                               |
+| File | Purpose |
+| --- | --- |
+| `prompts.ts` | System prompt and analysis prompt templates |
+| `index.ts` | Module exports |
 
 ### Agent Tools (`services/agentTools.ts`)
 
 Two main tools available to the AI agent:
 
-1. **`query_insights`**: Query aggregated analytics (emotions, people, sentiment)
+1. `query_insights`: Query aggregated analytics (emotions, people, sentiment)
+
    - Filters: category, sentiment, date range, semantic search, specific names
    - Grouping: entity, category, sentiment, date
    - Returns: aggregated insights with optional entry IDs
 
-2. **`query_entries`**: Query journal entries
+2. `query_entries`: Query journal entries
+
    - Filters: semantic search, date range, tags
    - Returns: entry metadata with optional full text
 
@@ -112,17 +114,17 @@ The evaluation system validates AI agent behavior through tool routing accuracy 
 
 ### Directory Structure
 
-| File/Directory              | Purpose                                    |
-| --------------------------- | ------------------------------------------ |
-| `run.ts`                    | CLI entry point                            |
-| `config.ts`                 | API key management                         |
-| `datasets/chat-agent.json`  | Test cases (9 cases)                       |
-| `lib/types.ts`              | TypeScript interfaces                      |
-| `lib/runner.ts`             | Test execution orchestration               |
-| `lib/agentWrapper.ts`       | Agent invocation wrapper                   |
-| `lib/toolEvaluator.ts`      | Tool routing validation                    |
-| `lib/qualityEvaluator.ts`   | LLM-based quality scoring                  |
-| `lib/report.ts`             | Console/JSON report generation             |
+| File/Directory | Purpose |
+| --- | --- |
+| `run.ts` | CLI entry point |
+| `config.ts` | API key management |
+| `datasets/chat-agent.json` | Test cases (9 cases) |
+| `lib/types.ts` | TypeScript interfaces |
+| `lib/runner.ts` | Test execution orchestration |
+| `lib/agentWrapper.ts` | Agent invocation wrapper |
+| `lib/toolEvaluator.ts` | Tool routing validation |
+| `lib/qualityEvaluator.ts` | LLM-based quality scoring |
+| `lib/report.ts` | Console/JSON report generation |
 
 ### Running Evaluations
 
@@ -161,11 +163,13 @@ bun run evals/run.ts -v                  # Verbose output
 ### Evaluation Types
 
 **Tool Routing Evaluation:**
+
 - Validates correct tool selection (query_entries vs query_insights)
 - Supports exact (`requiredParams`) and loose (`containsParams`) parameter matching
 - Detects missing tools, unexpected tools, and parameter errors
 
 **Quality Evaluation:**
+
 - Uses GPT-4o-mini as judge to score responses
 - Dimensions: relevance, accuracy, empathy, completeness (1-5 each)
 - Overall score: 0-100 scale (pass threshold: 60)
@@ -173,6 +177,7 @@ bun run evals/run.ts -v                  # Verbose output
 ### API Key Configuration
 
 Priority order:
+
 1. `OPENAI_API_KEY` environment variable
 2. `evals/.env.local` file
 3. `~/.journai/config.json` file
@@ -202,28 +207,29 @@ Handles all mobile container concerns:
 ### Key Hooks (See Hooks section for complete list)
 
 All hooks are documented in the Hooks section above. Mobile-specific hooks:
+
 - `useKeyboard()` - Soft keyboard state detection
 - `useSwipeAction()` - Swipe gesture handling
 - `useIsMobile()` - Mobile platform detection
 
 ### Mobile Components
 
-| Component              | Purpose                                       |
-| ---------------------- | --------------------------------------------- |
-| `BottomNav`            | Fixed bottom navigation bar                   |
-| `BottomSheet`          | Draggable modal from bottom, swipe-to-dismiss |
-| `SwipeableListItem`    | List item with swipe actions (delete/edit)    |
-| `MobileEntries`        | Mobile entries list with FAB and search       |
-| `MobileEntryEditor`    | Keyboard-aware entry editor                   |
+| Component | Purpose |
+| --- | --- |
+| `BottomNav` | Fixed bottom navigation bar |
+| `BottomSheet` | Draggable modal from bottom, swipe-to-dismiss |
+| `SwipeableListItem` | List item with swipe actions (delete/edit) |
+| `MobileEntries` | Mobile entries list with FAB and search |
+| `MobileEntryEditor` | Keyboard-aware entry editor |
 
 ### Key Components
 
-| Component                 | Purpose                                       |
-| ------------------------- | --------------------------------------------- |
-| `ContentEditableEditor`   | Rich text editing with cursor position tracking |
-| `ToolCallDisplay`         | AI agent tool call visualization with status  |
-| `MessageBubble`           | Chat message with tool calls and citations    |
-| `ChatContainer`           | Chat interface with agent orchestration       |
+| Component | Purpose |
+| --- | --- |
+| `ContentEditableEditor` | Rich text editing with cursor position tracking |
+| `ToolCallDisplay` | AI agent tool call visualization with status |
+| `MessageBubble` | Chat message with tool calls and citations |
+| `ChatContainer` | Chat interface with agent orchestration |
 
 ### CSS Variables (`styles/mobile.css`)
 
@@ -240,7 +246,7 @@ All hooks are documented in the Hooks section above. Mobile-specific hooks:
 1. **Safe areas**: MobileLayout handles all safe area padding. Components should not add their own.
 
 2. **Keyboard handling**: Use `useKeyboard()` hook. Adjust bottom padding when keyboard opens:
-   
+
    ```typescript
    paddingBottom: isKeyboardOpen ? '20px' : 'calc(20px + var(--mobile-nav-height) + var(--mobile-safe-area-bottom))'
    ```
@@ -272,6 +278,7 @@ All hooks are documented in the Hooks section above. Mobile-specific hooks:
 All keyboard shortcuts use the centralized `useKeyPress` and `useEscapeKey` hooks (`hooks/useKeyPress.ts`).
 
 **Benefits:**
+
 - Single event listener per shortcut (not dozens)
 - Automatic cleanup on unmount
 - Prevents conflicts between handlers
@@ -303,27 +310,27 @@ useEscapeKey(() => closeModal(), {
 
 ### Registered Shortcuts
 
-| Shortcut          | Action                   | Context              |
-| ----------------- | ------------------------ | -------------------- |
-| `Escape`          | Exit focus mode          | FocusModeContext     |
-| `Escape`          | Close modal              | Modal component      |
-| `Ctrl+Shift+F`    | Toggle focus mode        | FocusModeContext     |
-| `Cmd+Shift+F`     | Toggle focus mode (Mac)  | FocusModeContext     |
+| Shortcut | Action | Context |
+| --- | --- | --- |
+| `Escape` | Exit focus mode | FocusModeContext |
+| `Escape` | Close modal | Modal component |
+| `Ctrl+Shift+F` | Toggle focus mode | FocusModeContext |
+| `Cmd+Shift+F` | Toggle focus mode (Mac) | FocusModeContext |
 
 ### Adding New Shortcuts
 
 1. **Component-level** (contextual actions):
+
    ```typescript
    import { useKeyPress } from '../hooks/useKeyPress';
-
+   
    function MyComponent() {
      useKeyPress('s', () => save(), { ctrlKey: true });
      // ...
    }
    ```
 
-2. **App-level** (global navigation):
-   Add to `FocusModeContext.tsx` or create a dedicated keyboard context.
+2. **App-level** (global navigation): Add to `FocusModeContext.tsx` or create a dedicated keyboard context.
 
 ### Best Practices
 
@@ -351,32 +358,34 @@ mcp__tauri__driver_session({ action: "stop" })
 
 ### Available Tools
 
-| Tool                        | Purpose                                              |
-| --------------------------- | ---------------------------------------------------- |
-| `webview_screenshot`        | Capture screenshot of the app                        |
-| `webview_dom_snapshot`      | Get DOM structure (`type: "structure"` or `"accessibility"`) |
-| `webview_find_element`      | Find elements by CSS selector, xpath, or text        |
-| `webview_get_styles`        | Get computed CSS styles for elements                 |
-| `webview_interact`          | Click, scroll, swipe, focus on elements              |
-| `webview_keyboard`          | Type text or send key events                         |
-| `webview_execute_js`        | Execute JavaScript in the webview context            |
-| `webview_wait_for`          | Wait for elements, text, or IPC events               |
-| `read_logs`                 | Read console, Android, iOS, or system logs           |
-| `ipc_execute_command`       | Execute Tauri IPC commands (invoke Rust functions)   |
-| `ipc_monitor`               | Start/stop monitoring IPC traffic                    |
-| `ipc_get_captured`          | Get captured IPC traffic                             |
-| `ipc_emit_event`            | Emit Tauri events                                    |
-| `ipc_get_backend_state`     | Get app metadata and Tauri version                   |
-| `manage_window`             | List, get info, or resize windows                    |
+| Tool | Purpose |
+| --- | --- |
+| `webview_screenshot` | Capture screenshot of the app |
+| `webview_dom_snapshot` | Get DOM structure (`type: "structure"` or `"accessibility"`) |
+| `webview_find_element` | Find elements by CSS selector, xpath, or text |
+| `webview_get_styles` | Get computed CSS styles for elements |
+| `webview_interact` | Click, scroll, swipe, focus on elements |
+| `webview_keyboard` | Type text or send key events |
+| `webview_execute_js` | Execute JavaScript in the webview context |
+| `webview_wait_for` | Wait for elements, text, or IPC events |
+| `read_logs` | Read console, Android, iOS, or system logs |
+| `ipc_execute_command` | Execute Tauri IPC commands (invoke Rust functions) |
+| `ipc_monitor` | Start/stop monitoring IPC traffic |
+| `ipc_get_captured` | Get captured IPC traffic |
+| `ipc_emit_event` | Emit Tauri events |
+| `ipc_get_backend_state` | Get app metadata and Tauri version |
+| `manage_window` | List, get info, or resize windows |
 
 ### Common Workflows
 
 **Inspect DOM structure:**
+
 ```typescript
 mcp__tauri__webview_dom_snapshot({ type: "structure", selector: ".my-component" })
 ```
 
 **Check computed styles:**
+
 ```typescript
 mcp__tauri__webview_get_styles({
   selector: ".my-element",
@@ -385,6 +394,7 @@ mcp__tauri__webview_get_styles({
 ```
 
 **Execute JavaScript to debug:**
+
 ```typescript
 mcp__tauri__webview_execute_js({
   script: "(() => { return getComputedStyle(document.querySelector('.my-element')).backgroundColor; })()"
@@ -392,6 +402,7 @@ mcp__tauri__webview_execute_js({
 ```
 
 **Check CSS rules being applied:**
+
 ```typescript
 mcp__tauri__webview_execute_js({
   script: `(() => {
@@ -411,6 +422,7 @@ mcp__tauri__webview_execute_js({
 ```
 
 **Force reload to clear CSS cache:**
+
 ```typescript
 mcp__tauri__webview_execute_js({ script: "location.reload(true)" })
 ```
