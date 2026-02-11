@@ -91,31 +91,53 @@ interface MessageBubbleProps {
   onToggleThinking?: () => void;
 }
 
-function getInsightNameClass(type: string, sentiment?: string): string {
-  if (type !== "emotion") return "chat-insight-card__name";
-  if (sentiment === "positive")
-    return "chat-insight-card__name chat-insight-card__name--positive";
-  if (sentiment === "negative")
-    return "chat-insight-card__name chat-insight-card__name--negative";
-  return "chat-insight-card__name";
+const INTENSITY_BAR_COUNT = 10;
+
+function IntensityBars({
+  intensity,
+  sentiment,
+}: {
+  intensity: number;
+  sentiment: string;
+}) {
+  return (
+    <div className="chat-intensity-bars">
+      {Array.from({ length: INTENSITY_BAR_COUNT }, (_, i) => {
+        const fullBars = Math.floor(intensity);
+        const partialFill = intensity % 1;
+        const isPartial = i === fullBars && partialFill > 0;
+        const isFull = i < fullBars;
+
+        if (isPartial) {
+          return (
+            <div
+              key={i}
+              className="chat-intensity-bar"
+              style={{
+                background: `linear-gradient(to right, var(--insights-intensity-${sentiment}) ${partialFill * 100}%, var(--bg-primary) ${partialFill * 100}%)`,
+              }}
+            />
+          );
+        }
+        return (
+          <div
+            key={i}
+            className={
+              isFull
+                ? `chat-intensity-bar chat-intensity-bar--filled-${sentiment}`
+                : "chat-intensity-bar"
+            }
+          />
+        );
+      })}
+    </div>
+  );
 }
 
-function getInsightCardClass(type: string, sentiment?: string): string {
-  if (type !== "emotion") return "chat-insight-card";
-  if (sentiment === "positive")
-    return "chat-insight-card chat-insight-card--positive";
-  if (sentiment === "negative")
-    return "chat-insight-card chat-insight-card--negative";
-  return "chat-insight-card";
-}
-
-function getSentimentBadgeClass(sentiment?: string): string {
-  const base = "chat-insight-card__sentiment";
-  if (sentiment === "positive" || sentiment === "supportive")
-    return `${base} ${base}--positive`;
-  if (sentiment === "negative" || sentiment === "tense")
-    return `${base} ${base}--negative`;
-  return `${base} ${base}--neutral`;
+function getSentimentClass(sentiment?: string): string {
+  if (sentiment === "positive" || sentiment === "supportive") return "positive";
+  if (sentiment === "negative" || sentiment === "tense") return "negative";
+  return "neutral";
 }
 
 export default function MessageBubble({
@@ -267,30 +289,41 @@ export default function MessageBubble({
                     <div
                       key={idx}
                       onClick={() => {
-                        navigateToEntry(insight.entryId);
+                        const sourceRange =
+                          insight.sourceText != null &&
+                          insight.sourceStart != null &&
+                          insight.sourceEnd != null
+                            ? {
+                                quote: insight.sourceText,
+                                start: insight.sourceStart,
+                                end: insight.sourceEnd,
+                              }
+                            : undefined;
+                        navigateToEntry(insight.entryId, sourceRange);
                         navigate("/entries");
                       }}
-                      className={getInsightCardClass(
-                        insight.type,
-                        insight.sentiment,
-                      )}
+                      className="chat-insight-card"
                     >
-                      <div className="chat-insight-card__header">
-                        <span
-                          className={getInsightNameClass(
-                            insight.type,
-                            insight.sentiment,
-                          )}
-                        >
+                      <div className="chat-insight-card__top">
+                        <span className="chat-insight-card__name">
                           {insight.type === "emotion"
                             ? insight.emotion
                             : insight.name}
                         </span>
+                        {insight.type === "emotion" && (
+                          <div className="chat-insight-card__intensity-group">
+                            <span className="chat-insight-card__intensity-value">
+                              {insight.intensity}/10
+                            </span>
+                            <IntensityBars
+                              intensity={insight.intensity}
+                              sentiment={insight.sentiment}
+                            />
+                          </div>
+                        )}
                         {insight.type === "person" && insight.sentiment && (
                           <span
-                            className={getSentimentBadgeClass(
-                              insight.sentiment,
-                            )}
+                            className={`chat-insight-pill chat-insight-pill--${getSentimentClass(insight.sentiment)}`}
                           >
                             {insight.sentiment}
                           </span>
@@ -299,14 +332,9 @@ export default function MessageBubble({
                           {insight.entryDate}
                         </span>
                       </div>
-                      {insight.type === "emotion" && insight.trigger && (
-                        <div className="chat-insight-card__detail">
-                          {insight.trigger}
-                        </div>
-                      )}
-                      {insight.type === "person" && insight.context && (
-                        <div className="chat-insight-card__detail">
-                          {insight.context}
+                      {insight.sourceText && (
+                        <div className="chat-insight-card__quote">
+                          {insight.sourceText}
                         </div>
                       )}
                     </div>

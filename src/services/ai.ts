@@ -255,81 +255,54 @@ export async function sendAgentChatMessage(
             sentiment?: string;
             context?: string;
             intensity?: number;
+            avgIntensity?: number;
             trigger?: string;
+            count?: number;
+            sourceText?: string;
+            sourceStart?: number;
+            sourceEnd?: number;
           }>;
 
-          const allEntryIds = new Set<string>();
-
           for (const insight of insights) {
-            if (insight.entryId) {
-              const formattedInsight: FilteredInsight =
-                insight.type === "person"
-                  ? {
-                      type: "person",
-                      name: insight.name || "",
-                      relationship: insight.relationship,
-                      sentiment: insight.sentiment || "neutral",
-                      context: insight.context,
-                      entryId: insight.entryId,
-                      entryDate: insight.entryDate || "",
-                    }
-                  : {
-                      type: "emotion",
-                      emotion: insight.emotion || "",
-                      intensity: insight.intensity || 5,
-                      trigger: insight.trigger,
-                      sentiment: (insight.sentiment || "neutral") as
-                        | "positive"
-                        | "negative"
-                        | "neutral",
-                      entryId: insight.entryId,
-                      entryDate: insight.entryDate || "",
-                    };
-              allInsights.push(formattedInsight);
-              allEntryIds.add(insight.entryId);
-            }
+            const emotionName = insight.emotion || insight.name || "";
+            const intensityValue =
+              insight.intensity || insight.avgIntensity || 5;
+            const displayDate =
+              insight.entryDate || insight.mostRecentDate || "";
+            const entryId = insight.entryId || insight.entryIds?.[0] || "";
 
-            if (
-              insight.entryIds &&
-              Array.isArray(insight.entryIds) &&
-              insight.entryIds.length > 0
-            ) {
-              const displayDate =
-                insight.mostRecentDate || insight.entryDate || "";
-              const firstEntryId = insight.entryIds[0];
+            if (!entryId) continue;
 
-              const formattedInsight: FilteredInsight =
-                insight.type === "person"
-                  ? {
-                      type: "person",
-                      name: insight.name || "",
-                      relationship: insight.relationship,
-                      sentiment: insight.sentiment || "neutral",
-                      context: insight.context,
-                      entryId: firstEntryId,
-                      entryDate: displayDate,
-                    }
-                  : {
-                      type: "emotion",
-                      emotion: insight.emotion || "",
-                      intensity: insight.intensity || 5,
-                      trigger: insight.trigger,
-                      sentiment: (insight.sentiment || "neutral") as
-                        | "positive"
-                        | "negative"
-                        | "neutral",
-                      entryId: firstEntryId,
-                      entryDate: displayDate,
-                    };
-              allInsights.push(formattedInsight);
-              allEntryIds.add(firstEntryId);
-            }
-          }
-
-          for (const entryId of allEntryIds) {
-            if (!allCitations.some((c) => c.entryId === entryId)) {
-              allCitations.push({ entryId });
-            }
+            const formattedInsight: FilteredInsight =
+              insight.type === "person"
+                ? {
+                    type: "person",
+                    name: insight.name || "",
+                    relationship: insight.relationship,
+                    sentiment: insight.sentiment || "neutral",
+                    context: insight.context,
+                    entryId,
+                    entryDate: displayDate,
+                    sourceText: insight.sourceText,
+                    sourceStart: insight.sourceStart,
+                    sourceEnd: insight.sourceEnd,
+                  }
+                : {
+                    type: "emotion",
+                    emotion: emotionName,
+                    intensity: intensityValue,
+                    trigger: insight.trigger,
+                    sentiment: (insight.sentiment || "neutral") as
+                      | "positive"
+                      | "negative"
+                      | "neutral",
+                    entryId,
+                    entryDate: displayDate,
+                    sourceText: insight.sourceText,
+                    sourceStart: insight.sourceStart,
+                    sourceEnd: insight.sourceEnd,
+                  };
+            allInsights.push(formattedInsight);
           }
 
           const contextParts: string[] = ["INSIGHTS:"];
@@ -344,12 +317,18 @@ export async function sendAgentChatMessage(
               if (insight.context) {
                 contextParts.push(`  Context: ${insight.context}`);
               }
+              if (insight.sourceText) {
+                contextParts.push(`  Source: "${insight.sourceText}"`);
+              }
             } else {
               contextParts.push(
                 `\n• ${insight.emotion} (intensity: ${insight.intensity}/10) [${insight.sentiment}] on ${insight.entryDate}`,
               );
               if (insight.trigger) {
                 contextParts.push(`  Trigger: ${insight.trigger}`);
+              }
+              if (insight.sourceText) {
+                contextParts.push(`  Source: "${insight.sourceText}"`);
               }
             }
           }

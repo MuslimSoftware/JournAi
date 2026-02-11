@@ -64,6 +64,9 @@ export interface FilteredEmotionInsight {
   sentiment: 'positive' | 'negative' | 'neutral';
   entryId: string;
   entryDate: string;
+  sourceText?: string;
+  sourceStart?: number;
+  sourceEnd?: number;
 }
 
 export interface FilteredPersonInsight {
@@ -74,6 +77,9 @@ export interface FilteredPersonInsight {
   context?: string;
   entryId: string;
   entryDate: string;
+  sourceText?: string;
+  sourceStart?: number;
+  sourceEnd?: number;
 }
 
 export type FilteredInsight = FilteredEmotionInsight | FilteredPersonInsight;

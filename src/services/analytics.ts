@@ -325,6 +325,9 @@ export interface FilteredEmotionInsight {
   sentiment: 'positive' | 'negative' | 'neutral';
   entryId: string;
   entryDate: string;
+  sourceText?: string;
+  sourceStart?: number;
+  sourceEnd?: number;
 }
 
 export interface FilteredPersonInsight {
@@ -335,6 +338,9 @@ export interface FilteredPersonInsight {
   context?: string;
   entryId: string;
   entryDate: string;
+  sourceText?: string;
+  sourceStart?: number;
+  sourceEnd?: number;
 }
 
 export type FilteredInsight = FilteredEmotionInsight | FilteredPersonInsight;
@@ -344,7 +350,7 @@ export async function getFilteredInsights(options: FilteredInsightsOptions = {})
   const results: FilteredInsight[] = [];
 
   if (!type || type === 'person') {
-    let query = `SELECT content, metadata, entry_id, entry_date FROM journal_insights WHERE insight_type = 'person'`;
+    let query = `SELECT content, metadata, entry_id, entry_date, source_text, source_start, source_end FROM journal_insights WHERE insight_type = 'person'`;
     const params: (string | number)[] = [];
 
     if (name) {
@@ -364,10 +370,16 @@ export async function getFilteredInsights(options: FilteredInsightsOptions = {})
       metadata: string;
       entry_id: string;
       entry_date: string;
+      source_text: string | null;
+      source_start: number | null;
+      source_end: number | null;
     }>(query, params);
 
     for (const r of rows) {
       const meta: PersonMetadata | null = r.metadata ? JSON.parse(r.metadata) : null;
+      const sourceText = r.source_text || meta?.source?.quote;
+      const sourceStart = r.source_start ?? meta?.source?.start;
+      const sourceEnd = r.source_end ?? meta?.source?.end;
       results.push({
         type: 'person',
         name: r.content,
@@ -376,12 +388,15 @@ export async function getFilteredInsights(options: FilteredInsightsOptions = {})
         context: meta?.context,
         entryId: r.entry_id,
         entryDate: r.entry_date,
+        ...(sourceText && { sourceText }),
+        ...(sourceStart != null && { sourceStart }),
+        ...(sourceEnd != null && { sourceEnd }),
       });
     }
   }
 
   if (!type || type === 'emotion') {
-    let query = `SELECT content, metadata, entry_id, entry_date FROM journal_insights WHERE insight_type = 'emotion'`;
+    let query = `SELECT content, metadata, entry_id, entry_date, source_text, source_start, source_end FROM journal_insights WHERE insight_type = 'emotion'`;
     const params: (string | number)[] = [];
 
     if (name) {
@@ -401,10 +416,16 @@ export async function getFilteredInsights(options: FilteredInsightsOptions = {})
       metadata: string;
       entry_id: string;
       entry_date: string;
+      source_text: string | null;
+      source_start: number | null;
+      source_end: number | null;
     }>(query, params);
 
     for (const r of rows) {
       const meta: EmotionMetadata | null = r.metadata ? JSON.parse(r.metadata) : null;
+      const sourceText = r.source_text || meta?.source?.quote;
+      const sourceStart = r.source_start ?? meta?.source?.start;
+      const sourceEnd = r.source_end ?? meta?.source?.end;
       results.push({
         type: 'emotion',
         emotion: r.content,
@@ -413,6 +434,9 @@ export async function getFilteredInsights(options: FilteredInsightsOptions = {})
         sentiment: meta?.sentiment || 'neutral',
         entryId: r.entry_id,
         entryDate: r.entry_date,
+        ...(sourceText && { sourceText }),
+        ...(sourceStart != null && { sourceStart }),
+        ...(sourceEnd != null && { sourceEnd }),
       });
     }
   }

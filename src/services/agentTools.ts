@@ -220,7 +220,7 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
       return [];
     }
 
-    let query = `SELECT ji.content, ji.metadata, ji.entry_id, ji.entry_date, ji.insight_type
+    let query = `SELECT ji.content, ji.metadata, ji.entry_id, ji.entry_date, ji.insight_type, ji.source_text, ji.source_start, ji.source_end
                  FROM journal_insights ji
                  WHERE ji.entry_id IN (${entryIds.map((_, i) => `$${i + 1}`).join(',')})`;
     const params: unknown[] = [...entryIds];
@@ -246,6 +246,9 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
       entry_id: string;
       entry_date: string;
       insight_type: string;
+      source_text: string | null;
+      source_start: number | null;
+      source_end: number | null;
     }>(query, params);
 
     return rows.map(r => {
@@ -267,6 +270,13 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
         if (meta.sentiment) result.sentiment = meta.sentiment;
       }
 
+      const sourceText = r.source_text || meta.source?.quote;
+      if (sourceText) result.sourceText = sourceText;
+      const sourceStart = r.source_start ?? meta.source?.start;
+      const sourceEnd = r.source_end ?? meta.source?.end;
+      if (sourceStart != null) result.sourceStart = sourceStart;
+      if (sourceEnd != null) result.sourceEnd = sourceEnd;
+
       return result;
     });
   }
@@ -275,7 +285,7 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
     const categoryFilter = filters.category || ['people', 'emotions'];
     const types = categoryFilter.map(c => c === 'people' ? 'person' : 'emotion');
 
-    let query = `SELECT ji.content, ji.insight_type, ji.metadata, ji.entry_id, ji.entry_date
+    let query = `SELECT ji.content, ji.insight_type, ji.metadata, ji.entry_id, ji.entry_date, ji.source_text, ji.source_start, ji.source_end
                  FROM journal_insights ji
                  WHERE ji.insight_type IN (${types.map((_, i) => `$${i + 1}`).join(',')})`;
     const params: unknown[] = [...types];
@@ -304,6 +314,9 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
       metadata: string;
       entry_id: string;
       entry_date: string;
+      source_text: string | null;
+      source_start: number | null;
+      source_end: number | null;
     }>(query, params);
 
     const grouped = new Map<string, {
@@ -317,11 +330,17 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
       totalIntensity?: number;
       entryIds: string[];
       mostRecentDate: string;
+      mostRecentSourceText?: string;
+      mostRecentSourceStart?: number;
+      mostRecentSourceEnd?: number;
     }>();
 
     for (const row of rows) {
       const key = `${row.insight_type}:${row.content.toLowerCase()}`;
       const meta = row.metadata ? JSON.parse(row.metadata) : {};
+      const sourceText = row.source_text || meta.source?.quote;
+      const sourceStart = row.source_start ?? meta.source?.start;
+      const sourceEnd = row.source_end ?? meta.source?.end;
 
       if (!grouped.has(key)) {
         grouped.set(key, {
@@ -330,7 +349,10 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
           count: 0,
           entryIds: [],
           mostRecentDate: row.entry_date,
-          ...(row.insight_type === 'person' && meta.sentiment && { sentiment: meta.sentiment }),
+          ...(sourceText && { mostRecentSourceText: sourceText }),
+          ...(sourceStart != null && { mostRecentSourceStart: sourceStart }),
+          ...(sourceEnd != null && { mostRecentSourceEnd: sourceEnd }),
+          ...(meta.sentiment && { sentiment: meta.sentiment }),
           ...(row.insight_type === 'person' && meta.relationship && { relationship: meta.relationship }),
           ...(row.insight_type === 'person' && meta.context && { context: meta.context }),
           ...(row.insight_type === 'emotion' && { totalIntensity: 0 }),
@@ -350,6 +372,11 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
         if (row.insight_type === 'person' && meta.context) {
           entry.context = meta.context;
         }
+        if (sourceText) {
+          entry.mostRecentSourceText = sourceText;
+        }
+        if (sourceStart != null) entry.mostRecentSourceStart = sourceStart;
+        if (sourceEnd != null) entry.mostRecentSourceEnd = sourceEnd;
       }
     }
 
@@ -361,8 +388,9 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
         mostRecentDate: entry.mostRecentDate,
       };
 
+      if (entry.sentiment) result.sentiment = entry.sentiment;
+
       if (entry.type === 'person') {
-        if (entry.sentiment) result.sentiment = entry.sentiment;
         if (entry.relationship) result.relationship = entry.relationship;
         if (entry.context) result.context = entry.context;
       } else if (entry.type === 'emotion') {
@@ -370,6 +398,10 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
           result.avgIntensity = Math.round((entry.totalIntensity / entry.count) * 10) / 10;
         }
       }
+
+      if (entry.mostRecentSourceText) result.sourceText = entry.mostRecentSourceText;
+      if (entry.mostRecentSourceStart != null) result.sourceStart = entry.mostRecentSourceStart;
+      if (entry.mostRecentSourceEnd != null) result.sourceEnd = entry.mostRecentSourceEnd;
 
       if (includeEntryIds) {
         result.entryIds = entry.entryIds.slice(0, 10);
@@ -416,6 +448,9 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
       sentiment: insight.sentiment,
       ...(includeEntryIds && { entryId: insight.entryId }),
       entryDate: insight.entryDate,
+      ...(insight.sourceText && { sourceText: insight.sourceText }),
+      ...(insight.sourceStart != null && { sourceStart: insight.sourceStart }),
+      ...(insight.sourceEnd != null && { sourceEnd: insight.sourceEnd }),
     };
 
     if (insight.type === 'person') {
@@ -426,7 +461,6 @@ async function executeQueryInsights(args: QueryInsightsArgs): Promise<unknown> {
         context: insight.context,
       };
     } else {
-      // insight.type === 'emotion'
       return {
         ...base,
         emotion: insight.emotion,
