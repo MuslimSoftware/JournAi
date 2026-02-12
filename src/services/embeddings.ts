@@ -90,7 +90,7 @@ function blobToEmbedding(blob: Uint8Array): number[] {
 }
 
 export async function embedEntry(entryId: string, entryDate: string, content: string): Promise<number> {
-  const apiKey = getApiKey();
+  const apiKey = await getApiKey();
   if (!apiKey) throw new Error('No API key configured');
 
   await execute('DELETE FROM embedding_chunks WHERE entry_id = $1', [entryId]);
@@ -216,7 +216,7 @@ export async function getUnembeddedEntries(minAgeMinutes: number = 0): Promise<A
 export async function embedAllEntries(
   onProgress?: (current: number, total: number, entryId: string, chunkCount?: number) => void
 ): Promise<{ success: number; failed: number; errors: string[] }> {
-  const apiKey = getApiKey();
+  const apiKey = await getApiKey();
   if (!apiKey) throw new Error('No API key configured');
 
   const unembedded = await getUnembeddedEntries();
@@ -250,7 +250,7 @@ let isBackgroundEmbedding = false;
 export async function embedStaleEntries(): Promise<{ success: number; failed: number }> {
   if (isBackgroundEmbedding) return { success: 0, failed: 0 };
 
-  const apiKey = getApiKey();
+  const apiKey = await getApiKey();
   if (!apiKey) return { success: 0, failed: 0 };
 
   isBackgroundEmbedding = true;

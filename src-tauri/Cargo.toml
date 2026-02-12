@@ -34,8 +34,14 @@ rand = "0.8"
 dirs = "5"
 libsqlite3-sys = { version = "0.30.1", features = ["bundled-sqlcipher-vendored-openssl"] }
 
-[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
-keyring = "3"
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+
+[target.'cfg(all(target_os = "linux", not(target_os = "android")))'.dependencies]
+keyring = { version = "3", features = ["linux-native-sync-persistent", "crypto-rust"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = "0.6"

@@ -68,7 +68,7 @@ export default function MemorySection() {
   }, [isBackgroundProcessing, loadProcessingStats]);
 
   const handleEmbedAll = async () => {
-    const apiKey = getApiKey();
+    const apiKey = await getApiKey();
     if (!apiKey) {
       setError('Please configure your OpenAI API key first');
       return;
@@ -118,7 +118,7 @@ export default function MemorySection() {
   };
 
   const handleProcessAll = async () => {
-    const apiKey = getApiKey();
+    const apiKey = await getApiKey();
     if (!apiKey) {
       setAnalysisError('Please configure your OpenAI API key first');
       return;

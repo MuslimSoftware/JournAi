@@ -86,7 +86,7 @@ export function generateContentHash(content: string): string {
  * Analyze a single journal entry and extract insights using AI
  */
 export async function analyzeEntry(entry: JournalEntry): Promise<JournalInsight[]> {
-  const apiKey = getApiKey();
+  const apiKey = await getApiKey();
   if (!apiKey) {
     throw new Error('OpenAI API key not configured. Please add your API key in Settings.');
   }
@@ -353,7 +353,7 @@ async function processUnprocessedEntriesInternal(
   progress: ProcessingProgress
 ): Promise<ProcessingProgress> {
   // Check if API key is configured
-  const apiKey = getApiKey();
+  const apiKey = await getApiKey();
   if (!apiKey) {
     console.log('[EntryAnalysis] Skipping launch processing - no API key configured');
     return progress;

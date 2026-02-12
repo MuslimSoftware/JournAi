@@ -16,7 +16,7 @@ import {
 import * as chatMessagesService from "../services/chatMessages";
 import * as chatsService from "../services/chats";
 import { appStore, STORE_KEYS } from "../lib/store";
-import { getApiKey } from "../lib/secureStorage";
+import { getApiKey, subscribeToApiKeyChanges } from "../lib/secureStorage";
 
 interface UseChatOptions {
   chatId: string | null;
@@ -71,14 +71,34 @@ export function useChat({
   const titleGeneratedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    let disposed = false;
+
     const loadSettings = async () => {
-      const apiKey = getApiKey();
-      const model = await appStore.get<OpenAIModel>(STORE_KEYS.AI_MODEL);
+      const [apiKey, model] = await Promise.all([
+        getApiKey(),
+        appStore.get<OpenAIModel>(STORE_KEYS.AI_MODEL),
+      ]);
+
+      if (disposed) {
+        return;
+      }
+
       if (apiKey) {
         setAiSettings({ apiKey, model: model || "gpt-5.2" });
+      } else {
+        setAiSettings(null);
       }
     };
-    loadSettings();
+
+    void loadSettings();
+    const unsubscribe = subscribeToApiKeyChanges(() => {
+      void loadSettings();
+    });
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

@@ -10,22 +10,36 @@ interface AiAccessContextType {
 
 const AiAccessContext = createContext<AiAccessContextType | undefined>(undefined);
 
-function hasConfiguredApiKey(): boolean {
-  const apiKey = getApiKey();
+async function hasConfiguredApiKey(): Promise<boolean> {
+  const apiKey = await getApiKey();
   return Boolean(apiKey && apiKey.trim().length > 0);
 }
 
 export function AiAccessProvider({ children }: { children: ReactNode }) {
   const { openSettings } = useSettings();
-  const [hasApiKey, setHasApiKey] = useState<boolean>(() => hasConfiguredApiKey());
+  const [hasApiKey, setHasApiKey] = useState(false);
   const [destinationLabel, setDestinationLabel] = useState<string | null>(null);
 
   useEffect(() => {
-    setHasApiKey(hasConfiguredApiKey());
+    let disposed = false;
 
-    return subscribeToApiKeyChanges(() => {
-      setHasApiKey(hasConfiguredApiKey());
+    const refreshApiKeyState = async () => {
+      const hasKey = await hasConfiguredApiKey();
+      if (!disposed) {
+        setHasApiKey(hasKey);
+      }
+    };
+
+    void refreshApiKeyState();
+
+    const unsubscribe = subscribeToApiKeyChanges(() => {
+      void refreshApiKeyState();
     });
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

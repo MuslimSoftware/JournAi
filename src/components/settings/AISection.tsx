@@ -4,7 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import Modal from '../Modal';
 import { Text, Button } from '../themed';
 import { appStore, STORE_KEYS } from '../../lib/store';
-import { deleteApiKey, getApiKey, setApiKey } from '../../lib/secureStorage';
+import { deleteApiKey, getApiKey, getApiKeyStorageStatus, setApiKey } from '../../lib/secureStorage';
 import type { OpenAIModel } from '../../types/chat';
 import '../../styles/settings.css';
 
@@ -45,14 +45,21 @@ export default function AISection() {
   const [model, setModel] = useState<OpenAIModel>('gpt-5.2');
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'invalid' | 'deleted'>('idle');
+  const [storageMessage, setStorageMessage] = useState<string | null>(null);
 
   const isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const inputBg = isDark ? '#2a2a2a' : '#e8e8e8';
 
   useEffect(() => {
     const loadSettings = async () => {
-      const savedKey = getApiKey();
-      const savedModel = await appStore.get<OpenAIModel>(STORE_KEYS.AI_MODEL);
+      const [savedKey, savedModel, storageStatus] = await Promise.all([
+        getApiKey(),
+        appStore.get<OpenAIModel>(STORE_KEYS.AI_MODEL),
+        getApiKeyStorageStatus(),
+      ]);
+
+      setStorageMessage(storageStatus.message);
+
       if (savedKey && savedKey.trim().length > 0) {
         const normalizedKey = savedKey.trim();
         const preview = getMaskedKeyPreview(normalizedKey);
@@ -66,9 +73,13 @@ export default function AISection() {
         setSavedKeySuffix('');
         setIsEditingApiKey(true);
       }
-      if (savedModel) setModel(savedModel);
+
+      if (savedModel) {
+        setModel(savedModel);
+      }
     };
-    loadSettings();
+
+    void loadSettings();
   }, []);
 
   useEffect(() => {
@@ -94,18 +105,32 @@ export default function AISection() {
   };
 
   const handleDeleteKey = () => {
-    deleteApiKey();
-    setHasSavedApiKey(false);
-    setSavedKeyMask('');
-    setSavedKeySuffix('');
-    setApiKeyValue('');
-    setShowKey(false);
-    setIsEditingApiKey(true);
-    setConfirmingDelete(false);
-    setStatus('deleted');
+    const removeKey = async () => {
+      try {
+        await deleteApiKey();
+        setHasSavedApiKey(false);
+        setSavedKeyMask('');
+        setSavedKeySuffix('');
+        setApiKeyValue('');
+        setShowKey(false);
+        setIsEditingApiKey(true);
+        setConfirmingDelete(false);
+        setStatus('deleted');
+
+        const storageStatus = await getApiKeyStorageStatus();
+        setStorageMessage(storageStatus.message);
+      } catch (error) {
+        setStatus('error');
+        setStorageMessage(error instanceof Error ? error.message : 'Unable to access secure key storage.');
+      }
+    };
+
+    void removeKey();
   };
 
   const handleSave = async () => {
+    setStatus('saving');
+
     if (isEditingApiKey || !hasSavedApiKey) {
       const candidateKey = apiKeyValue.trim();
       const isValid = /^sk-[a-zA-Z0-9_-]{20,}$/.test(candidateKey);
@@ -114,19 +139,26 @@ export default function AISection() {
         return;
       }
 
-      const preview = getMaskedKeyPreview(candidateKey);
-      setApiKey(candidateKey);
-      setHasSavedApiKey(true);
-      setSavedKeyMask(preview.mask);
-      setSavedKeySuffix(preview.suffix);
-      setApiKeyValue('');
-      setShowKey(false);
-      setIsEditingApiKey(false);
+      try {
+        const preview = getMaskedKeyPreview(candidateKey);
+        await setApiKey(candidateKey);
+        setHasSavedApiKey(true);
+        setSavedKeyMask(preview.mask);
+        setSavedKeySuffix(preview.suffix);
+        setApiKeyValue('');
+        setShowKey(false);
+        setIsEditingApiKey(false);
+      } catch (error) {
+        setStatus('error');
+        setStorageMessage(error instanceof Error ? error.message : 'Unable to access secure key storage.');
+        return;
+      }
     }
 
-    setStatus('saving');
     try {
       await appStore.set(STORE_KEYS.AI_MODEL, model);
+      const storageStatus = await getApiKeyStorageStatus();
+      setStorageMessage(storageStatus.message);
       setStatus('saved');
     } catch {
       setStatus('error');
@@ -134,7 +166,9 @@ export default function AISection() {
   };
 
   const shouldShowSave = isEditingApiKey || !hasSavedApiKey;
-  const saveDisabled = status === 'saving' || (shouldShowSave && apiKeyValue.trim().length === 0);
+  const saveDisabled = status === 'saving'
+    || Boolean(storageMessage)
+    || (shouldShowSave && apiKeyValue.trim().length === 0);
 
   return (
     <div>
@@ -159,13 +193,14 @@ export default function AISection() {
                 variant="danger"
                 size="sm"
                 onClick={() => setConfirmingDelete(true)}
+                disabled={Boolean(storageMessage)}
                 className="settings-button-content"
               >
                 <IoTrash size={14} /> Delete Key
               </Button>
             </div>
             <p className="settings-hint">
-              Stored API keys stay masked. Replace the key if you need to use a different one.
+              Stored API keys stay masked in OS secure storage. Replace the key if you need to use a different one.
             </p>
           </>
         ) : (
@@ -190,6 +225,9 @@ export default function AISection() {
             </div>
             <p className="settings-hint">Get your API key from platform.openai.com</p>
           </>
+        )}
+        {storageMessage && (
+          <p className="settings-hint settings-hint--warning">{storageMessage}</p>
         )}
       </div>
 
@@ -248,7 +286,7 @@ export default function AISection() {
             <Button variant="secondary" size="sm" onClick={() => setConfirmingDelete(false)}>
               Cancel
             </Button>
-            <Button variant="danger" size="sm" onClick={handleDeleteKey}>
+            <Button variant="danger" size="sm" onClick={handleDeleteKey} disabled={Boolean(storageMessage)}>
               Delete
             </Button>
           </div>

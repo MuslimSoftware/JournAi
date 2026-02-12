@@ -18,6 +18,20 @@ vi.mock('../SideDrawer', () => ({
   }) => (isOpen ? <div data-testid="mock-side-drawer">{children}</div> : null),
 }));
 
+let secureApiKey: string | null = null;
+
+vi.mock('../../../lib/secureStorage', () => ({
+  getApiKey: vi.fn(async () => secureApiKey),
+  setApiKey: vi.fn(async (apiKey: string) => {
+    secureApiKey = apiKey.trim();
+  }),
+  deleteApiKey: vi.fn(async () => {
+    secureApiKey = null;
+  }),
+  getApiKeyStorageStatus: vi.fn(async () => ({ available: true, message: null })),
+  subscribeToApiKeyChanges: vi.fn(() => () => {}),
+}));
+
 function OpenNavOnMount() {
   const { openNav } = useMobileNav();
 
@@ -54,6 +68,7 @@ function renderDrawer() {
 describe('Mobile Nav Drawer AI Access Gating', () => {
   beforeEach(() => {
     localStorage.clear();
+    secureApiKey = null;
   });
 
   afterEach(() => {
@@ -76,7 +91,7 @@ describe('Mobile Nav Drawer AI Access Gating', () => {
   });
 
   it('navigates to chat when API key exists', async () => {
-    localStorage.setItem('journai.apiKey', 'sk-test-key-12345678901234567890');
+    secureApiKey = 'sk-test-key-12345678901234567890';
     renderDrawer();
 
     await screen.findByRole('link', { name: /chat/i });

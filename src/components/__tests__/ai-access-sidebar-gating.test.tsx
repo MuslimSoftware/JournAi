@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import {
@@ -24,6 +24,20 @@ const navItems = [
   { path: '/chat', label: 'Chat', icon: IoChatbubbleOutline, iconFilled: IoChatbubble, requiresApiKey: true },
   { path: '/insights', label: 'Insights', icon: IoSparklesOutline, iconFilled: IoSparkles, requiresApiKey: true },
 ];
+
+let secureApiKey: string | null = null;
+
+vi.mock('../../lib/secureStorage', () => ({
+  getApiKey: vi.fn(async () => secureApiKey),
+  setApiKey: vi.fn(async (apiKey: string) => {
+    secureApiKey = apiKey.trim();
+  }),
+  deleteApiKey: vi.fn(async () => {
+    secureApiKey = null;
+  }),
+  getApiKeyStorageStatus: vi.fn(async () => ({ available: true, message: null })),
+  subscribeToApiKeyChanges: vi.fn(() => () => {}),
+}));
 
 function LocationDisplay() {
   const location = useLocation();
@@ -63,6 +77,7 @@ function renderSidebar() {
 describe('Sidebar AI Access Gating', () => {
   beforeEach(() => {
     localStorage.clear();
+    secureApiKey = null;
   });
 
   afterEach(() => {
@@ -146,11 +161,13 @@ describe('Sidebar AI Access Gating', () => {
   });
 
   it('allows navigation to Chat when API key exists', async () => {
-    localStorage.setItem('journai.apiKey', 'sk-test-key-12345678901234567890');
+    secureApiKey = 'sk-test-key-12345678901234567890';
     renderSidebar();
 
     const chatLink = screen.getByRole('link', { name: /chat/i });
-    expect(chatLink).not.toHaveClass('sidebar-nav-link--locked');
+    await waitFor(() => {
+      expect(chatLink).not.toHaveClass('sidebar-nav-link--locked');
+    });
 
     fireEvent.click(chatLink);
 

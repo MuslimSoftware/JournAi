@@ -87,7 +87,7 @@ export async function searchVector(
   dateRange?: { start: string; end: string }
 ): Promise<SearchResult[]> {
   try {
-    const apiKey = getApiKey();
+    const apiKey = await getApiKey();
     if (!apiKey) return [];
 
     const queryEmbedding = await generateEmbedding(query, apiKey);
