@@ -9,6 +9,7 @@ import { FocusModeProvider, useFocusMode } from "../contexts/FocusModeContext";
 import { useProcessing } from "../contexts/ProcessingContext";
 import { SettingsProvider, useSettings } from "../contexts/SettingsContext";
 import { AiAccessProvider } from "../contexts/AiAccessContext";
+import { UpdateProvider } from "../contexts/UpdateContext";
 
 const mainNavItems = [
   { path: "/calendar", label: "Calendar", icon: IoCalendarOutline, iconFilled: IoCalendar },
@@ -76,9 +77,11 @@ export default function Layout() {
     <SidebarProvider>
       <SettingsProvider>
         <AiAccessProvider>
-          <FocusModeProvider>
-            <LayoutContent />
-          </FocusModeProvider>
+          <UpdateProvider>
+            <FocusModeProvider>
+              <LayoutContent />
+            </FocusModeProvider>
+          </UpdateProvider>
         </AiAccessProvider>
       </SettingsProvider>
     </SidebarProvider>

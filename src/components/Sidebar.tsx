@@ -5,6 +5,7 @@ import { IconType } from "react-icons";
 import IconButton from "./themed/IconButton";
 import { useSidebar } from "../contexts/SidebarContext";
 import { useAiAccess } from "../contexts/AiAccessContext";
+import { useUpdate } from "../contexts/UpdateContext";
 
 interface NavItem {
   path: string;
@@ -22,6 +23,7 @@ interface SidebarProps {
 export default function Sidebar({ items, onOpenSettings }: SidebarProps) {
   const { navPinned, toggleNavPin } = useSidebar();
   const { hasApiKey, requestAiAccess } = useAiAccess();
+  const { updateAvailable } = useUpdate();
 
   return (
     <aside className={`sidebar ${navPinned ? 'pinned' : ''}`}>
@@ -73,13 +75,16 @@ export default function Sidebar({ items, onOpenSettings }: SidebarProps) {
         </ul>
       </nav>
       <div className="sidebar-footer">
-        <IconButton
-          icon={<IoSettingsOutline size={20} />}
-          label="Settings"
-          onClick={onOpenSettings}
-          variant="ghost"
-          className="sidebar-settings-button"
-        />
+        <div className="sidebar-settings-wrapper">
+          <IconButton
+            icon={<IoSettingsOutline size={20} />}
+            label="Settings"
+            onClick={onOpenSettings}
+            variant="ghost"
+            className="sidebar-settings-button"
+          />
+          {updateAvailable && <span className="sidebar-update-badge" />}
+        </div>
       </div>
     </aside>
   );

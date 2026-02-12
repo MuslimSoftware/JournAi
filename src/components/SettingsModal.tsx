@@ -7,6 +7,7 @@ import SecuritySection from './settings/SecuritySection';
 import AISection from './settings/AISection';
 import MemorySection from './settings/MemorySection';
 import DataManagementSection from './settings/DataManagementSection';
+import UpdateSection from './settings/UpdateSection';
 import { useTheme } from '../contexts/ThemeContext';
 import IconButton from './themed/IconButton';
 import { useIsMobile } from '../hooks/useMediaQuery';
@@ -27,6 +28,7 @@ const SECTIONS = [
   { id: 'ai', label: 'AI' },
   { id: 'memory', label: 'Memory & RAG', requiresApiKey: true },
   { id: 'data-management', label: 'Data Management' },
+  { id: 'update', label: 'Update' },
 ];
 
 export default function SettingsModal({
@@ -119,6 +121,7 @@ export default function SettingsModal({
         {activeSection === 'ai' && <AISection />}
         {activeSection === 'memory' && <MemorySection />}
         {activeSection === 'data-management' && <DataManagementSection />}
+        {activeSection === 'update' && <UpdateSection />}
       </div>
     </div>
   );

@@ -25,6 +25,8 @@
       "identifier": "fs:scope",
       "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }, { "path": "$DOWNLOAD/**" }, { "path": "$TEMP/**" }]
     },
-    "mcp-bridge:default"
+    "mcp-bridge:default",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

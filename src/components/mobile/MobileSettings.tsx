@@ -12,7 +12,7 @@ import '../../styles/themed.css';
 interface MobileSettingsProps {
   isOpen: boolean;
   onClose: () => void;
-  initialSection?: SectionId;
+  initialSection?: string;
   openSignal?: number;
 }
 
@@ -90,7 +90,8 @@ export default function MobileSettings({
     }
     // On mobile, opening Settings from the nav should land on the section list.
     // Keep explicit deep-links (e.g. openSettings('ai')) working.
-    setActiveSection(initialSection && initialSection !== 'personalization' ? initialSection : null);
+    const validSection = SETTINGS_SECTIONS.find((s) => s.id === initialSection);
+    setActiveSection(validSection && initialSection !== 'personalization' ? validSection.id : null);
     setSearchQuery('');
   }, [initialSection, isOpen, openSignal]);
 

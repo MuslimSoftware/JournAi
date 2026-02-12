@@ -136,6 +136,23 @@
   background-color: var(--bg-subtle) !important;
 }
 
+.sidebar-settings-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.sidebar-update-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: var(--text-accent);
+  border: 2px solid var(--bg-tertiary);
+  pointer-events: none;
+}
+
 
 .main-content {
   flex: 1;

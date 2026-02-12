@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { IoCheckmarkCircle, IoKeyOutline, IoLockClosed, IoWarning } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppLock } from '../../contexts/AppLockContext';
-import { Button, Text } from '../themed';
+import { Button, Text, Spinner } from '../themed';
 import '../../styles/settings.css';
 
 const MIN_PASSPHRASE_LENGTH = 8;
@@ -158,6 +158,7 @@ export default function SecuritySection() {
               className="settings-input settings-input--full-padding"
               style={{ backgroundColor: inputBg }}
               autoComplete="new-password"
+              disabled={status === 'saving'}
             />
           </div>
           <div className="settings-field">
@@ -169,6 +170,7 @@ export default function SecuritySection() {
               className="settings-input settings-input--full-padding"
               style={{ backgroundColor: inputBg }}
               autoComplete="new-password"
+              disabled={status === 'saving'}
             />
           </div>
           <div className="settings-footer">
@@ -178,7 +180,7 @@ export default function SecuritySection() {
               onClick={handleEnable}
               disabled={!canEnableLock || status === 'saving'}
             >
-              {status === 'saving' ? 'Enabling...' : 'Enable App Lock'}
+              {status === 'saving' ? <><Spinner size="sm" /> Enabling...</> : 'Enable App Lock'}
             </Button>
           </div>
         </>
@@ -193,6 +195,7 @@ export default function SecuritySection() {
               }}
               className="settings-select"
               style={{ backgroundColor: inputBg }}
+              disabled={status === 'saving'}
             >
               {LOCK_TIMEOUT_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -203,7 +206,7 @@ export default function SecuritySection() {
           </div>
 
           <div className="settings-field settings-security-actions">
-            <Button variant="secondary" size="sm" icon={<IoLockClosed size={13} />} onClick={handleLockNow}>
+            <Button variant="secondary" size="sm" icon={<IoLockClosed size={13} />} onClick={handleLockNow} disabled={status === 'saving'}>
               Lock Now
             </Button>
             {!showDisableForm ? (
@@ -219,6 +222,7 @@ export default function SecuritySection() {
                 variant="ghost"
                 size="sm"
                 onClick={() => { setShowDisableForm(false); setDisablePassphrase(''); }}
+                disabled={status === 'saving'}
               >
                 Cancel
               </Button>
@@ -236,6 +240,7 @@ export default function SecuritySection() {
                   className="settings-input settings-input--full-padding"
                   style={{ backgroundColor: inputBg }}
                   autoComplete="current-password"
+                  disabled={status === 'saving'}
                 />
               </div>
               <div className="settings-footer">
@@ -245,7 +250,7 @@ export default function SecuritySection() {
                   onClick={handleDisable}
                   disabled={!canDisableLock || status === 'saving'}
                 >
-                  {status === 'saving' ? 'Disabling...' : 'Confirm Disable'}
+                  {status === 'saving' ? <><Spinner size="sm" /> Disabling...</> : 'Confirm Disable'}
                 </Button>
               </div>
             </>
@@ -273,6 +278,7 @@ export default function SecuritySection() {
                   className="settings-input settings-input--full-padding"
                   style={{ backgroundColor: inputBg }}
                   autoComplete="current-password"
+                  disabled={status === 'saving'}
                 />
               </div>
 
@@ -285,6 +291,7 @@ export default function SecuritySection() {
                   className="settings-input settings-input--full-padding"
                   style={{ backgroundColor: inputBg }}
                   autoComplete="new-password"
+                  disabled={status === 'saving'}
                 />
               </div>
 
@@ -297,6 +304,7 @@ export default function SecuritySection() {
                   className="settings-input settings-input--full-padding"
                   style={{ backgroundColor: inputBg }}
                   autoComplete="new-password"
+                  disabled={status === 'saving'}
                 />
               </div>
 
@@ -307,11 +315,12 @@ export default function SecuritySection() {
                   onClick={handleChangePassphrase}
                   disabled={!canChangePassphrase || status === 'saving'}
                 >
-                  {status === 'saving' ? 'Saving...' : 'Update Passphrase'}
+                  {status === 'saving' ? <><Spinner size="sm" /> Saving...</> : 'Update Passphrase'}
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
+                  disabled={status === 'saving'}
                   onClick={() => {
                     setShowChangeForm(false);
                     setCurrentPassphrase('');
