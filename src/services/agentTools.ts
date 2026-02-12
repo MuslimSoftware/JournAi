@@ -513,9 +513,11 @@ async function executeQueryEntries(args: QueryEntriesArgs): Promise<unknown> {
     query += ` WHERE ${whereClauses.join(' AND ')}`;
   }
 
-  const orderField = args.orderBy?.field || 'date';
-  const orderDir = args.orderBy?.direction || 'desc';
-  query += ` ORDER BY e.${orderField} ${orderDir.toUpperCase()} LIMIT $${paramIndex}`;
+  const validOrderFields: Record<string, string> = { date: 'e.date', relevance: 'e.date' };
+  const validOrderDirs: Record<string, string> = { asc: 'ASC', desc: 'DESC' };
+  const orderField = validOrderFields[args.orderBy?.field || 'date'] || 'e.date';
+  const orderDir = validOrderDirs[args.orderBy?.direction || 'desc'] || 'DESC';
+  query += ` ORDER BY ${orderField} ${orderDir} LIMIT $${paramIndex}`;
   params.push(limit);
 
   const rows = await select<{ id: string; date: string; content: string }>(query, params);

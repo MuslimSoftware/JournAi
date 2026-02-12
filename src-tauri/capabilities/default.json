@@ -21,9 +21,11 @@
     "fs:allow-mkdir",
     "fs:allow-write-file",
     "fs:allow-write-text-file",
+    "fs:allow-app-read",
+    "fs:allow-app-write",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }, { "path": "$DOWNLOAD/**" }, { "path": "$TEMP/**" }]
+      "allow": [{ "path": "$APPLOCALDATA/**" }, { "path": "$TEMP/**" }]
     },
     "mcp-bridge:default",
     "updater:default",

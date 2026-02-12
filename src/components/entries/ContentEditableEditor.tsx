@@ -199,7 +199,7 @@ export const ContentEditableEditor = forwardRef<ContentEditableEditorRef, Conten
       let newValue = getTextContent(editorRef.current);
 
       if (editorRef.current.innerHTML === '<br>' || editorRef.current.innerHTML === '<div><br></div>') {
-        editorRef.current.innerHTML = '';
+        editorRef.current.textContent = '';
         newValue = '';
       }
 
