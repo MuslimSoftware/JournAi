@@ -68,58 +68,68 @@ mod mobile {
 }
 
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
-use desktop::{delete_secret, get_secret, set_secret};
+pub use desktop::{delete_secret, get_secret, set_secret};
 
 #[cfg(any(target_os = "ios", target_os = "android"))]
-use mobile::{delete_secret, get_secret, set_secret};
+pub use mobile::{delete_secret, get_secret, set_secret};
 
 #[tauri::command]
-pub fn secure_storage_set(key: String, value: String) -> Result<(), String> {
-    set_secret(&key, &value)
+pub async fn secure_storage_set(key: String, value: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || set_secret(&key, &value))
+        .await
+        .map_err(|e| format!("Task failed: {e}"))?
 }
 
 #[tauri::command]
-pub fn secure_storage_get(key: String) -> Result<Option<String>, String> {
-    get_secret(&key)
+pub async fn secure_storage_get(key: String) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || get_secret(&key))
+        .await
+        .map_err(|e| format!("Task failed: {e}"))?
 }
 
 #[tauri::command]
-pub fn secure_storage_delete(key: String) -> Result<(), String> {
-    delete_secret(&key)
+pub async fn secure_storage_delete(key: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || delete_secret(&key))
+        .await
+        .map_err(|e| format!("Task failed: {e}"))?
 }
 
 #[tauri::command]
-pub fn secure_storage_is_available() -> bool {
-    #[cfg(not(any(target_os = "ios", target_os = "android")))]
-    {
-        use keyring::Entry;
-        let entry = match Entry::new(SERVICE_NAME, AVAILABILITY_PROBE_KEY) {
-            Ok(entry) => entry,
-            Err(_) => return false,
-        };
+pub async fn secure_storage_is_available() -> bool {
+    tauri::async_runtime::spawn_blocking(|| {
+        #[cfg(not(any(target_os = "ios", target_os = "android")))]
+        {
+            use keyring::Entry;
+            let entry = match Entry::new(SERVICE_NAME, AVAILABILITY_PROBE_KEY) {
+                Ok(entry) => entry,
+                Err(_) => return false,
+            };
 
-        if entry.set_password(AVAILABILITY_PROBE_VALUE).is_err() {
-            return false;
-        }
-
-        let verification_entry = match Entry::new(SERVICE_NAME, AVAILABILITY_PROBE_KEY) {
-            Ok(entry) => entry,
-            Err(_) => {
-                let _ = entry.delete_credential();
+            if entry.set_password(AVAILABILITY_PROBE_VALUE).is_err() {
                 return false;
             }
-        };
 
-        let read_ok = matches!(
-            verification_entry.get_password(),
-            Ok(stored) if stored == AVAILABILITY_PROBE_VALUE
-        );
+            let verification_entry = match Entry::new(SERVICE_NAME, AVAILABILITY_PROBE_KEY) {
+                Ok(entry) => entry,
+                Err(_) => {
+                    let _ = entry.delete_credential();
+                    return false;
+                }
+            };
 
-        let _ = verification_entry.delete_credential();
-        read_ok
-    }
-    #[cfg(any(target_os = "ios", target_os = "android"))]
-    {
-        false
-    }
+            let read_ok = matches!(
+                verification_entry.get_password(),
+                Ok(stored) if stored == AVAILABILITY_PROBE_VALUE
+            );
+
+            let _ = verification_entry.delete_credential();
+            read_ok
+        }
+        #[cfg(any(target_os = "ios", target_os = "android"))]
+        {
+            false
+        }
+    })
+    .await
+    .unwrap_or(false)
 }

@@ -140,7 +140,7 @@ fn read_keyset_fallback_file() -> Result<Option<Keyset>, String> {
 }
 
 fn read_keyset() -> Result<Option<Keyset>, String> {
-    match secure_storage::secure_storage_get(APP_LOCK_KEYSET_STORAGE_KEY.to_string()) {
+    match secure_storage::get_secret(APP_LOCK_KEYSET_STORAGE_KEY) {
         Ok(Some(raw)) => {
             let keyset = parse_keyset(&raw)?;
             let _ = write_keyset_fallback_file(&raw);
@@ -154,7 +154,7 @@ fn read_keyset() -> Result<Option<Keyset>, String> {
 fn write_keyset(keyset: &Keyset) -> Result<(), String> {
     let raw = serde_json::to_string(keyset).map_err(|e| format!("Failed to serialize keyset: {e}"))?;
     write_keyset_fallback_file(&raw)?;
-    let _ = secure_storage::secure_storage_set(APP_LOCK_KEYSET_STORAGE_KEY.to_string(), raw);
+    let _ = secure_storage::set_secret(APP_LOCK_KEYSET_STORAGE_KEY, &raw);
     Ok(())
 }
 
@@ -366,26 +366,6 @@ fn set_runtime_configured(runtime: &State<'_, AppLockRuntimeState>, value: bool)
     Ok(())
 }
 
-fn is_configured(runtime: &State<'_, AppLockRuntimeState>) -> Result<bool, String> {
-    let guard = runtime
-        .configured_cache
-        .lock()
-        .map_err(|_| "Failed to acquire app lock state".to_string())?;
-    if let Some(cached) = *guard {
-        return Ok(cached);
-    }
-    drop(guard);
-
-    let result = read_keyset()?.is_some();
-
-    let mut guard = runtime
-        .configured_cache
-        .lock()
-        .map_err(|_| "Failed to acquire app lock state".to_string())?;
-    *guard = Some(result);
-    Ok(result)
-}
-
 fn set_runtime_unlocked(runtime: &State<'_, AppLockRuntimeState>, value: bool) -> Result<(), String> {
     let mut guard = runtime
         .unlocked
@@ -404,10 +384,37 @@ fn runtime_is_unlocked(runtime: &State<'_, AppLockRuntimeState>) -> Result<bool,
 }
 
 #[tauri::command]
-pub fn app_lock_status(runtime: State<'_, AppLockRuntimeState>) -> Result<AppLockStatus, String> {
-    let configured = is_configured(&runtime)?;
+pub async fn app_lock_status(runtime: State<'_, AppLockRuntimeState>) -> Result<AppLockStatus, String> {
+    let cached = {
+        let guard = runtime
+            .configured_cache
+            .lock()
+            .map_err(|_| "Failed to acquire app lock state".to_string())?;
+        *guard
+    };
+
+    let configured = match cached {
+        Some(val) => val,
+        None => {
+            let result = tauri::async_runtime::spawn_blocking(|| {
+                read_keyset().map(|ks| ks.is_some())
+            })
+            .await
+            .map_err(|e| format!("Task failed: {e}"))??;
+
+            let mut guard = runtime
+                .configured_cache
+                .lock()
+                .map_err(|_| "Failed to acquire app lock state".to_string())?;
+            *guard = Some(result);
+            result
+        }
+    };
+
     if !configured {
-        ensure_sqlcipher_key_set()?;
+        tauri::async_runtime::spawn_blocking(ensure_sqlcipher_key_set)
+            .await
+            .map_err(|e| format!("Task failed: {e}"))??;
         set_runtime_unlocked(&runtime, true)?;
         return Ok(AppLockStatus {
             configured: false,
@@ -494,7 +501,7 @@ pub fn app_lock_lock(runtime: State<'_, AppLockRuntimeState>) -> Result<(), Stri
 }
 
 fn delete_keyset() -> Result<(), String> {
-    let _ = secure_storage::secure_storage_delete(APP_LOCK_KEYSET_STORAGE_KEY.to_string());
+    let _ = secure_storage::delete_secret(APP_LOCK_KEYSET_STORAGE_KEY);
 
     if let Ok(path) = keyset_fallback_path() {
         if path.exists() {
@@ -524,7 +531,7 @@ fn write_open_dek(dek: &[u8; KEY_LENGTH]) -> Result<(), String> {
     let path = open_dek_fallback_path()?;
     fs::write(&path, &hex)
         .map_err(|e| format!("Failed to write open DEK {}: {e}", path.display()))?;
-    let _ = secure_storage::secure_storage_set(APP_LOCK_OPEN_DEK_STORAGE_KEY.to_string(), hex);
+    let _ = secure_storage::set_secret(APP_LOCK_OPEN_DEK_STORAGE_KEY, &hex);
     Ok(())
 }
 
@@ -542,7 +549,7 @@ fn decode_hex_key(hex: &str) -> Option<[u8; KEY_LENGTH]> {
 }
 
 fn read_open_dek() -> Result<Option<[u8; KEY_LENGTH]>, String> {
-    let hex = match secure_storage::secure_storage_get(APP_LOCK_OPEN_DEK_STORAGE_KEY.to_string()) {
+    let hex = match secure_storage::get_secret(APP_LOCK_OPEN_DEK_STORAGE_KEY) {
         Ok(Some(val)) => Some(val),
         _ => {
             let path = open_dek_fallback_path()?;
@@ -564,7 +571,7 @@ fn read_open_dek() -> Result<Option<[u8; KEY_LENGTH]>, String> {
 }
 
 fn delete_open_dek() -> Result<(), String> {
-    let _ = secure_storage::secure_storage_delete(APP_LOCK_OPEN_DEK_STORAGE_KEY.to_string());
+    let _ = secure_storage::delete_secret(APP_LOCK_OPEN_DEK_STORAGE_KEY);
 
     if let Ok(path) = open_dek_fallback_path() {
         if path.exists() {
