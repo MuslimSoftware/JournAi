@@ -157,7 +157,7 @@
   font-size: 10px;
   font-weight: 600;
   cursor: pointer;
-  background: linear-gradient(135deg, #a78bfa, #60a5fa, #f9a8d4, #fbbf24);
+  background: var(--gradient-update-badge);
   color: white;
   white-space: nowrap;
   transition: opacity 0.2s ease;
@@ -194,7 +194,7 @@
 }
 
 .sidebar-update-badge--restart {
-  background: linear-gradient(135deg, #4ade80, #60a5fa, #a78bfa);
+  background: var(--gradient-update-badge-restart);
 }
 
 .sidebar-update-badge--restart:hover {

@@ -1,6 +1,6 @@
 import { CSSProperties, ReactNode } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { lightTheme } from '../../theme/tokens';
+
 import '../../styles/skeleton.css';
 
 interface SkeletonProps {
@@ -19,11 +19,7 @@ export function Skeleton({
   style,
 }: SkeletonProps) {
   const { theme } = useTheme();
-  const isLight = theme === lightTheme;
-
-  const shimmerGradient = isLight
-    ? 'linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.06) 50%, transparent 100%)'
-    : 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%)';
+  const shimmerGradient = `linear-gradient(90deg, transparent 0%, ${theme.colors.background.subtle} 50%, transparent 100%)`;
 
   const skeletonStyle: CSSProperties = {
     width,

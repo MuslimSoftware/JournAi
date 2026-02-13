@@ -523,7 +523,7 @@ html.keyboard-open .mobile-fab {
 }
 
 .mobile-menu-item--delete {
-  color: #ef4444;
+  color: var(--status-error);
 }
 
 .mobile-delete-confirm-content {
@@ -558,8 +558,8 @@ html.keyboard-open .mobile-fab {
 }
 
 .mobile-confirm-button--delete {
-  background-color: #ef4444;
-  color: #ffffff;
+  background-color: var(--status-error);
+  color: var(--danger-text);
 }
 
 .mobile-chat-container {

@@ -21,13 +21,13 @@
   --insights-dropdown-z: 100;
   --insights-mobile-header-height: 56px;
   --insights-mobile-touch-target: 44px;
-  --insights-intensity-positive: #22C55E;
-  --insights-intensity-negative: #EF4444;
-  --insights-intensity-neutral: #6B7280;
-  --insights-sentiment-positive: #10b981;
-  --insights-sentiment-negative: #ef4444;
-  --insights-sentiment-neutral: #6b7280;
-  --insights-sentiment-mixed: #f59e0b;
+  --insights-intensity-positive: var(--status-success);
+  --insights-intensity-negative: var(--status-error);
+  --insights-intensity-neutral: var(--sentiment-neutral);
+  --insights-sentiment-positive: var(--sentiment-positive);
+  --insights-sentiment-negative: var(--sentiment-negative);
+  --insights-sentiment-neutral: var(--sentiment-neutral);
+  --insights-sentiment-mixed: var(--sentiment-mixed);
 }
 
 .insights-page {

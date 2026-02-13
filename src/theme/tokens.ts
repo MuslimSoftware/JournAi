@@ -46,6 +46,23 @@ export interface ThemeTokens {
       backgroundHover: string;
       text: string;
     };
+    sentiment: {
+      positive: string;
+      negative: string;
+      neutral: string;
+      mixed: string;
+    };
+    highlight: {
+      background: string;
+      backgroundHover: string;
+    };
+    input: {
+      background: string;
+    };
+  };
+  gradient: {
+    updateBadge: string;
+    updateBadgeRestart: string;
   };
   spacing: {
     xs: string;
@@ -137,6 +154,23 @@ export const lightTheme: ThemeTokens = {
       backgroundHover: '#b91c1c',
       text: '#ffffff',
     },
+    sentiment: {
+      positive: '#10b981',
+      negative: '#ef4444',
+      neutral: '#6b7280',
+      mixed: '#f59e0b',
+    },
+    highlight: {
+      background: 'rgba(245, 158, 11, 0.35)',
+      backgroundHover: 'rgba(245, 158, 11, 0.55)',
+    },
+    input: {
+      background: '#e8e8e8',
+    },
+  },
+  gradient: {
+    updateBadge: 'linear-gradient(135deg, #a78bfa, #60a5fa, #f9a8d4, #fbbf24)',
+    updateBadgeRestart: 'linear-gradient(135deg, #4ade80, #60a5fa, #a78bfa)',
   },
   spacing: {
     xs: '0.5rem',
@@ -220,7 +254,7 @@ export const darkTheme: ThemeTokens = {
     },
     status: {
       success: '#4ade80',
-      error: '#f87171',
+      error: '#ef4444',
       warning: '#fbbf24',
     },
     danger: {
@@ -228,6 +262,23 @@ export const darkTheme: ThemeTokens = {
       backgroundHover: '#7f1d1d',
       text: '#ffffff',
     },
+    sentiment: {
+      positive: '#34d399',
+      negative: '#ef4444',
+      neutral: '#9ca3af',
+      mixed: '#fbbf24',
+    },
+    highlight: {
+      background: 'rgba(251, 191, 36, 0.45)',
+      backgroundHover: 'rgba(251, 191, 36, 0.65)',
+    },
+    input: {
+      background: '#2a2a2a',
+    },
+  },
+  gradient: {
+    updateBadge: 'linear-gradient(135deg, #a78bfa, #60a5fa, #f9a8d4, #fbbf24)',
+    updateBadgeRestart: 'linear-gradient(135deg, #4ade80, #60a5fa, #a78bfa)',
   },
   spacing: lightTheme.spacing,
   typography: lightTheme.typography,

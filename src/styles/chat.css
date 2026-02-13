@@ -173,7 +173,7 @@
 }
 
 .streamdown code {
-    background-color: var(--background-tertiary, rgba(0, 0, 0, 0.1));
+    background-color: var(--bg-tertiary);
     padding: 0.15em 0.4em;
     border-radius: 4px;
     font-size: 0.9em;
@@ -181,7 +181,7 @@
 }
 
 .streamdown pre {
-    background-color: var(--background-tertiary, rgba(0, 0, 0, 0.1));
+    background-color: var(--bg-tertiary);
     padding: 1em;
     border-radius: 8px;
     overflow-x: auto;
@@ -195,14 +195,14 @@
 }
 
 .streamdown blockquote {
-    border-left: 3px solid var(--text-muted, #888);
+    border-left: 3px solid var(--text-muted);
     margin: 0.75em 0;
     padding-left: 1em;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
 }
 
 .streamdown a {
-    color: var(--accent-primary, #007aff);
+    color: var(--text-accent);
     text-decoration: none;
 }
 
@@ -218,19 +218,19 @@
 
 .streamdown th,
 .streamdown td {
-    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+    border: 1px solid var(--border-primary);
     padding: 0.5em 0.75em;
     text-align: left;
 }
 
 .streamdown th {
-    background-color: var(--background-tertiary, rgba(0, 0, 0, 0.05));
+    background-color: var(--bg-tertiary);
     font-weight: 600;
 }
 
 .streamdown hr {
     border: none;
-    border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+    border-top: 1px solid var(--border-primary);
     margin: 1em 0;
 }
 
@@ -256,15 +256,15 @@
     --chat-spacing-md: 8px;
     --chat-spacing-lg: 12px;
     --chat-spacing-xl: 16px;
-    --chat-error-color: rgb(239, 68, 68);
-    --chat-error-bg: rgba(239, 68, 68, 0.1);
-    --chat-error-border: rgba(239, 68, 68, 0.3);
-    --chat-positive-color: rgb(34, 197, 94);
-    --chat-positive-border: rgba(34, 197, 94, 0.3);
-    --chat-positive-bg: rgba(34, 197, 94, 0.15);
-    --chat-negative-color: rgb(239, 68, 68);
-    --chat-negative-border: rgba(239, 68, 68, 0.3);
-    --chat-negative-bg: rgba(239, 68, 68, 0.15);
+    --chat-error-color: var(--status-error);
+    --chat-error-bg: color-mix(in srgb, var(--status-error) 10%, transparent);
+    --chat-error-border: color-mix(in srgb, var(--status-error) 30%, transparent);
+    --chat-positive-color: var(--status-success);
+    --chat-positive-border: color-mix(in srgb, var(--status-success) 30%, transparent);
+    --chat-positive-bg: color-mix(in srgb, var(--status-success) 15%, transparent);
+    --chat-negative-color: var(--status-error);
+    --chat-negative-border: color-mix(in srgb, var(--status-error) 30%, transparent);
+    --chat-negative-bg: color-mix(in srgb, var(--status-error) 15%, transparent);
 }
 
 .chat-message-container {
@@ -451,12 +451,12 @@
 
 .chat-insight-pill--positive {
     color: var(--insights-intensity-positive);
-    background-color: rgba(34, 197, 94, 0.1);
+    background-color: color-mix(in srgb, var(--status-success) 10%, transparent);
 }
 
 .chat-insight-pill--negative {
     color: var(--insights-intensity-negative);
-    background-color: rgba(239, 68, 68, 0.1);
+    background-color: color-mix(in srgb, var(--status-error) 10%, transparent);
 }
 
 .chat-insight-pill--neutral {
@@ -619,11 +619,11 @@
 }
 
 .chat-context-progress-fill--medium {
-    background: #eab308;
+    background: var(--status-warning);
 }
 
 .chat-context-progress-fill--high {
-    background: #ef4444;
+    background: var(--status-error);
 }
 
 .chat-welcome {

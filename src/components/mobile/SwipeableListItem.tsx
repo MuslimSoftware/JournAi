@@ -3,7 +3,7 @@ import { FiTrash2, FiCalendar } from 'react-icons/fi';
 import { useSwipeAction } from '../../hooks/useSwipeAction';
 import { useTheme } from '../../contexts/ThemeContext';
 import { hapticImpact, hapticSelection } from '../../hooks/useHaptics';
-import { lightTheme } from '../../theme/tokens';
+
 
 interface SwipeableListItemProps {
   children: ReactNode;
@@ -84,9 +84,8 @@ export default function SwipeableListItem({
   };
 
   const actionsWidth = isOpen ? 160 : Math.min(revealedOffset, 160);
-  const isLightMode = theme === lightTheme;
-  const deleteColor = isLightMode ? '#dc2626' : '#ef4444';
-  const editDateColor = isLightMode ? '#6b7280' : '#9ca3af';
+  const deleteColor = theme.colors.status.error;
+  const editDateColor = theme.colors.text.muted;
   const swipeProgress = Math.min(revealedOffset / 200, 1);
   const showActions = revealedOffset > 20;
 

@@ -18,7 +18,7 @@ function normalizeInput(value: string): string {
 }
 
 export default function SecuritySection() {
-  const { mode } = useTheme();
+  const { theme } = useTheme();
   const {
     configured,
     lockNow,
@@ -40,8 +40,7 @@ export default function SecuritySection() {
   const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'saving'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
 
-  const isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const inputBg = isDark ? '#2a2a2a' : '#e8e8e8';
+  const inputBg = theme.colors.input.background;
 
   const canEnableLock = useMemo(() => {
     const passphrase = normalizeInput(setupPassphrase);

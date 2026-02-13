@@ -35,7 +35,7 @@ function getMaskedKeyPreview(apiKey: string): { mask: string; suffix: string } {
 }
 
 export default function AISection() {
-  const { mode } = useTheme();
+  const { mode, theme } = useTheme();
   const [apiKeyValue, setApiKeyValue] = useState('');
   const [hasSavedApiKey, setHasSavedApiKey] = useState(false);
   const [savedKeyMask, setSavedKeyMask] = useState('');
@@ -48,7 +48,7 @@ export default function AISection() {
   const [storageMessage, setStorageMessage] = useState<string | null>(null);
 
   const isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const inputBg = isDark ? '#2a2a2a' : '#e8e8e8';
+  const inputBg = theme.colors.input.background;
 
   useEffect(() => {
     const loadSettings = async () => {

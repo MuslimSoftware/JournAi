@@ -57,6 +57,15 @@ function applyThemeCSSVariables(theme: ThemeTokens): void {
   root.style.setProperty('--danger-bg', theme.colors.danger.background);
   root.style.setProperty('--danger-bg-hover', theme.colors.danger.backgroundHover);
   root.style.setProperty('--danger-text', theme.colors.danger.text);
+  root.style.setProperty('--sentiment-positive', theme.colors.sentiment.positive);
+  root.style.setProperty('--sentiment-negative', theme.colors.sentiment.negative);
+  root.style.setProperty('--sentiment-neutral', theme.colors.sentiment.neutral);
+  root.style.setProperty('--sentiment-mixed', theme.colors.sentiment.mixed);
+  root.style.setProperty('--highlight-bg', theme.colors.highlight.background);
+  root.style.setProperty('--highlight-bg-hover', theme.colors.highlight.backgroundHover);
+  root.style.setProperty('--input-bg', theme.colors.input.background);
+  root.style.setProperty('--gradient-update-badge', theme.gradient.updateBadge);
+  root.style.setProperty('--gradient-update-badge-restart', theme.gradient.updateBadgeRestart);
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

@@ -17,15 +17,8 @@ import {
 } from "../services/analytics";
 import { parseLocalDate } from "../utils/date";
 import { hapticSelection } from "../hooks/useHaptics";
+import { useTheme } from "../contexts/ThemeContext";
 import "../styles/insights.css";
-
-const SENTIMENT_COLORS = {
-  positive: "#10b981",
-  negative: "#ef4444",
-  neutral: "#6b7280",
-  mixed: "#f59e0b",
-  tense: "#ef4444",
-};
 
 const INTENSITY_BAR_COUNT = 10;
 const RAW_INSIGHTS_QUERY_LIMIT = 500;
@@ -148,12 +141,7 @@ function getDateRange(
   return { start: start.toISOString().split("T")[0], end };
 }
 
-function getSentimentColor(sentiment: string): string {
-  return (
-    SENTIMENT_COLORS[sentiment as keyof typeof SENTIMENT_COLORS] ||
-    SENTIMENT_COLORS.neutral
-  );
-}
+type SentimentColorKey = "positive" | "negative" | "neutral" | "mixed" | "tense";
 
 function formatDateWithoutYear(dateStr: string): string {
   const date = parseLocalDate(dateStr);
@@ -222,6 +210,18 @@ function filterPeopleBySentiment(
 export default function Insights() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { theme } = useTheme();
+
+  const sentimentColors: Record<SentimentColorKey, string> = {
+    positive: theme.colors.sentiment.positive,
+    negative: theme.colors.sentiment.negative,
+    neutral: theme.colors.sentiment.neutral,
+    mixed: theme.colors.sentiment.mixed,
+    tense: theme.colors.sentiment.negative,
+  };
+
+  const getSentimentColor = (sentiment: string): string =>
+    sentimentColors[sentiment as SentimentColorKey] || sentimentColors.neutral;
   const { navigateToEntry } = useEntryNavigation();
   const {
     aggregated,
@@ -371,9 +371,9 @@ export default function Insights() {
     color?: string;
   }[] = [
     { value: "all", label: "All" },
-    { value: "positive", label: "Positive", color: SENTIMENT_COLORS.positive },
-    { value: "negative", label: "Negative", color: SENTIMENT_COLORS.negative },
-    { value: "mixed", label: "Mixed", color: SENTIMENT_COLORS.mixed },
+    { value: "positive", label: "Positive", color: sentimentColors.positive },
+    { value: "negative", label: "Negative", color: sentimentColors.negative },
+    { value: "mixed", label: "Mixed", color: sentimentColors.mixed },
   ];
 
   const typeOptions: { value: InsightTypeFilter; label: string }[] = [

@@ -1,6 +1,6 @@
 import { CSSProperties, ReactNode, useState, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { lightTheme } from '../../theme/tokens';
+
 import '../../styles/mobile.css';
 
 interface TouchHighlightProps {
@@ -30,8 +30,7 @@ export default function TouchHighlight({
   const containerRef = useRef<HTMLDivElement>(null);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isLight = theme === lightTheme;
-  const defaultHighlight = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+  const defaultHighlight = theme.colors.background.subtle;
   const highlight = highlightColor || defaultHighlight;
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
