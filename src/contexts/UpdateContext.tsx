@@ -12,11 +12,11 @@ interface UpdateContextType {
   updateInfo: UpdateInfo | null;
   checking: boolean;
   downloading: boolean;
-  downloadProgress: number;
+  downloaded: boolean;
   error: string | null;
   checkForUpdate: () => Promise<void>;
-  installUpdate: () => Promise<void>;
-  dismissUpdate: () => void;
+  downloadUpdate: () => Promise<void>;
+  restartApp: () => Promise<void>;
 }
 
 const defaults: UpdateContextType = {
@@ -24,11 +24,11 @@ const defaults: UpdateContextType = {
   updateInfo: null,
   checking: false,
   downloading: false,
-  downloadProgress: 0,
+  downloaded: false,
   error: null,
   checkForUpdate: async () => {},
-  installUpdate: async () => {},
-  dismissUpdate: () => {},
+  downloadUpdate: async () => {},
+  restartApp: async () => {},
 };
 
 const UpdateContext = createContext<UpdateContextType>(defaults);
@@ -41,7 +41,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [checking, setChecking] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloaded, setDownloaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const updateRef = useRef<Update | null>(null);
 
@@ -66,39 +66,24 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const installUpdate = useCallback(async () => {
+  const downloadUpdate = useCallback(async () => {
     const update = updateRef.current;
     if (!update) return;
 
     setDownloading(true);
-    setDownloadProgress(0);
     setError(null);
     try {
-      let totalBytes = 0;
-      let downloadedBytes = 0;
-      await update.downloadAndInstall((event) => {
-        if (event.event === 'Started' && event.data.contentLength) {
-          totalBytes = event.data.contentLength;
-        } else if (event.event === 'Progress') {
-          downloadedBytes += event.data.chunkLength;
-          if (totalBytes > 0) {
-            setDownloadProgress(Math.round((downloadedBytes / totalBytes) * 100));
-          }
-        } else if (event.event === 'Finished') {
-          setDownloadProgress(100);
-        }
-      });
-      await relaunch();
+      await update.downloadAndInstall();
+      setDownloading(false);
+      setDownloaded(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setDownloading(false);
     }
   }, []);
 
-  const dismissUpdate = useCallback(() => {
-    setUpdateAvailable(false);
-    setUpdateInfo(null);
-    updateRef.current = null;
+  const restartApp = useCallback(async () => {
+    await relaunch();
   }, []);
 
   useEffect(() => {
@@ -117,11 +102,11 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         updateInfo,
         checking,
         downloading,
-        downloadProgress,
+        downloaded,
         error,
         checkForUpdate,
-        installUpdate,
-        dismissUpdate,
+        downloadUpdate,
+        restartApp,
       }}
     >
       {children}

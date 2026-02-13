@@ -20,6 +20,29 @@ interface SidebarProps {
   onOpenSettings: () => void;
 }
 
+function UpdateBadge() {
+  const { updateInfo, downloading, downloaded, downloadUpdate, restartApp } = useUpdate();
+
+  const version = `v${updateInfo?.version}`;
+  const actionLabel = downloaded ? 'Restart' : downloading ? 'Updating...' : `Update to ${version}`;
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (downloaded) restartApp();
+    else if (!downloading) downloadUpdate();
+  };
+
+  return (
+    <button
+      className={`sidebar-update-badge ${downloaded ? 'sidebar-update-badge--restart' : ''}`}
+      onClick={handleClick}
+    >
+      <span className="sidebar-update-badge__version">{version}</span>
+      <span className="sidebar-update-badge__action">{actionLabel}</span>
+    </button>
+  );
+}
+
 export default function Sidebar({ items, onOpenSettings }: SidebarProps) {
   const { navPinned, toggleNavPin } = useSidebar();
   const { hasApiKey, requestAiAccess } = useAiAccess();
@@ -75,7 +98,7 @@ export default function Sidebar({ items, onOpenSettings }: SidebarProps) {
         </ul>
       </nav>
       <div className="sidebar-footer">
-        <div className="sidebar-settings-wrapper">
+        <div className="sidebar-settings-row">
           <IconButton
             icon={<IoSettingsOutline size={20} />}
             label="Settings"
@@ -83,8 +106,8 @@ export default function Sidebar({ items, onOpenSettings }: SidebarProps) {
             variant="ghost"
             className="sidebar-settings-button"
           />
-          {updateAvailable && <span className="sidebar-update-badge" />}
         </div>
+        {updateAvailable && <UpdateBadge />}
       </div>
     </aside>
   );

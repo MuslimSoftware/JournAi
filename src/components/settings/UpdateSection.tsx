@@ -12,10 +12,11 @@ export default function UpdateSection() {
     updateInfo,
     checking,
     downloading,
-    downloadProgress,
+    downloaded,
     error,
     checkForUpdate,
-    installUpdate,
+    downloadUpdate,
+    restartApp,
   } = useUpdate();
   const [currentVersion, setCurrentVersion] = useState('');
 
@@ -47,20 +48,18 @@ export default function UpdateSection() {
               <p className="settings-section-description">{updateInfo.body}</p>
             )}
 
-            {downloading ? (
-              <div>
-                <div className="settings-progress-container">
-                  <div
-                    className={`settings-progress-bar ${downloadProgress === 0 ? 'settings-progress-bar--indeterminate' : ''}`}
-                    style={{ width: `${downloadProgress || 100}%` }}
-                  />
-                </div>
-                <span className="settings-progress-text">
-                  {downloadProgress > 0 ? `${downloadProgress}%` : 'Preparing...'}
-                </span>
-              </div>
+            {downloaded ? (
+              <Button onClick={restartApp}>
+                <IoRefresh size={14} />
+                Restart to Apply
+              </Button>
+            ) : downloading ? (
+              <Button disabled>
+                <IoRefresh size={14} className="spin" />
+                Downloading...
+              </Button>
             ) : (
-              <Button onClick={installUpdate}>
+              <Button onClick={downloadUpdate}>
                 <IoDownload size={14} />
                 Download & Install
               </Button>
