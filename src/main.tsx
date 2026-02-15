@@ -11,6 +11,11 @@ import { AppLockProvider, useAppLock } from "./contexts/AppLockContext";
 import AppLockScreen from "./components/AppLockScreen";
 import { secureStorage } from "./lib/secureStorage";
 import App from "./App";
+import { seedDemoData } from "../scripts/seed-demo-data";
+
+if (import.meta.env.DEV) {
+  (window as any).seedDemoData = seedDemoData;
+}
 
 function AppBootstrap() {
   const { isReady, isLocked } = useAppLock();
