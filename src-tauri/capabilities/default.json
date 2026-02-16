@@ -1,34 +1,41 @@
-{
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "opener:default",
-    "store:default",
-    "sql:default",
-    "sql:allow-load",
-    "sql:allow-select",
-    "sql:allow-execute",
-    "dialog:default",
-    "dialog:allow-open",
-    "dialog:allow-save",
-    "fs:default",
-    "fs:allow-read-dir",
-    "fs:allow-read-file",
-    "fs:allow-read-text-file",
-    "fs:allow-mkdir",
-    "fs:allow-write-file",
-    "fs:allow-write-text-file",
-    "fs:allow-app-read",
-    "fs:allow-app-write",
-    {
-      "identifier": "fs:scope",
-      "allow": [{ "path": "$APPLOCALDATA/**" }, { "path": "$TEMP/**" }]
-    },
-    "mcp-bridge:default",
-    "updater:default",
-    "process:allow-restart"
-  ]
-}
+[
+  {
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "default",
+    "description": "Capability for the main window",
+    "windows": ["main"],
+    "permissions": [
+      "core:default",
+      "opener:default",
+      "store:default",
+      "sql:default",
+      "sql:allow-load",
+      "sql:allow-select",
+      "sql:allow-execute",
+      "dialog:default",
+      "dialog:allow-open",
+      "dialog:allow-save",
+      "fs:default",
+      "fs:allow-read-dir",
+      "fs:allow-read-file",
+      "fs:allow-read-text-file",
+      "fs:allow-mkdir",
+      "fs:allow-write-file",
+      "fs:allow-write-text-file",
+      "fs:allow-app-read",
+      "fs:allow-app-write",
+      {
+        "identifier": "fs:scope",
+        "allow": [{ "path": "$APPLOCALDATA/**" }, { "path": "$TEMP/**" }]
+      },
+      "mcp-bridge:default"
+    ]
+  },
+  {
+    "identifier": "desktop-runtime-controls",
+    "description": "Desktop-only capability for updater and restart permissions",
+    "windows": ["main"],
+    "platforms": ["macOS", "windows", "linux"],
+    "permissions": ["updater:default", "process:allow-restart"]
+  }
+]
