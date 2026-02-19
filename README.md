@@ -88,7 +88,7 @@ JournAi is built with a **local-first, zero-trust architecture**. Your journal n
 ### 🗄️ Encrypted Database
 
 - SQLite encrypted with **SQLCipher** — your entire database is encrypted at rest
-- Database file (`journai_secure.db`) is unreadable without the correct key
+- Database file (`journai.db`) is unreadable without the correct key
 - Automatic corruption detection with backup and recovery workflow
 
 ### 🔑 App Lock
