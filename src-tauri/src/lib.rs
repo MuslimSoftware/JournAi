@@ -10,7 +10,7 @@ mod ios_webview;
 mod app_lock;
 mod secure_storage;
 
-const SECURE_DB_URL: &str = "sqlite:journai_secure.db";
+const SECURE_DB_URL: &str = "sqlite:journai.db";
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -313,14 +313,14 @@ pub fn run() {
 
                 let app_menu = Submenu::with_items(
                     app,
-                    "journai",
+                    "JournAi",
                     true,
                     &[
-                        &PredefinedMenuItem::about(app, Some("About journai"), None)?,
+                        &PredefinedMenuItem::about(app, Some("About JournAi"), None)?,
                         &PredefinedMenuItem::separator(app)?,
                         &settings,
                         &PredefinedMenuItem::separator(app)?,
-                        &PredefinedMenuItem::quit(app, Some("Quit journai"))?,
+                        &PredefinedMenuItem::quit(app, Some("Quit JournAi"))?,
                     ],
                 )?;
 
