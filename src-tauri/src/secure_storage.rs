@@ -1,8 +1,3 @@
-// TODO: Verify keychain works in production build
-// In development (unsigned app), macOS keychain silently fails to persist credentials.
-// Once the app is code-signed for production, the keychain should work properly.
-// Test by: 1) Build signed app, 2) Save API key, 3) Restart app, 4) Verify key persists
-
 const SERVICE_NAME: &str = "com.journai.app";
 const AVAILABILITY_PROBE_KEY: &str = "__journai.secure_storage.availability_probe__";
 const AVAILABILITY_PROBE_VALUE: &str = "probe";

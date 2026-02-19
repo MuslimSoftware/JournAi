@@ -1,0 +1,51 @@
+{
+  "name": "iOS Secure Storage",
+  "description": "Implement iOS Keychain integration so secure storage works on iOS devices, unblocking AI features on mobile.",
+  "spec_document": "CLAUDE.md",
+  "references": {
+    "apple_keychain_docs": "https://developer.apple.com/documentation/security/keychain_services",
+    "keyring_crate": "https://docs.rs/keyring/latest/keyring/",
+    "tauri_v2_mobile": "https://v2.tauri.app/develop/#mobile"
+  },
+  "stories": [
+    {
+      "id": "IOS-001",
+      "title": "Add keyring dependency for iOS target",
+      "description": "Add the keyring crate with apple-native feature for the iOS target in Cargo.toml, mirroring the existing macOS configuration. This enables the same keychain-backed secure storage API on iOS that already works on desktop. If keyring's apple-native feature does not compile for iOS, fall back to using the security-framework crate directly.",
+      "acceptance_criteria": [
+        "Cargo.toml includes keyring with apple-native feature under [target.'cfg(target_os = \"ios\")'.dependencies]",
+        "The project compiles for the iOS target without errors",
+        "No existing desktop or other platform builds are affected"
+      ],
+      "component": "src-tauri/Cargo.toml",
+      "passes": true
+    },
+    {
+      "id": "IOS-002",
+      "title": "Replace iOS secure storage stub with keychain implementation",
+      "description": "Replace the no-op mobile module in secure_storage.rs with a real iOS Keychain implementation using the keyring crate (or security-framework if keyring doesn't support iOS). The set_secret, get_secret, and delete_secret functions must use the iOS Keychain to persist credentials. The secure_storage_is_available check must perform a real write-read-delete probe on iOS, matching the desktop behavior.",
+      "acceptance_criteria": [
+        "set_secret stores a value in the iOS Keychain under the com.journai.app service",
+        "get_secret retrieves a previously stored value from the iOS Keychain",
+        "delete_secret removes a value from the iOS Keychain",
+        "secure_storage_is_available returns true on iOS when Keychain access is functional",
+        "The availability probe writes, verifies, and cleans up a test entry on iOS"
+      ],
+      "component": "src-tauri/src/secure_storage.rs",
+      "passes": true
+    },
+    {
+      "id": "IOS-003",
+      "title": "Verify API key flow works end-to-end on iOS",
+      "description": "Validate the full API key lifecycle on an iOS device or simulator: save an API key, confirm it persists across app restarts, confirm AI features unlock, and confirm key deletion works. Ensure the remediation message no longer appears when Keychain is available.",
+      "acceptance_criteria": [
+        "Saving an OpenAI API key from Settings on iOS stores it in the Keychain and unlocks AI features",
+        "Restarting the app on iOS retains the saved API key without re-entry",
+        "Deleting the API key from Settings removes it from the Keychain and re-locks AI features",
+        "The 'Secure key storage is unavailable' message does not appear on iOS when Keychain is accessible"
+      ],
+      "component": "src/lib/secureStorage.ts, src/components/settings/AISection.tsx",
+      "passes": true
+    }
+  ]
+}

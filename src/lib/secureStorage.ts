@@ -56,6 +56,7 @@ async function ensureSecureStorageAvailability(): Promise<boolean> {
     setLastStorageMessage(SECURE_STORAGE_REMEDIATION_MESSAGE);
     return false;
   }
+  setLastStorageMessage(null);
   return true;
 }
 
@@ -80,9 +81,10 @@ export async function getApiKeyStorageStatus(): Promise<ApiKeyStorageStatus> {
       message: SECURE_STORAGE_REMEDIATION_MESSAGE,
     };
   }
+  setLastStorageMessage(null);
   return {
     available: true,
-    message: lastStorageMessage,
+    message: null,
   };
 }
 
