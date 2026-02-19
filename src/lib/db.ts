@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { PaginatedResult, CursorConfig, PaginationOptions } from '../types/pagination';
 
-const DB_URL = 'sqlite:journai_secure.db';
+export const DB_URL = 'sqlite:journai.db';
 const DB_LOCK_MAX_RETRIES = 10;
 const DB_LOCK_BASE_DELAY_MS = 40;
 const APP_LOCK_REQUIRED_EVENT = 'app-lock-required';
