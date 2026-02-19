@@ -29,7 +29,7 @@ describe('Entries Service', () => {
       const entries = await getEntries();
 
       expect(mockInvoke).toHaveBeenCalledWith('plugin:sql|select', {
-        db: 'sqlite:journai_secure.db',
+        db: 'sqlite:journai.db',
         query: 'SELECT id, date, content, created_at, processed_at, content_hash FROM entries ORDER BY date DESC, created_at DESC',
         values: [],
       });
@@ -117,7 +117,7 @@ describe('Entries Service', () => {
 
       mockInvoke.mockImplementation((command: string, payload?: { db?: string }) => {
         if (command === 'plugin:sql|load') {
-          return Promise.resolve(payload?.db ?? 'sqlite:journai_secure.db');
+          return Promise.resolve(payload?.db ?? 'sqlite:journai.db');
         }
         if (command === 'plugin:sql|select') {
           return Promise.resolve(selectResults.shift() ?? []);
@@ -141,7 +141,7 @@ describe('Entries Service', () => {
 
       mockInvoke.mockImplementation((command: string, payload?: { db?: string }) => {
         if (command === 'plugin:sql|load') {
-          return Promise.resolve(payload?.db ?? 'sqlite:journai_secure.db');
+          return Promise.resolve(payload?.db ?? 'sqlite:journai.db');
         }
         if (command === 'plugin:sql|select') {
           return Promise.resolve(selectResults.shift() ?? []);
@@ -160,7 +160,7 @@ describe('Entries Service', () => {
     it('returns null for non-existent entry', async () => {
       mockInvoke.mockImplementation((command: string, payload?: { db?: string }) => {
         if (command === 'plugin:sql|load') {
-          return Promise.resolve(payload?.db ?? 'sqlite:journai_secure.db');
+          return Promise.resolve(payload?.db ?? 'sqlite:journai.db');
         }
         if (command === 'plugin:sql|select') {
           return Promise.resolve([]);
@@ -185,7 +185,7 @@ describe('Entries Service', () => {
 
       expect(result).toBe(true);
       expect(mockInvoke).toHaveBeenCalledWith('plugin:sql|execute', {
-        db: 'sqlite:journai_secure.db',
+        db: 'sqlite:journai.db',
         query: 'DELETE FROM entries WHERE id = $1',
         values: ['test-123'],
       });

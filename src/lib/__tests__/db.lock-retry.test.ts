@@ -16,7 +16,7 @@ describe('Database Lock Retry', () => {
     let executeAttempts = 0;
     mockInvoke.mockImplementation((command: string) => {
       if (command === 'plugin:sql|load') {
-        return Promise.resolve('sqlite:journai_secure.db');
+        return Promise.resolve('sqlite:journai.db');
       }
       if (command === 'plugin:sql|execute') {
         executeAttempts += 1;
@@ -39,7 +39,7 @@ describe('Database Lock Retry', () => {
     let selectAttempts = 0;
     mockInvoke.mockImplementation((command: string) => {
       if (command === 'plugin:sql|load') {
-        return Promise.resolve('sqlite:journai_secure.db');
+        return Promise.resolve('sqlite:journai.db');
       }
       if (command === 'plugin:sql|select') {
         selectAttempts += 1;
@@ -62,7 +62,7 @@ describe('Database Lock Retry', () => {
     let insertAttempts = 0;
     mockInvoke.mockImplementation((command: string, payload?: { query?: string }) => {
       if (command === 'plugin:sql|load') {
-        return Promise.resolve('sqlite:journai_secure.db');
+        return Promise.resolve('sqlite:journai.db');
       }
 
       if (command === 'plugin:sql|execute') {
@@ -105,13 +105,13 @@ describe('Database Lock Retry', () => {
         if (loadAttempts === 1) {
           return Promise.reject(new Error('error returned from database: (code: 26) file is not a database'));
         }
-        return Promise.resolve('sqlite:journai_secure.db');
+        return Promise.resolve('sqlite:journai.db');
       }
       if (command === 'plugin:sql|close') {
         return Promise.resolve(undefined);
       }
       if (command === 'app_lock_backup_and_reset_secure_db') {
-        return Promise.resolve('/tmp/journai_secure.db.backup-123');
+        return Promise.resolve('/tmp/journai_demo.db.backup-123');
       }
       if (command === 'plugin:sql|select') {
         return Promise.resolve([{ id: 'entry-1' }]);
@@ -124,12 +124,12 @@ describe('Database Lock Retry', () => {
 
     expect(rows).toEqual([{ id: 'entry-1' }]);
     expect(mockInvoke).toHaveBeenCalledTimes(5);
-    expect(mockInvoke).toHaveBeenNthCalledWith(1, 'plugin:sql|load', { db: 'sqlite:journai_secure.db' });
-    expect(mockInvoke).toHaveBeenNthCalledWith(2, 'plugin:sql|close', { db: 'sqlite:journai_secure.db' });
+    expect(mockInvoke).toHaveBeenNthCalledWith(1, 'plugin:sql|load', { db: 'sqlite:journai.db' });
+    expect(mockInvoke).toHaveBeenNthCalledWith(2, 'plugin:sql|close', { db: 'sqlite:journai.db' });
     expect(mockInvoke).toHaveBeenNthCalledWith(3, 'app_lock_backup_and_reset_secure_db');
-    expect(mockInvoke).toHaveBeenNthCalledWith(4, 'plugin:sql|load', { db: 'sqlite:journai_secure.db' });
+    expect(mockInvoke).toHaveBeenNthCalledWith(4, 'plugin:sql|load', { db: 'sqlite:journai.db' });
     expect(mockInvoke).toHaveBeenNthCalledWith(5, 'plugin:sql|select', {
-      db: 'sqlite:journai_secure.db',
+      db: 'sqlite:journai.db',
       query: 'SELECT id FROM entries',
       values: [],
     });
