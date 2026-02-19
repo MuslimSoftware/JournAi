@@ -9,23 +9,7 @@ mod desktop {
 
     pub fn set_secret(key: &str, value: &str) -> Result<(), String> {
         let entry = Entry::new(SERVICE_NAME, key).map_err(|e| e.to_string())?;
-        entry.set_password(value).map_err(|e| e.to_string())?;
-
-        // Verify persistence through a fresh lookup so we don't rely on in-memory credential handles.
-        let verification_entry = Entry::new(SERVICE_NAME, key).map_err(|e| e.to_string())?;
-        match verification_entry.get_password() {
-            Ok(stored) if stored == value => Ok(()),
-            Ok(_) => Err(
-                "Secure storage write verification failed: stored value mismatch. \
-                 This often indicates an unsigned or improperly signed app build on macOS."
-                    .to_string(),
-            ),
-            Err(e) => Err(format!(
-                "Secure storage write verification failed: {}. \
-                 This often indicates an unsigned or improperly signed app build on macOS.",
-                e
-            )),
-        }
+        entry.set_password(value).map_err(|e| e.to_string())
     }
 
     pub fn get_secret(key: &str) -> Result<Option<String>, String> {
@@ -95,30 +79,28 @@ pub async fn secure_storage_is_available() -> bool {
         #[cfg(not(target_os = "android"))]
         {
             use keyring::Entry;
+
             let entry = match Entry::new(SERVICE_NAME, AVAILABILITY_PROBE_KEY) {
                 Ok(entry) => entry,
                 Err(_) => return false,
             };
 
+            match entry.get_password() {
+                Ok(stored) if stored == AVAILABILITY_PROBE_VALUE => return true,
+                Err(keyring::Error::NoEntry) => {}
+                Ok(_) => {}
+                Err(_) => return false,
+            }
+
             if entry.set_password(AVAILABILITY_PROBE_VALUE).is_err() {
                 return false;
             }
 
-            let verification_entry = match Entry::new(SERVICE_NAME, AVAILABILITY_PROBE_KEY) {
-                Ok(entry) => entry,
-                Err(_) => {
-                    let _ = entry.delete_credential();
-                    return false;
-                }
+            let verify = match Entry::new(SERVICE_NAME, AVAILABILITY_PROBE_KEY) {
+                Ok(e) => e,
+                Err(_) => return false,
             };
-
-            let read_ok = matches!(
-                verification_entry.get_password(),
-                Ok(stored) if stored == AVAILABILITY_PROBE_VALUE
-            );
-
-            let _ = verification_entry.delete_credential();
-            read_ok
+            matches!(verify.get_password(), Ok(v) if v == AVAILABILITY_PROBE_VALUE)
         }
         #[cfg(target_os = "android")]
         {
