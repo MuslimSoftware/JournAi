@@ -7,7 +7,7 @@ const SERVICE_NAME: &str = "com.journai.app";
 const AVAILABILITY_PROBE_KEY: &str = "__journai.secure_storage.availability_probe__";
 const AVAILABILITY_PROBE_VALUE: &str = "probe";
 
-#[cfg(not(any(target_os = "ios", target_os = "android")))]
+#[cfg(not(target_os = "android"))]
 mod desktop {
     use super::SERVICE_NAME;
     use keyring::Entry;
@@ -52,7 +52,7 @@ mod desktop {
     }
 }
 
-#[cfg(any(target_os = "ios", target_os = "android"))]
+#[cfg(target_os = "android")]
 mod mobile {
     pub fn set_secret(_key: &str, _value: &str) -> Result<(), String> {
         Ok(())
@@ -67,10 +67,10 @@ mod mobile {
     }
 }
 
-#[cfg(not(any(target_os = "ios", target_os = "android")))]
+#[cfg(not(target_os = "android"))]
 pub use desktop::{delete_secret, get_secret, set_secret};
 
-#[cfg(any(target_os = "ios", target_os = "android"))]
+#[cfg(target_os = "android")]
 pub use mobile::{delete_secret, get_secret, set_secret};
 
 #[tauri::command]
@@ -97,7 +97,7 @@ pub async fn secure_storage_delete(key: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn secure_storage_is_available() -> bool {
     tauri::async_runtime::spawn_blocking(|| {
-        #[cfg(not(any(target_os = "ios", target_os = "android")))]
+        #[cfg(not(target_os = "android"))]
         {
             use keyring::Entry;
             let entry = match Entry::new(SERVICE_NAME, AVAILABILITY_PROBE_KEY) {
@@ -125,7 +125,7 @@ pub async fn secure_storage_is_available() -> bool {
             let _ = verification_entry.delete_credential();
             read_ok
         }
-        #[cfg(any(target_os = "ios", target_os = "android"))]
+        #[cfg(target_os = "android")]
         {
             false
         }
