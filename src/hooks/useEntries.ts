@@ -37,7 +37,6 @@ export function useEntries(): UseEntriesReturn {
         setCursor,
         setScrollOffset,
         setInitialized,
-        resetState,
     } = useEntriesState();
 
     const { target, clearTarget } = useEntryNavigation();
@@ -84,16 +83,6 @@ export function useEntries(): UseEntriesReturn {
 
         void loadInitial();
     }, [state.isInitialized, setEntries, setTotalCount, setHasMore, setCursor, setInitialized]);
-
-    useEffect(() => {
-        const handler = () => {
-            loadVersionRef.current++;
-            isLoadingRef.current = false;
-            resetState();
-        };
-        window.addEventListener('import-complete', handler);
-        return () => window.removeEventListener('import-complete', handler);
-    }, [resetState]);
 
     useEffect(() => {
         if (!target) {

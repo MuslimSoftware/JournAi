@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import type { JournalEntry } from '../types/entry';
 
 interface EntriesState {
@@ -115,6 +115,12 @@ export function EntriesStateProvider({ children }: { children: ReactNode }) {
     const resetState = useCallback(() => {
         setState(initialState);
     }, []);
+
+    useEffect(() => {
+        const handler = () => resetState();
+        window.addEventListener('import-complete', handler);
+        return () => window.removeEventListener('import-complete', handler);
+    }, [resetState]);
 
     return (
         <EntriesStateContext.Provider
