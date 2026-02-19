@@ -46,6 +46,7 @@ keyring = { version = "3", features = ["windows-native"] }
 keyring = { version = "3", features = ["linux-native-sync-persistent", "crypto-rust"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSObject"] }
 objc2-ui-kit = { version = "0.3", features = ["UIView", "UIScrollView", "UIResponder"] }
