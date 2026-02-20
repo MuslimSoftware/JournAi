@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { DayData, StickyNote } from '../types/todo';
 import type { MonthIndicators } from '../services/calendar';
-import { getMonthIndicators, getDayData } from '../services/calendar';
+import { getDayData, getIndicatorsByDateRange, getMonthIndicatorsRange } from '../services/calendar';
 import { getTodayString, parseLocalDate, toDateString } from '../utils/date';
 import * as todosService from '../services/todos';
 import * as stickyNotesService from '../services/stickyNotes';
@@ -22,6 +22,8 @@ export function useCalendar() {
   const [isLoadingIndicators, setIsLoadingIndicators] = useState(true);
   const [isLoadingDayData, setIsLoadingDayData] = useState(false);
   const dayDataCacheRef = useRef<Map<string, DayData>>(new Map());
+  const indicatorsRangeRef = useRef<{ startDate: string; endDate: string } | null>(null);
+  const indicatorsRequestIdRef = useRef(0);
 
   const setDayDataWithStickyNote = useCallback((data: DayData | null) => {
     setDayData(data);
@@ -39,17 +41,64 @@ export function useCalendar() {
     }
   }, []);
 
-  const loadIndicators = useCallback(async () => {
+  const loadIndicatorsByRange = useCallback(async (startDate: string, endDate: string) => {
+    const normalizedStart = startDate <= endDate ? startDate : endDate;
+    const normalizedEnd = startDate <= endDate ? endDate : startDate;
+    const requestId = ++indicatorsRequestIdRef.current;
+    const previousRange = indicatorsRangeRef.current;
+
+    indicatorsRangeRef.current = { startDate: normalizedStart, endDate: normalizedEnd };
+
     setIsLoadingIndicators(true);
     try {
-      const data = await getMonthIndicators(currentYear, currentMonth);
+      const data = await getIndicatorsByDateRange(normalizedStart, normalizedEnd);
+      if (requestId !== indicatorsRequestIdRef.current) {
+        return;
+      }
       setIndicators(data);
     } catch (error) {
+      if (requestId === indicatorsRequestIdRef.current) {
+        indicatorsRangeRef.current = previousRange;
+      }
       console.error('Failed to load calendar indicators:', error);
     } finally {
-      setIsLoadingIndicators(false);
+      if (requestId === indicatorsRequestIdRef.current) {
+        setIsLoadingIndicators(false);
+      }
     }
-  }, [currentYear, currentMonth]);
+  }, []);
+
+  const loadIndicators = useCallback(async () => {
+    const currentMonthRange = getMonthIndicatorsRange(currentYear, currentMonth);
+    const existingRange = indicatorsRangeRef.current;
+
+    if (
+      existingRange &&
+      existingRange.startDate <= currentMonthRange.startDate &&
+      existingRange.endDate >= currentMonthRange.endDate
+    ) {
+      await loadIndicatorsByRange(existingRange.startDate, existingRange.endDate);
+      return;
+    }
+
+    await loadIndicatorsByRange(currentMonthRange.startDate, currentMonthRange.endDate);
+  }, [currentYear, currentMonth, loadIndicatorsByRange]);
+
+  const loadIndicatorsForDateRange = useCallback(async (startDate: string, endDate: string) => {
+    const normalizedStart = startDate <= endDate ? startDate : endDate;
+    const normalizedEnd = startDate <= endDate ? endDate : startDate;
+    const existingRange = indicatorsRangeRef.current;
+
+    if (
+      existingRange &&
+      existingRange.startDate === normalizedStart &&
+      existingRange.endDate === normalizedEnd
+    ) {
+      return;
+    }
+
+    await loadIndicatorsByRange(normalizedStart, normalizedEnd);
+  }, [loadIndicatorsByRange]);
 
   const loadDayData = useCallback(async (date: string) => {
     setIsLoadingDayData(true);
@@ -85,8 +134,17 @@ export function useCalendar() {
   }, []);
 
   useEffect(() => {
+    const currentMonthRange = getMonthIndicatorsRange(currentYear, currentMonth);
+    const existingRange = indicatorsRangeRef.current;
+    if (
+      existingRange &&
+      existingRange.startDate <= currentMonthRange.startDate &&
+      existingRange.endDate >= currentMonthRange.endDate
+    ) {
+      return;
+    }
     loadIndicators();
-  }, [loadIndicators]);
+  }, [currentYear, currentMonth, loadIndicators]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -290,5 +348,6 @@ export function useCalendar() {
     reorderTodos,
     updateStickyNote,
     refreshData,
+    loadIndicatorsForDateRange,
   };
 }

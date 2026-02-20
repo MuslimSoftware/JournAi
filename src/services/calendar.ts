@@ -15,7 +15,11 @@ export interface MonthIndicators {
   stickyNotesDates: Set<string>;
 }
 
-export async function getMonthIndicators(year: number, month: number): Promise<MonthIndicators> {
+function toDateString(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+export function getMonthIndicatorsRange(year: number, month: number): { startDate: string; endDate: string } {
   const firstOfMonth = new Date(year, month, 1);
   const lastOfMonth = new Date(year, month + 1, 0);
 
@@ -25,13 +29,20 @@ export async function getMonthIndicators(year: number, month: number): Promise<M
   const endBuffer = new Date(lastOfMonth);
   endBuffer.setDate(endBuffer.getDate() + 7);
 
-  const startDate = `${startBuffer.getFullYear()}-${String(startBuffer.getMonth() + 1).padStart(2, '0')}-${String(startBuffer.getDate()).padStart(2, '0')}`;
-  const endDate = `${endBuffer.getFullYear()}-${String(endBuffer.getMonth() + 1).padStart(2, '0')}-${String(endBuffer.getDate()).padStart(2, '0')}`;
+  return {
+    startDate: toDateString(startBuffer),
+    endDate: toDateString(endBuffer),
+  };
+}
+
+export async function getIndicatorsByDateRange(startDate: string, endDate: string): Promise<MonthIndicators> {
+  const normalizedStart = startDate <= endDate ? startDate : endDate;
+  const normalizedEnd = startDate <= endDate ? endDate : startDate;
 
   const [entriesRows, todosCounts, stickyNotesDates] = await Promise.all([
-    select<{ date: string }>('SELECT DISTINCT date FROM entries WHERE date >= $1 AND date <= $2', [startDate, endDate]),
-    getTodosCountByDate(startDate, endDate),
-    getDatesWithStickyNotes(startDate, endDate),
+    select<{ date: string }>('SELECT DISTINCT date FROM entries WHERE date >= $1 AND date <= $2', [normalizedStart, normalizedEnd]),
+    getTodosCountByDate(normalizedStart, normalizedEnd),
+    getDatesWithStickyNotes(normalizedStart, normalizedEnd),
   ]);
 
   return {
@@ -39,6 +50,11 @@ export async function getMonthIndicators(year: number, month: number): Promise<M
     todosCounts,
     stickyNotesDates,
   };
+}
+
+export async function getMonthIndicators(year: number, month: number): Promise<MonthIndicators> {
+  const { startDate, endDate } = getMonthIndicatorsRange(year, month);
+  return getIndicatorsByDateRange(startDate, endDate);
 }
 
 export async function getDayData(date: string): Promise<DayData> {

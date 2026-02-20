@@ -32,6 +32,7 @@ export default function MobileCalendar() {
     deleteTodo,
     reorderTodos,
     updateStickyNote,
+    loadIndicatorsForDateRange,
   } = useCalendar();
 
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -138,6 +139,7 @@ export default function MobileCalendar() {
           selectedDate={selectedDate}
           indicators={indicators}
           onSelectDate={handleSelectDate}
+          onDateRangeChange={loadIndicatorsForDateRange}
           onTodayPositionChange={setTodayPosition}
         />
         {todayPosition !== "visible" && !isDatePickerOpen && (

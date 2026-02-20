@@ -9,6 +9,7 @@ interface WeekStripProps {
   indicators: MonthIndicators | null;
   onSelectDate: (date: string) => void;
   onTodayPositionChange?: (position: 'visible' | 'above' | 'below') => void;
+  onDateRangeChange?: (startDate: string, endDate: string) => void | Promise<void>;
 }
 
 export interface WeekStripRef {
@@ -48,6 +49,7 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
   indicators,
   onSelectDate,
   onTodayPositionChange,
+  onDateRangeChange,
 }, ref) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const todayStr = getTodayString();
@@ -234,6 +236,17 @@ const WeekStrip = forwardRef<WeekStripRef, WeekStripProps>(function WeekStrip({
       }
     };
   }, []);
+
+  useLayoutEffect(() => {
+    if (!onDateRangeChange || weeks.length === 0) {
+      return;
+    }
+
+    const startDate = toDateString(weeks[0][0]);
+    const lastWeek = weeks[weeks.length - 1];
+    const endDate = toDateString(lastWeek[6]);
+    void onDateRangeChange(startDate, endDate);
+  }, [weeks, onDateRangeChange]);
 
   useEffect(() => {
     const raf = requestAnimationFrame(updateTodayVisibility);
