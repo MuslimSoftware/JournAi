@@ -35,6 +35,20 @@
   background-color: var(--bg-primary);
 }
 
+.insights-page--mobile {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.insights-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+}
+
 .insights-loading {
   height: 100%;
   background-color: var(--bg-primary);
@@ -97,6 +111,70 @@
   padding: 0 var(--insights-spacing-3xl) 100px;
 }
 
+.insights-mobile-processing-inline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--insights-spacing-md);
+  margin-top: var(--insights-spacing-lg);
+  margin-bottom: var(--insights-spacing-3xl);
+  padding: var(--insights-spacing-lg) var(--insights-spacing-2xl);
+  border-radius: var(--insights-card-radius);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+}
+
+.insights-mobile-processing-inline__top {
+  display: flex;
+  align-items: center;
+  gap: var(--insights-spacing-lg);
+}
+
+.insights-mobile-processing-inline__label {
+  font-size: var(--insights-font-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.insights-mobile-processing-inline__count {
+  margin-left: auto;
+  font-size: var(--insights-font-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.insights-mobile-processing-inline__bottom {
+  display: flex;
+  align-items: center;
+  gap: var(--insights-spacing-lg);
+}
+
+.insights-mobile-processing-inline__bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background-color: var(--border-primary);
+  overflow: hidden;
+}
+
+.insights-mobile-processing-inline__bar-fill {
+  height: 4px;
+  min-height: 4px;
+  border-radius: inherit;
+  background-color: var(--text-muted);
+  transition: width 0.25s ease;
+}
+
+.insights-mobile-processing-inline__percent {
+  font-size: var(--insights-font-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 28px;
+  text-align: right;
+}
+
 .insights-processing-icon {
   display: flex;
   align-items: center;
@@ -139,23 +217,60 @@
   align-items: center;
   gap: var(--insights-spacing-lg);
   margin-bottom: var(--insights-spacing-4xl);
-  margin-left: calc(-1 * var(--insights-spacing-3xl));
-  margin-right: calc(-1 * var(--insights-spacing-3xl));
-  padding-left: var(--insights-spacing-lg);
+  flex-wrap: wrap;
 }
 
-.insights-mobile-emotion-scroll {
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  -webkit-overflow-scrolling: touch;
-  padding-right: var(--insights-spacing-3xl);
+.insights-mobile-filter-group {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--insights-spacing-sm);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--insights-card-radius);
+  background-color: var(--bg-secondary);
 }
 
-.insights-mobile-emotion-scroll::-webkit-scrollbar {
-  display: none;
+.insights-mobile-filter-group__buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--insights-spacing-sm);
+}
+
+.insights-mobile-filter-btn {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--insights-card-radius) - var(--insights-spacing-sm));
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-touch-callout: none;
+  background-color: transparent;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.insights-mobile-filter-btn--active {
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+}
+
+.insights-mobile-filter-btn:active {
+  transform: none;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  outline: none;
+  box-shadow: none !important;
+}
+
+.insights-mobile-filter-btn:focus,
+.insights-mobile-filter-btn:focus-visible {
+  outline: none;
+  background-color: transparent !important;
+  box-shadow: none !important;
 }
 
 .insights-filters-row {
@@ -191,7 +306,7 @@
   height: 30px;
   padding: 0 12px;
   border: 1px solid var(--border-primary);
-  border-radius: 9999px;
+  border-radius: var(--insights-card-radius);
   background-color: var(--bg-secondary);
   color: var(--text-secondary);
   font-size: 0.78rem;
@@ -221,58 +336,6 @@
   border-color: var(--text-primary);
 }
 
-.insights-mobile-emotion-group {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--insights-spacing-sm);
-  border: 1px solid var(--border-primary);
-  border-radius: 9999px;
-  background-color: var(--bg-secondary);
-}
-
-.insights-mobile-emotion-filters {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--insights-spacing-sm);
-}
-
-.insights-mobile-emotion-filter {
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: 9999px;
-  appearance: none;
-  -webkit-appearance: none;
-  -webkit-touch-callout: none;
-  background-color: transparent;
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.insights-mobile-emotion-filter--active {
-  color: var(--text-primary);
-  background-color: transparent;
-  border-color: transparent;
-}
-
-.insights-mobile-emotion-filter:active {
-  transform: none;
-  background-color: transparent !important;
-  border-color: transparent !important;
-  outline: none;
-  box-shadow: none !important;
-}
-
-.insights-mobile-emotion-filter:focus,
-.insights-mobile-emotion-filter:focus-visible {
-  outline: none;
-  background-color: transparent !important;
-  box-shadow: none !important;
-}
 
 .insights-mobile-chip--time.insights-mobile-chip--active {
   color: var(--text-secondary);
@@ -326,8 +389,12 @@
 }
 
 .insights-filter-menu--mobile {
+  position: fixed;
+  top: auto;
+  left: var(--insights-spacing-3xl);
   max-height: min(60vh, 360px);
   overflow-y: auto;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 }
 
 .insights-filter-group-label {
@@ -1135,6 +1202,10 @@
 }
 
 @media (max-width: 768px) {
+  .insights-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .carousel-card {
     width: 180px;
     min-height: 130px;

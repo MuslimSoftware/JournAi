@@ -63,18 +63,6 @@ export function InsightsProvider({ children }: { children: ReactNode }) {
     setSelectedOccurrenceIndex(null);
   };
 
-  useEffect(() => {
-    const handleInsightsChanged = () => {
-      setDataLoaded(false);
-    };
-
-    window.addEventListener('insights-changed', handleInsightsChanged);
-
-    return () => {
-      window.removeEventListener('insights-changed', handleInsightsChanged);
-    };
-  }, []);
-
   return (
     <InsightsContext.Provider
       value={{

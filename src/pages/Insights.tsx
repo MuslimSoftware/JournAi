@@ -18,6 +18,7 @@ import {
 import { parseLocalDate } from "../utils/date";
 import { hapticSelection } from "../hooks/useHaptics";
 import { useTheme } from "../contexts/ThemeContext";
+import { useProcessing } from "../contexts/ProcessingContext";
 import "../styles/insights.css";
 
 const INTENSITY_BAR_COUNT = 10;
@@ -211,6 +212,7 @@ export default function Insights() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { theme } = useTheme();
+  const { isProcessing, progress, cancelRequested } = useProcessing();
 
   const sentimentColors: Record<SentimentColorKey, string> = {
     positive: theme.colors.sentiment.positive,
@@ -285,8 +287,9 @@ export default function Insights() {
   useEffect(() => {
     if (lastLoadedFilter.current === timeFilter) return;
 
+    const isBackgroundRefresh = dataLoaded && lastLoadedFilter.current === null;
     const loadData = async () => {
-      setLoading(true);
+      if (!isBackgroundRefresh) setLoading(true);
       setError(null);
       try {
         const range = getDateRange(timeFilter);
@@ -684,23 +687,52 @@ export default function Insights() {
     return null;
   };
 
-  const showEmotions = isMobile
-    ? true
-    : typeFilter === "all" || typeFilter === "emotions";
-  const showPeople = isMobile
-    ? true
-    : typeFilter === "all" || typeFilter === "people";
+  const showEmotions = typeFilter === "all" || typeFilter === "emotions";
+  const showPeople = typeFilter === "all" || typeFilter === "people";
 
   const visibleColumnCount = [showEmotions, showPeople].filter(Boolean).length;
   const columnClass =
     visibleColumnCount === 2
       ? "insights-columns--two"
       : "insights-columns--one";
+  const processingPercent =
+    progress && progress.total > 0
+      ? Math.min(100, Math.round((progress.processed / progress.total) * 100))
+      : 0;
+  const processingDetail = progress
+    ? `${progress.processed} of ${progress.total} entries`
+    : "";
+  const processingErrorCount = progress?.errors.length ?? 0;
+  const processingLabel = cancelRequested ? "Stopping analysis" : "Analyzing entries";
 
   const content = (
     <div
       className={`insights-content${isMobile ? " insights-content--mobile" : ""}`}
     >
+      {isMobile && isProcessing && progress && (
+        <div className="insights-mobile-processing-inline" role="status" aria-live="polite">
+          <div className="insights-mobile-processing-inline__top">
+            <Spinner size="sm" />
+            <Text className="insights-mobile-processing-inline__label">
+              {cancelRequested ? "Stopping" : "Analyzing Entries"}
+            </Text>
+            <Text className="insights-mobile-processing-inline__count">
+              {progress.processed}/{progress.total}
+            </Text>
+          </div>
+          <div className="insights-mobile-processing-inline__bottom">
+            <div className="insights-mobile-processing-inline__bar">
+              <div
+                className="insights-mobile-processing-inline__bar-fill"
+                style={{ width: `${processingPercent}%` }}
+              />
+            </div>
+            <Text className="insights-mobile-processing-inline__percent">
+              {processingPercent}%
+            </Text>
+          </div>
+        </div>
+      )}
       {isMobile ? (
         <div className="insights-filters insights-filters--mobile">
           <div
@@ -747,39 +779,50 @@ export default function Insights() {
               </div>
             )}
           </div>
-          <div className="insights-mobile-emotion-scroll">
-            <div className="insights-mobile-emotion-group">
-              <div className="insights-mobile-emotion-filters">
-                {sentimentOptions.map((opt) => {
-                  const isActive = emotionSentimentFilter === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      onClick={() => {
-                        hapticSelection();
-                        setEmotionSentimentFilter(opt.value);
-                        resetSelections();
-                      }}
-                      className={`insights-mobile-emotion-filter${isActive ? " insights-mobile-emotion-filter--active" : ""}`}
-                      style={
-                        isActive
-                          ? {
-                              color: opt.color || undefined,
-                              backgroundColor: opt.color
-                                ? `${opt.color}1A`
-                                : "var(--bg-primary)",
-                              borderColor: opt.color
-                                ? `${opt.color}80`
-                                : "transparent",
-                            }
-                          : undefined
-                      }
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
+          <div className="insights-mobile-filter-group">
+            <div className="insights-mobile-filter-group__buttons">
+              {typeOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    hapticSelection();
+                    setTypeFilter(opt.value);
+                    resetSelections();
+                  }}
+                  className={`insights-mobile-filter-btn${typeFilter === opt.value ? " insights-mobile-filter-btn--active" : ""}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="insights-mobile-filter-group">
+            <div className="insights-mobile-filter-group__buttons">
+              {sentimentOptions.map((opt) => {
+                const isActive = emotionSentimentFilter === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      hapticSelection();
+                      setEmotionSentimentFilter(opt.value);
+                      resetSelections();
+                    }}
+                    className={`insights-mobile-filter-btn${isActive ? " insights-mobile-filter-btn--active" : ""}`}
+                    style={
+                      isActive && opt.color
+                        ? {
+                            color: opt.color,
+                            backgroundColor: `${opt.color}1A`,
+                            borderColor: `${opt.color}80`,
+                          }
+                        : undefined
+                    }
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -880,9 +923,9 @@ export default function Insights() {
 
   if (isMobile) {
     return (
-      <div className="insights-page">
+      <div className="insights-page insights-page--mobile">
         <MobilePageHeader title="Insights" />
-        {content}
+        <div className="insights-scroll">{content}</div>
       </div>
     );
   }
