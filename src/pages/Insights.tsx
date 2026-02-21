@@ -699,11 +699,6 @@ export default function Insights() {
     progress && progress.total > 0
       ? Math.min(100, Math.round((progress.processed / progress.total) * 100))
       : 0;
-  const processingDetail = progress
-    ? `${progress.processed} of ${progress.total} entries`
-    : "";
-  const processingErrorCount = progress?.errors.length ?? 0;
-  const processingLabel = cancelRequested ? "Stopping analysis" : "Analyzing entries";
 
   const content = (
     <div
