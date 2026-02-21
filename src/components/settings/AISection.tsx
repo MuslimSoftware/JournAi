@@ -43,6 +43,7 @@ export default function AISection() {
   const [isEditingApiKey, setIsEditingApiKey] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [model, setModel] = useState<OpenAIModel>('gpt-5.2');
+  const [customSystemPrompt, setCustomSystemPrompt] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'invalid' | 'deleted'>('idle');
   const [storageMessage, setStorageMessage] = useState<string | null>(null);
@@ -52,10 +53,11 @@ export default function AISection() {
 
   useEffect(() => {
     const loadSettings = async () => {
-      const [savedKey, savedModel, storageStatus] = await Promise.all([
+      const [savedKey, savedModel, storageStatus, savedSystemPrompt] = await Promise.all([
         getApiKey(),
         appStore.get<OpenAIModel>(STORE_KEYS.AI_MODEL),
         getApiKeyStorageStatus(),
+        appStore.get<string>(STORE_KEYS.AI_SYSTEM_PROMPT),
       ]);
 
       setStorageMessage(storageStatus.message);
@@ -76,6 +78,9 @@ export default function AISection() {
 
       if (savedModel) {
         setModel(savedModel);
+      }
+      if (savedSystemPrompt) {
+        setCustomSystemPrompt(savedSystemPrompt);
       }
     };
 
@@ -157,6 +162,7 @@ export default function AISection() {
 
     try {
       await appStore.set(STORE_KEYS.AI_MODEL, model);
+      await appStore.set(STORE_KEYS.AI_SYSTEM_PROMPT, customSystemPrompt);
       const storageStatus = await getApiKeyStorageStatus();
       setStorageMessage(storageStatus.message);
       setStatus('saved');
@@ -243,6 +249,19 @@ export default function AISection() {
             <option key={m.value} value={m.value}>{m.label}</option>
           ))}
         </select>
+      </div>
+
+      <div className="settings-field settings-advanced">
+        <label className="settings-label">System Prompt</label>
+        <textarea
+          value={customSystemPrompt}
+          onChange={(e) => setCustomSystemPrompt(e.target.value)}
+          placeholder="e.g. Always respond in a warm, encouraging tone..."
+          className="settings-input"
+          style={{ backgroundColor: inputBg, minHeight: '80px', resize: 'vertical' }}
+          rows={3}
+        />
+        <p className="settings-hint">Customize how the AI assistant behaves. This is added to the beginning of the system prompt.</p>
       </div>
 
       <div className="settings-footer">

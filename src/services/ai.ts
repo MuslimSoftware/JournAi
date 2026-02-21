@@ -15,6 +15,7 @@ import {
   type ToolResult,
 } from "./agentTools";
 import { AGENT_SYSTEM_PROMPT } from "../ai/prompts";
+import { appStore, STORE_KEYS } from "../lib/store";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -177,10 +178,15 @@ export async function sendAgentChatMessage(
   try {
     const today = new Date();
     const currentDate = today.toISOString().split("T")[0];
-    const systemPrompt = AGENT_SYSTEM_PROMPT.replace(
+    let systemPrompt = AGENT_SYSTEM_PROMPT.replace(
       "{{currentDate}}",
       currentDate,
     );
+
+    const customPrompt = await appStore.get<string>(STORE_KEYS.AI_SYSTEM_PROMPT);
+    if (customPrompt && customPrompt.trim()) {
+      systemPrompt = customPrompt.trim() + "\n\n" + systemPrompt;
+    }
 
     const messages: (
       | OpenAIMessage

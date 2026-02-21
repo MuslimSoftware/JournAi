@@ -3,6 +3,7 @@ import { LazyStore } from '@tauri-apps/plugin-store';
 export const STORE_KEYS = {
   AI_API_KEY: 'ai.apiKey',
   AI_MODEL: 'ai.model',
+  AI_SYSTEM_PROMPT: 'ai.systemPrompt',
   THEME_MODE: 'theme.mode',
   SECURITY_LOCK_TIMEOUT_SECONDS: 'security.lockTimeoutSeconds',
 } as const;
