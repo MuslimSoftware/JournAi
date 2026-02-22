@@ -25,8 +25,9 @@ async function getInitialTheme(): Promise<ThemeMode> {
   return 'system';
 }
 
-function applyThemeCSSVariables(theme: ThemeTokens): void {
+function applyThemeCSSVariables(theme: ThemeTokens, resolvedMode: 'light' | 'dark'): void {
   const root = document.documentElement;
+  root.style.setProperty('color-scheme', resolvedMode);
   root.style.setProperty('--bg-primary', theme.colors.background.primary);
   root.style.setProperty('--bg-secondary', theme.colors.background.secondary);
   root.style.setProperty('--bg-tertiary', theme.colors.background.tertiary);
@@ -87,8 +88,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => {
-      const newTheme = getSystemTheme() === 'light' ? lightTheme : darkTheme;
-      applyThemeCSSVariables(newTheme);
+      const systemMode = getSystemTheme();
+      const newTheme = systemMode === 'light' ? lightTheme : darkTheme;
+      applyThemeCSSVariables(newTheme, systemMode);
     };
 
     mediaQuery.addEventListener('change', handler);
@@ -99,7 +101,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!isLoaded) return;
 
     appStore.set(THEME_STORAGE_KEY, mode);
-    applyThemeCSSVariables(theme);
+    applyThemeCSSVariables(theme, resolvedMode);
   }, [mode, theme, isLoaded]);
 
   const setTheme = (newMode: ThemeMode) => {

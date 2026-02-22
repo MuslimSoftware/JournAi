@@ -696,6 +696,10 @@
     color: var(--text-muted);
 }
 
+.sticky-note-textarea::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
 /* Mobile Calendar */
 .mobile-calendar-page {
     display: flex;

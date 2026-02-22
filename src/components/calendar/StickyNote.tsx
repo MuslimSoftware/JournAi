@@ -11,9 +11,13 @@ interface StickyNoteProps {
 export default function StickyNote({ id, content, onUpdate }: StickyNoteProps) {
   const [value, setValue] = useState(content);
   const debounceRef = useRef<NodeJS.Timeout>(null);
+  const lastSavedRef = useRef(content);
 
   useEffect(() => {
-    setValue(content);
+    if (content !== lastSavedRef.current) {
+      setValue(content);
+      lastSavedRef.current = content;
+    }
   }, [content]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -22,6 +26,7 @@ export default function StickyNote({ id, content, onUpdate }: StickyNoteProps) {
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
+      lastSavedRef.current = newValue;
       onUpdate(id, newValue);
     }, STICKY_NOTE_DEBOUNCE_MS);
   };
