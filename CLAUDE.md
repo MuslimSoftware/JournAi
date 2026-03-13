@@ -339,6 +339,44 @@ useEscapeKey(() => closeModal(), {
 - Conditional shortcuts: Check state inside the callback rather than conditionally mounting the hook
 - Document all shortcuts in the table above
 
+## Releasing New Versions
+
+### Version Files
+
+All of these must be updated in sync when bumping the version:
+
+| File | Field |
+| --- | --- |
+| `package.json` | `version` |
+| `src-tauri/tauri.conf.json` | `version` |
+| `src-tauri/Cargo.toml` | `version` (also run `cargo generate-lockfile` to update `Cargo.lock`) |
+| `apps/desktop/src-tauri/tauri.conf.json` | `version` |
+| `packages/ui/package.json` | `version` |
+| `packages/core/package.json` | `version` |
+| `packages/config/package.json` | `version` |
+
+### Release Workflow
+
+The GitHub Actions release workflow (`.github/workflows/release.yml`) is triggered by pushing a `v*` tag. It builds for macOS (universal), Windows, and Ubuntu, then creates a GitHub release with the built assets.
+
+### Steps to Release
+
+1. Update the version in all files listed above
+2. Commit: `[CHORE] Bump version to vX.X.X`
+3. Tag: `git tag vX.X.X`
+4. Push commit and tag: `git push origin master vX.X.X`
+
+### Release Naming Convention
+
+Use `[vX.X.X] Short Description` for the tag/release name — not commit-style category tags. The description should summarize the most notable user-facing changes.
+
+Examples:
+- `[v0.1.1] Custom Linux title bar and bug fixes`
+- `[v0.2.0] AI chat improvements and calendar redesign`
+- `[v1.0.0] Initial public release`
+
+The `releaseName` in the workflow defaults to `v__VERSION__`. Override it on GitHub after the release is created, or update the workflow's `releaseName` field to match this convention.
+
 ## Tauri MCP Tools
 
 The Tauri MCP server provides tools to interact with the running app for debugging and testing. Requires the app to be running with `bun run tauri dev`.

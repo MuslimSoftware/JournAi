@@ -1,7 +1,5 @@
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", target_os = "linux"))]
 use tauri::Manager;
-#[cfg(desktop)]
-use tauri::Emitter;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 #[cfg(target_os = "ios")]
@@ -276,6 +274,7 @@ pub fn run() {
         }
     ];
 
+    #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
