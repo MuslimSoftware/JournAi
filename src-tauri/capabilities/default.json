@@ -36,6 +36,13 @@
     "description": "Desktop-only capability for updater and restart permissions",
     "windows": ["main"],
     "platforms": ["macOS", "windows", "linux"],
-    "permissions": ["updater:default", "process:allow-restart"]
+    "permissions": [
+      "updater:default",
+      "process:allow-restart",
+      "core:window:allow-minimize",
+      "core:window:allow-toggle-maximize",
+      "core:window:allow-close",
+      "core:window:allow-start-dragging"
+    ]
   }
 ]
