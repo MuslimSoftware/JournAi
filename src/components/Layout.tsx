@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import { IoCalendarOutline, IoCalendar, IoBookOutline, IoBook, IoChatbubbleOutline, IoChatbubble, IoSparklesOutline, IoSparkles, IoSync, IoClose } from "react-icons/io5";
 import { listen } from "@tauri-apps/api/event";
 import Sidebar from "./Sidebar";
+import TitleBar from "./TitleBar";
 import SettingsModal from "./SettingsModal";
 import { SidebarProvider } from "../contexts/SidebarContext";
 import { FocusModeProvider, useFocusMode } from "../contexts/FocusModeContext";
@@ -34,8 +35,11 @@ function LayoutContent() {
     return () => { unlisten.then(fn => fn()); };
   }, [openSettings]);
 
+  const isLinux = navigator.userAgent.includes('Linux');
+
   return (
-    <div className={`app-layout ${isFocusMode ? 'focus-mode-active' : ''}`}>
+    <div className={`app-layout ${isFocusMode ? 'focus-mode-active' : ''} ${isLinux ? 'has-titlebar' : ''}`}>
+      {isLinux && <TitleBar />}
       <Sidebar
         items={mainNavItems}
         onOpenSettings={() => openSettings()}

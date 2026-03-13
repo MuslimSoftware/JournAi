@@ -307,56 +307,66 @@ pub fn run() {
                 app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.handle().plugin(tauri_plugin_process::init())?;
 
-                use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
-
-                let settings = MenuItem::with_id(app, "settings", "Settings...", true, Some("CmdOrCtrl+,"))?;
-
-                let app_menu = Submenu::with_items(
-                    app,
-                    "JournAi",
-                    true,
-                    &[
-                        &PredefinedMenuItem::about(app, Some("About JournAi"), None)?,
-                        &PredefinedMenuItem::separator(app)?,
-                        &settings,
-                        &PredefinedMenuItem::separator(app)?,
-                        &PredefinedMenuItem::quit(app, Some("Quit JournAi"))?,
-                    ],
-                )?;
-
-                let edit_menu = Submenu::with_items(
-                    app,
-                    "Edit",
-                    true,
-                    &[
-                        &PredefinedMenuItem::undo(app, None)?,
-                        &PredefinedMenuItem::redo(app, None)?,
-                        &PredefinedMenuItem::separator(app)?,
-                        &PredefinedMenuItem::cut(app, None)?,
-                        &PredefinedMenuItem::copy(app, None)?,
-                        &PredefinedMenuItem::paste(app, None)?,
-                        &PredefinedMenuItem::select_all(app, None)?,
-                    ],
-                )?;
-
-                let window_menu = Submenu::with_items(
-                    app,
-                    "Window",
-                    true,
-                    &[
-                        &PredefinedMenuItem::minimize(app, None)?,
-                        &PredefinedMenuItem::close_window(app, None)?,
-                    ],
-                )?;
-
-                let menu = Menu::with_items(app, &[&app_menu, &edit_menu, &window_menu])?;
-                app.set_menu(menu)?;
-
-                app.on_menu_event(|app, event| {
-                    if event.id() == "settings" {
-                        let _ = app.emit("open-settings", ());
+                #[cfg(target_os = "linux")]
+                {
+                    if let Some(webview_window) = app.get_webview_window("main") {
+                        webview_window.set_decorations(false)?;
                     }
-                });
+                }
+
+                #[cfg(not(target_os = "linux"))]
+                {
+                    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+
+                    let settings = MenuItem::with_id(app, "settings", "Settings...", true, Some("CmdOrCtrl+,"))?;
+
+                    let app_menu = Submenu::with_items(
+                        app,
+                        "JournAi",
+                        true,
+                        &[
+                            &PredefinedMenuItem::about(app, Some("About JournAi"), None)?,
+                            &PredefinedMenuItem::separator(app)?,
+                            &settings,
+                            &PredefinedMenuItem::separator(app)?,
+                            &PredefinedMenuItem::quit(app, Some("Quit JournAi"))?,
+                        ],
+                    )?;
+
+                    let edit_menu = Submenu::with_items(
+                        app,
+                        "Edit",
+                        true,
+                        &[
+                            &PredefinedMenuItem::undo(app, None)?,
+                            &PredefinedMenuItem::redo(app, None)?,
+                            &PredefinedMenuItem::separator(app)?,
+                            &PredefinedMenuItem::cut(app, None)?,
+                            &PredefinedMenuItem::copy(app, None)?,
+                            &PredefinedMenuItem::paste(app, None)?,
+                            &PredefinedMenuItem::select_all(app, None)?,
+                        ],
+                    )?;
+
+                    let window_menu = Submenu::with_items(
+                        app,
+                        "Window",
+                        true,
+                        &[
+                            &PredefinedMenuItem::minimize(app, None)?,
+                            &PredefinedMenuItem::close_window(app, None)?,
+                        ],
+                    )?;
+
+                    let menu = Menu::with_items(app, &[&app_menu, &edit_menu, &window_menu])?;
+                    app.set_menu(menu)?;
+
+                    app.on_menu_event(|app, event| {
+                        if event.id() == "settings" {
+                            let _ = app.emit("open-settings", ());
+                        }
+                    });
+                }
             }
 
             Ok(())

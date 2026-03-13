@@ -1,9 +1,67 @@
 /* src/styles/layout.css */
+.titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 12px;
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-primary);
+  z-index: 1000;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.titlebar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.titlebar-controls {
+  display: flex;
+  height: 100%;
+}
+
+.titlebar-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.titlebar-button:hover {
+  background-color: var(--bg-subtle);
+}
+
+.titlebar-button--close:hover {
+  background-color: #e81123;
+  color: white;
+}
+
 .app-layout {
   display: flex;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+}
+
+.app-layout.has-titlebar {
+  padding-top: 36px;
+}
+
+.app-layout.has-titlebar .titlebar {
+  height: 36px;
 }
 
 .sidebar {
