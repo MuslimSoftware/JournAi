@@ -363,19 +363,17 @@ The GitHub Actions release workflow (`.github/workflows/release.yml`) is trigger
 
 1. Update the version in all files listed above
 2. Commit: `[CHORE] Bump version to vX.X.X`
-3. Tag: `git tag vX.X.X`
+3. Create an **annotated** tag with the release name as the message: `git tag -a vX.X.X -m "[vX.X.X] Short Description"`
 4. Push commit and tag: `git push origin master vX.X.X`
 
 ### Release Naming Convention
 
-Use `[vX.X.X] Short Description` for the tag/release name — not commit-style category tags. The description should summarize the most notable user-facing changes.
+The tag annotation message becomes the GitHub release name. Use `[vX.X.X] Short Description` — the description should summarize the most notable user-facing changes.
 
 Examples:
-- `[v0.1.1] Custom Linux title bar and bug fixes`
-- `[v0.2.0] AI chat improvements and calendar redesign`
-- `[v1.0.0] Initial public release`
-
-The `releaseName` in the workflow defaults to `v__VERSION__`. Override it on GitHub after the release is created, or update the workflow's `releaseName` field to match this convention.
+- `git tag -a v0.1.1 -m "[v0.1.1] Custom Linux title bar and bug fixes"`
+- `git tag -a v0.2.0 -m "[v0.2.0] AI chat improvements and calendar redesign"`
+- `git tag -a v1.0.0 -m "[v1.0.0] Initial public release"`
 
 ## Tauri MCP Tools
 
