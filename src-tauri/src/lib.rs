@@ -1,5 +1,7 @@
 #[cfg(any(target_os = "ios", target_os = "linux"))]
 use tauri::Manager;
+#[cfg(desktop)]
+use tauri::Emitter;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 #[cfg(target_os = "ios")]

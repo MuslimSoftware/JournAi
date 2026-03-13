@@ -29,6 +29,7 @@ jobs:
 
       - name: Get tag annotation
         id: tag_info
+        shell: bash
         run: |
           TAG_MESSAGE=$(git tag -l --format='%(contents:subject)' ${{ github.ref_name }})
           echo "message=${TAG_MESSAGE}" >> "$GITHUB_OUTPUT"
