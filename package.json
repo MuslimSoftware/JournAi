@@ -12,15 +12,13 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "dev:desktop": "turbo run dev --filter=@journai/desktop",
-    "dev:mobile": "turbo run dev --filter=@journai/mobile",
     "build:desktop": "turbo run build --filter=@journai/desktop",
-    "build:mobile": "turbo run build --filter=@journai/mobile",
     "tauri:dev:desktop": "cd apps/desktop && bun run tauri dev",
-    "tauri:dev:ios": "cd apps/mobile && bun run tauri ios dev",
-    "tauri:dev:android": "cd apps/mobile && bun run tauri android dev",
+    "tauri:dev:ios": "bun run tauri ios dev",
+    "tauri:dev:android": "bun run tauri android dev",
     "tauri:build:desktop": "cd apps/desktop && bun run tauri build",
-    "tauri:build:ios": "cd apps/mobile && bun run tauri ios build",
-    "tauri:build:android": "cd apps/mobile && bun run tauri android build"
+    "tauri:build:ios": "bun run tauri ios build",
+    "tauri:build:android": "bun run tauri android build"
   },
   "dependencies": {
     "@ax-llm/ax": "^16.0.10",

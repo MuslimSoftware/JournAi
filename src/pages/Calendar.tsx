@@ -1,7 +1,8 @@
-import { useIsMobile } from '../hooks/useMediaQuery';
+import { useIsMobile, useIsTablet } from '../hooks/useMediaQuery';
 import { useCalendar } from '../hooks/useCalendar';
 import { Spinner } from '../components/themed';
 import CalendarGrid from '../components/calendar/CalendarGrid';
+import TabletCalendar from '../components/calendar/TabletCalendar';
 import SlidePanel from '../components/calendar/SlidePanel';
 import DayDetail from '../components/calendar/DayDetail';
 import MobileCalendar from '../components/mobile/MobileCalendar';
@@ -9,6 +10,11 @@ import '../styles/calendar.css';
 
 export default function Calendar() {
   const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
+
+  if (isTablet) {
+    return <TabletCalendar />;
+  }
 
   if (isMobile) {
     return <MobileCalendar />;

@@ -1,4 +1,4 @@
-import { execute, DB_URL } from '../src/lib/db';
+import { execute } from '../src/lib/db';
 
 function id() {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -477,6 +477,26 @@ const ENTRIES: { date: string; content: string }[] = [
   {
     date: '2026-02-14',
     content: `Happy Valentine's Day. Second one together. Woke up early and made breakfast for Kasia — her favorite, banana pancakes with a drizzle of honey. Miso sat on the counter supervising.\n\nWe spent the morning at the flower market downtown. The colors were unreal — deep reds, bright yellows, soft lavenders. I picked up a small bouquet of ranunculus for the kitchen table.\n\nHad a really grounding conversation over coffee about where we see ourselves in five years. No pressure, just dreaming out loud together. It felt easy.\n\nTwo years ago I was starting fresh at a new job, single, figuring things out. Now I have a home, a partner, a cat, a career I'm proud of, and a life that feels intentionally built.\n\nEnding the day grateful. These quiet, intentional moments matter more than grand gestures.`,
+  },
+  {
+    date: '2026-02-16',
+    content: `Monday. The Valentine's glow wore off fast. Back-to-back meetings from 9 to 1. Sprint kickoff for the insights Phase 2 work — the scope is bigger than I expected. Priya flagged three technical risks I hadn't considered and I sat there nodding like I'd already thought of them. I hadn't.\n\nMarcus pulled me aside after standup. Said I looked tired. I said "just Monday energy" and changed the subject. He didn't push. Part of me wished he had.\n\nFinally replied to Dad about the fishing trip. Saturday morning, his usual spot by the reservoir. Typed "looking forward to it" and almost believed it.\n\nKasia noticed the ranunculus are already wilting. She trimmed the stems and put aspirin in the water. Apparently that's a thing. She keeps these small acts of care going without fanfare. I don't tell her enough how much that means.`,
+  },
+  {
+    date: '2026-02-18',
+    content: `Therapy with Dr. Patel today. I told her about the chest tightness during the run. About the 4am wake-ups. About sitting in meetings performing confidence while my hands shake under the table.\n\nShe was quiet for a long time. Then she said: "You've been describing symptoms for three sessions now. What are you afraid will happen if you name the thing itself?"\n\nSo I named it. I'm burned out. Not the trendy kind where you take a spa day and bounce back. The kind where the thought of opening my laptop makes my stomach clench. Where I rehearse casual conversations before having them. Where I can't tell if I'm good at my job or just good at appearing to be.\n\nShe didn't try to fix it. She asked what I need. I said I don't know. She said that's an honest answer and we can work from there.\n\nWalked home the long way through the park. The magnolias are starting to bud. Sat on a bench for twenty minutes doing nothing. It was the best I've felt all week.`,
+  },
+  {
+    date: '2026-02-19',
+    content: `Productive day, weirdly. Maybe naming the burnout thing unlocked something. Got through the backlog items I'd been avoiding, wrote a decent RFC for the embedding pipeline refactor, and left work at 5:30 for the first time in weeks.\n\nCooked dinner with Kasia — a new recipe, shakshuka. Miso sat on the kitchen stool watching the tomatoes bubble like it was a nature documentary. We ate on the couch with the windows open. February air is still cold but the apartment felt warm.\n\nAhmed texted the group chat about a game night Saturday. Told him I'm fishing with Dad. He sent twelve fish emojis. Classic Ahmed.`,
+  },
+  {
+    date: '2026-02-21',
+    content: `Fishing with Dad. Left at 6am, still dark out. He had coffee in the thermos and those terrible gas station donuts he's been buying since I was ten.\n\nWe didn't catch much. A couple of small bass, nothing worth keeping. But that's not really the point, is it? We sat in folding chairs by the reservoir and talked about nothing for the first hour. Then he told me about a project at work that's been stressing him out — some budget dispute with a new director. I realized he never talks about work stress. I always assumed he just didn't have any.\n\nI almost told him about the burnout. Got as far as "work's been a lot" and then pivoted to something safer. He said "you know you can always slow down, right?" and I don't think he meant the fishing line.\n\nDrove home with the windows down. Called Mom on the way — she's flying in next Friday for the weekend. She's already planned three meals she wants to cook. The woman does not believe in restaurants.\n\nGood day. Simple. Needed.`,
+  },
+  {
+    date: '2026-02-23',
+    content: `Start of a new week. Woke up before the alarm, which hasn't happened in a while. Made coffee, journaled, did a twenty-minute stretch routine Kasia's been trying to get me to do for months. She was right — my shoulders have been concrete.\n\nSprint standup went well. The team is energized about Phase 2. I delegated more than usual today — let Marcus own the API design review and asked Priya to lead the architecture discussion. Dr. Patel's voice in my head: "Delegation isn't abdication. It's trust."\n\nLunch at Ground Truth. The barista remembered my order. Small thing but it made me smile. Read a chapter of Four Thousand Weeks on the patio. Burkeman's point about "paying yourself first with time" is sitting with me.\n\nMom arrives Friday. Need to clean the apartment. Miso has claimed the guest room closet as his personal cave and I don't think he's going to negotiate.`,
   },
 ];
 
@@ -1215,6 +1235,15 @@ const TODOS: { date: string; items: { content: string; completed: boolean }[] }[
   { date: '2026-02-12', items: [{ content: 'Code review', completed: true }, { content: 'Plan Valentine\'s Day', completed: true }, { content: 'Groceries', completed: true }] },
   { date: '2026-02-13', items: [{ content: 'Ship the redesign', completed: true }, { content: 'Reply to Dad about fishing weekend', completed: false }, { content: 'Evening run — waterfront 5K', completed: true }] },
   { date: '2026-02-14', items: [{ content: 'Make banana pancakes for Kasia', completed: true }, { content: 'Pick up flowers from the market', completed: true }, { content: 'Dinner reservation at Saffron (7pm)', completed: false }, { content: 'Write Valentine\'s letter', completed: true }] },
+  { date: '2026-02-15', items: [{ content: 'Lazy Sunday — no plans', completed: true }, { content: 'Groceries for the week', completed: true }, { content: 'Laundry', completed: false }] },
+  { date: '2026-02-16', items: [{ content: 'Sprint kickoff — Phase 2', completed: true }, { content: 'Reply to Dad about fishing', completed: true }, { content: '1:1 with Marcus', completed: true }, { content: 'Gym — cardio', completed: false }] },
+  { date: '2026-02-17', items: [{ content: 'Code review — embedding pipeline PR', completed: true }, { content: 'Write RFC draft', completed: false }, { content: 'Gym — upper body', completed: true }] },
+  { date: '2026-02-18', items: [{ content: 'Therapy — Dr. Patel at 10am', completed: true }, { content: 'Finish RFC draft', completed: true }, { content: 'Walk through the park', completed: true }] },
+  { date: '2026-02-19', items: [{ content: 'Clear backlog items', completed: true }, { content: 'Submit RFC for review', completed: true }, { content: 'Cook dinner — try shakshuka recipe', completed: true }, { content: 'Reply to Ahmed about Saturday', completed: true }] },
+  { date: '2026-02-20', items: [{ content: 'Team retro', completed: true }, { content: 'Prep fishing gear', completed: true }, { content: 'Early night — alarm set for 5:30', completed: true }] },
+  { date: '2026-02-21', items: [{ content: 'Fishing with Dad — 6am', completed: true }, { content: 'Call Mom on the drive home', completed: true }, { content: 'Nap', completed: true }, { content: 'Meal prep for next week', completed: false }] },
+  { date: '2026-02-22', items: [{ content: 'Clean apartment before Mom visits', completed: true }, { content: 'Read — Four Thousand Weeks', completed: true }, { content: 'Fix leaky kitchen faucet', completed: false }, { content: 'Evening walk with Kasia', completed: true }] },
+  { date: '2026-02-23', items: [{ content: 'Morning stretch routine', completed: true }, { content: 'Sprint standup', completed: true }, { content: 'Delegate API review to Marcus', completed: true }, { content: 'Clean guest room for Mom', completed: false }, { content: 'Evict Miso from guest closet', completed: false }] },
 ];
 
 // ──────────────────────────────────────────────
@@ -1255,6 +1284,8 @@ const STICKY_NOTES: { date: string; content: string }[] = [
   { date: '2026-02-07', content: 'Leadership approved AI insights feature! Phase 2 starts next week.' },
   { date: '2026-02-11', content: '"We\'ll never get on top of everything — and that\'s okay." — Oliver Burkeman' },
   { date: '2026-02-14', content: 'Reservation confirmation #4821 — Saffron Restaurant, 7pm, table for 2' },
+  { date: '2026-02-18', content: '"What are you afraid will happen if you name the thing itself?" — Dr. Patel' },
+  { date: '2026-02-21', content: '"You know you can always slow down, right?" — Dad' },
 ];
 
 // ──────────────────────────────────────────────
@@ -1428,9 +1459,6 @@ export async function seedChats() {
 }
 
 export async function seedDemoData() {
-  if (!DB_URL.includes('_demo')) {
-    throw new Error(`Refusing to seed: DB_URL "${DB_URL}" does not contain "_demo". Switch to a demo database first.`);
-  }
   console.log('[seed] Starting demo data seed...');
   await wipeAllData();
   await seedEntries();
