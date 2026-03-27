@@ -483,7 +483,7 @@ html.keyboard-open .mobile-fab {
 }
 
 .mobile-editor-icon-button--delete {
-  color: var(--danger-text);
+  color: var(--danger-bg);
 }
 
 .mobile-editor-date {
