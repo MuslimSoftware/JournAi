@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IoEye, IoEyeOff, IoCheckmarkCircle, IoAlertCircle, IoTrash } from 'react-icons/io5';
+import { IoEye, IoEyeOff, IoCheckmarkCircle, IoAlertCircle, IoTrash, IoKeyOutline } from 'react-icons/io5';
 import { useTheme } from '../../contexts/ThemeContext';
 import Modal from '../Modal';
 import { Text, Button } from '../themed';
@@ -181,6 +181,26 @@ export default function AISection() {
       <Text as="h3" variant="primary" className="settings-section__title">
         AI Configuration
       </Text>
+
+      <div className="settings-byok-banner">
+        <div className="settings-byok-banner__icon">
+          <IoKeyOutline size={20} />
+        </div>
+        <div className="settings-byok-banner__content">
+          <Text variant="primary" className="settings-byok-banner__text">
+            To keep this app free and avoid upcharging users, we follow a <strong>Bring Your Own Key</strong> model.
+            You get your own API key directly from the provider, so you can use AI features for as cheap as possible.
+          </Text>
+          <a
+            href="https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="settings-byok-banner__button"
+          >
+            Get Key
+          </a>
+        </div>
+      </div>
 
       <div className="settings-field">
         <label className="settings-label">OpenAI API Key</label>

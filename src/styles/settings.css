@@ -246,6 +246,52 @@
   gap: var(--settings-spacing-lg);
 }
 
+.settings-byok-banner {
+  display: flex;
+  gap: var(--settings-spacing-lg);
+  padding: var(--settings-spacing-lg);
+  border-radius: var(--settings-radius);
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-secondary);
+  margin-bottom: var(--settings-spacing-2xl);
+}
+
+.settings-byok-banner__icon {
+  flex-shrink: 0;
+  color: var(--text-accent);
+  margin-top: 1px;
+}
+
+.settings-byok-banner__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--settings-spacing-lg);
+}
+
+.settings-byok-banner__text {
+  font-size: var(--settings-font-sm);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.settings-byok-banner__button {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background-color: var(--text-accent);
+  color: #fff;
+  font-size: var(--settings-font-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.settings-byok-banner__button:hover {
+  opacity: 0.85;
+}
+
 .settings-field {
   margin-bottom: var(--settings-spacing-xl);
 }
