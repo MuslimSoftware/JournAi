@@ -5,6 +5,15 @@ A private, AI-powered journaling app built with Tauri v2, React 19, and Rust. Al
 ![Platform](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20iOS%20%7C%20Android-blue)
 ![Built With](https://img.shields.io/badge/built%20with-Tauri%20v2%20%2B%20React%2019%20%2B%20Rust-orange)
 
+### Download
+
+| Platform | Link |
+| -------- | ---- |
+| macOS (Universal) | [JournAi-macOS.dmg](https://github.com/MuslimSoftware/JournAi/releases/latest/download/JournAi-macOS.dmg) |
+| Windows | [JournAi-Windows-setup.exe](https://github.com/MuslimSoftware/JournAi/releases/latest/download/JournAi-Windows-setup.exe) |
+| Linux (Deb) | [JournAi-Linux.deb](https://github.com/MuslimSoftware/JournAi/releases/latest/download/JournAi-Linux.deb) |
+| Linux (AppImage) | [JournAi-Linux.AppImage](https://github.com/MuslimSoftware/JournAi/releases/latest/download/JournAi-Linux.AppImage) |
+
 ---
 
 ## ✨ Features

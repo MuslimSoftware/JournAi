@@ -71,3 +71,34 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+  rename-assets:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Rename release assets to stable names
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          REPO="${GITHUB_REPOSITORY}"
+
+          rename_asset() {
+            local pattern="$1"
+            local new_name="$2"
+            local asset
+            asset=$(gh release view "$TAG" --repo "$REPO" --json assets -q ".assets[].name" | grep "$pattern" | head -1)
+            if [ -n "$asset" ]; then
+              gh release download "$TAG" --repo "$REPO" --pattern "$asset" --dir /tmp/assets
+              mv "/tmp/assets/$asset" "/tmp/assets/$new_name"
+              gh release upload "$TAG" --repo "$REPO" "/tmp/assets/$new_name" --clobber
+            fi
+          }
+
+          rename_asset "_universal.dmg" "JournAi-macOS.dmg"
+          rename_asset "_x64-setup.exe" "JournAi-Windows-setup.exe"
+          rename_asset "_amd64.deb" "JournAi-Linux.deb"
+          rename_asset "_amd64.AppImage" "JournAi-Linux.AppImage"
