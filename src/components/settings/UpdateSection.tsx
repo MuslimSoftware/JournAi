@@ -1,6 +1,6 @@
 import { getVersion } from '@tauri-apps/api/app';
 import { useEffect, useState } from 'react';
-import { IoCheckmarkCircle, IoRefresh, IoDownload } from 'react-icons/io5';
+import { IoCheckmarkCircle, IoRefresh, IoDownload, IoInformationCircle } from 'react-icons/io5';
 import Text from '../themed/Text';
 import Button from '../themed/Button';
 import { useUpdate } from '../../contexts/UpdateContext';
@@ -14,6 +14,7 @@ export default function UpdateSection() {
     downloading,
     downloaded,
     error,
+    updateAction,
     checkForUpdate,
     downloadUpdate,
     restartApp,
@@ -48,6 +49,13 @@ export default function UpdateSection() {
               <p className="settings-section-description">{updateInfo.body}</p>
             )}
 
+            {updateAction.notice && (
+              <div className="settings-status settings-status--info">
+                <IoInformationCircle className="settings-status__icon" />
+                <span>{updateAction.notice}</span>
+              </div>
+            )}
+
             {downloaded ? (
               <Button onClick={restartApp}>
                 <IoRefresh size={14} />
@@ -61,7 +69,7 @@ export default function UpdateSection() {
             ) : (
               <Button onClick={downloadUpdate}>
                 <IoDownload size={14} />
-                Download & Install
+                {updateAction.label}
               </Button>
             )}
           </>

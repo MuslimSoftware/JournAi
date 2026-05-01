@@ -21,10 +21,10 @@ interface SidebarProps {
 }
 
 function UpdateBadge() {
-  const { updateInfo, downloading, downloaded, downloadUpdate, restartApp } = useUpdate();
+  const { updateInfo, downloading, downloaded, updateAction, downloadUpdate, restartApp } = useUpdate();
 
   const version = `v${updateInfo?.version}`;
-  const actionLabel = downloaded ? 'Restart' : downloading ? 'Updating...' : `Update to ${version}`;
+  const actionLabel = downloaded ? 'Restart' : downloading ? 'Updating...' : updateAction.label;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();

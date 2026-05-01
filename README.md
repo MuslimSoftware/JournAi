@@ -11,8 +11,10 @@ A private, AI-powered journaling app built with Tauri v2, React 19, and Rust. Al
 | -------- | ---- |
 | macOS (Universal) | [JournAi-macOS.dmg](https://github.com/MuslimSoftware/JournAi/releases/latest/download/JournAi-macOS.dmg) |
 | Windows | [JournAi-Windows-setup.exe](https://github.com/MuslimSoftware/JournAi/releases/latest/download/JournAi-Windows-setup.exe) |
-| Linux (Deb) | [JournAi-Linux.deb](https://github.com/MuslimSoftware/JournAi/releases/latest/download/JournAi-Linux.deb) |
-| Linux (AppImage) | [JournAi-Linux.AppImage](https://github.com/MuslimSoftware/JournAi/releases/latest/download/JournAi-Linux.AppImage) |
+| Linux (AppImage, self-updating) | [JournAi-Linux.AppImage](https://github.com/MuslimSoftware/JournAi/releases/latest/download/JournAi-Linux.AppImage) |
+| Linux (Deb package) | [JournAi-Linux.deb](https://github.com/MuslimSoftware/JournAi/releases/latest/download/JournAi-Linux.deb) |
+
+Linux note: use the AppImage if you want in-app updates. Deb installs are updated through your system package installer, so the app downloads the latest Deb instead of silently replacing system-owned files.
 
 ---
 
@@ -78,7 +80,8 @@ A private, AI-powered journaling app built with Tauri v2, React 19, and Rust. Al
 ### 🔄 Auto-Updates
 
 - GitHub Releases integration with cryptographic signature verification
-- Download progress tracking, auto-install, and app relaunch
+- Download progress tracking, auto-install, and app relaunch for supported installers
+- Linux AppImage self-updates when the AppImage directory is user-writable; Linux Deb installs download the latest Deb for your system installer
 - Checks on startup and every 4 hours
 
 ### ⌨️ Keyboard Shortcuts

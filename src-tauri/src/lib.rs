@@ -1,7 +1,14 @@
+use serde::Serialize;
+#[cfg(target_os = "linux")]
+use std::{
+    fs::OpenOptions,
+    path::Path,
+    time::{SystemTime, UNIX_EPOCH},
+};
+#[cfg(all(desktop, not(target_os = "linux")))]
+use tauri::Emitter;
 #[cfg(any(target_os = "ios", target_os = "linux"))]
 use tauri::Manager;
-#[cfg(desktop)]
-use tauri::Emitter;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 #[cfg(target_os = "ios")]
@@ -12,9 +19,176 @@ mod secure_storage;
 
 const SECURE_DB_URL: &str = "sqlite:journai.db";
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateInstallationInfo {
+    platform: &'static str,
+    bundle_type: &'static str,
+    updater_target: Option<String>,
+    app_image_can_self_update: bool,
+    app_image_path: Option<String>,
+    app_image_update_issue: Option<String>,
+}
+
+fn updater_arch() -> Option<&'static str> {
+    if cfg!(target_arch = "x86") {
+        Some("i686")
+    } else if cfg!(target_arch = "x86_64") {
+        Some("x86_64")
+    } else if cfg!(target_arch = "arm") {
+        Some("armv7")
+    } else if cfg!(target_arch = "aarch64") {
+        Some("aarch64")
+    } else if cfg!(target_arch = "riscv64") {
+        Some("riscv64")
+    } else {
+        None
+    }
+}
+
+fn updater_target(platform: &str, bundle_type: &str) -> Option<String> {
+    let arch = updater_arch()?;
+    if platform == "linux" && matches!(bundle_type, "appimage" | "deb" | "rpm") {
+        Some(format!("linux-{arch}-{bundle_type}"))
+    } else {
+        None
+    }
+}
+
+fn patched_bundle_type() -> &'static str {
+    match tauri::utils::platform::bundle_type() {
+        Some(tauri::utils::config::BundleType::AppImage) => "appimage",
+        Some(tauri::utils::config::BundleType::Deb) => "deb",
+        Some(tauri::utils::config::BundleType::Rpm) => "rpm",
+        Some(tauri::utils::config::BundleType::App) => "app",
+        Some(tauri::utils::config::BundleType::Msi) => "msi",
+        Some(tauri::utils::config::BundleType::Nsis) => "nsis",
+        Some(_) => "other",
+        None => "unknown",
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn detected_bundle_type() -> &'static str {
+    let patched_type = patched_bundle_type();
+    if patched_type != "unknown" {
+        return patched_type;
+    }
+
+    if std::env::var_os("APPIMAGE").is_some() {
+        return "appimage";
+    }
+
+    if let Ok(exe) = tauri::utils::platform::current_exe() {
+        if exe == Path::new("/usr/bin/journai") && Path::new("/etc/debian_version").exists() {
+            return "deb";
+        }
+    }
+
+    "unknown"
+}
+
+#[cfg(not(target_os = "linux"))]
+fn detected_bundle_type() -> &'static str {
+    patched_bundle_type()
+}
+
+#[cfg(target_os = "linux")]
+fn app_image_can_self_update(path: &Path) -> Result<(), String> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| "Unable to determine the AppImage directory.".to_string())?;
+    let parent_metadata = std::fs::metadata(parent)
+        .map_err(|err| format!("Unable to inspect the AppImage directory: {err}"))?;
+
+    if !parent_metadata.is_dir() {
+        return Err("The AppImage parent path is not a directory.".to_string());
+    }
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    let probe_path = parent.join(format!(
+        ".journai-update-probe-{}-{timestamp}",
+        std::process::id()
+    ));
+
+    match OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&probe_path)
+    {
+        Ok(file) => {
+            drop(file);
+            let _ = std::fs::remove_file(probe_path);
+            Ok(())
+        }
+        Err(err) => Err(format!("The AppImage directory is not writable: {err}")),
+    }
+}
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+#[tauri::command]
+fn update_installation_info() -> UpdateInstallationInfo {
+    let platform = if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "other"
+    };
+    let bundle_type = detected_bundle_type();
+    let updater_target = updater_target(platform, bundle_type);
+
+    #[cfg(target_os = "linux")]
+    {
+        let app_image_path = if bundle_type == "appimage" {
+            std::env::var_os("APPIMAGE")
+                .map(Into::into)
+                .or_else(|| tauri::utils::platform::current_exe().ok())
+        } else {
+            None
+        };
+
+        let (app_image_can_self_update, app_image_update_issue) = if bundle_type == "appimage" {
+            match app_image_path.as_deref() {
+                Some(path) => match app_image_can_self_update(path) {
+                    Ok(()) => (true, None),
+                    Err(issue) => (false, Some(issue)),
+                },
+                None => (
+                    false,
+                    Some("Unable to locate the running AppImage.".to_string()),
+                ),
+            }
+        } else {
+            (true, None)
+        };
+
+        return UpdateInstallationInfo {
+            platform,
+            bundle_type,
+            updater_target,
+            app_image_can_self_update,
+            app_image_path: app_image_path.map(|path| path.to_string_lossy().into_owned()),
+            app_image_update_issue,
+        };
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        UpdateInstallationInfo {
+            platform,
+            bundle_type,
+            updater_target,
+            app_image_can_self_update: true,
+            app_image_path: None,
+            app_image_update_issue: None,
+        }
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -374,6 +548,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             greet,
+            update_installation_info,
             app_lock::app_lock_status,
             app_lock::app_lock_configure,
             app_lock::app_lock_unlock,

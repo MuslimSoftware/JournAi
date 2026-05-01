@@ -359,6 +359,8 @@ All of these must be updated in sync when bumping the version:
 
 The GitHub Actions release workflow (`.github/workflows/release.yml`) is triggered by pushing a `v*` tag. It builds for macOS (universal), Windows, and Ubuntu, then creates a GitHub release with the built assets.
 
+Linux ships both AppImage and Deb artifacts. In-app self-update is intended for AppImage installs when the AppImage directory is user-writable; Deb installs should download/open the latest Deb and let the system package installer handle admin permission.
+
 ### Steps to Release
 
 1. Update the version in all files listed above
