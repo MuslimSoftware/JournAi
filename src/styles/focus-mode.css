@@ -30,6 +30,10 @@
   z-index: 999;
 }
 
+.app-layout.has-titlebar .entries-layout.focus-mode .entries-content {
+  top: var(--app-titlebar-height);
+}
+
 .entries-layout.focus-mode .entry-content-editor {
   max-width: 800px;
 }

@@ -1,10 +1,14 @@
 /* src/styles/layout.css */
+:root {
+  --app-titlebar-height: 36px;
+}
+
 .titlebar {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 36px;
+  height: var(--app-titlebar-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -57,11 +61,11 @@
 }
 
 .app-layout.has-titlebar {
-  padding-top: 36px;
+  padding-top: var(--app-titlebar-height);
 }
 
 .app-layout.has-titlebar .titlebar {
-  height: 36px;
+  height: var(--app-titlebar-height);
 }
 
 .sidebar {
