@@ -62,6 +62,7 @@ export default function ExportCard() {
   const [exportResultState, setExportResultState] = useState<ExportResult | null>(null);
   const [mobileExportResult, setMobileExportResult] = useState<MobileExportResult | null>(null);
   const [exportRuntimeError, setExportRuntimeError] = useState<string | null>(null);
+  const [pendingExport, setPendingExport] = useState<{ format: ExportFormat; destinationPath: string } | null>(null);
 
   const handleMobileExport = async () => {
     setExportRuntimeError(null);
@@ -105,7 +106,7 @@ export default function ExportCard() {
     }
   };
 
-  const handleExport = async (format: ExportFormat) => {
+  const handleSelectExport = async (format: ExportFormat) => {
     setExportRuntimeError(null);
     setExportResultState(null);
     setMobileExportResult(null);
@@ -113,15 +114,27 @@ export default function ExportCard() {
     const destinationPath = await selectExportDestination(format);
     if (!destinationPath) return;
 
+    setPendingExport({ format, destinationPath });
+  };
+
+  const handleExport = async () => {
+    if (!pendingExport) {
+      return;
+    }
+
+    setExportRuntimeError(null);
+    setExportResultState(null);
+    setMobileExportResult(null);
     setIsExporting(true);
     setExportProgress({ current: 0, total: 0 });
 
     try {
       const result = await exportData(
-        { format, destinationPath },
+        pendingExport,
         (current, total) => setExportProgress({ current, total })
       );
       setExportResultState(result);
+      setPendingExport(null);
     } catch (error) {
       setExportRuntimeError(`Export failed: ${String(error)}`);
     } finally {
@@ -148,7 +161,7 @@ export default function ExportCard() {
               <Button
                 variant="secondary"
                 icon={<IoDocumentOutline size={14} />}
-                onClick={() => handleExport('json_bundle')}
+                onClick={() => handleSelectExport('json_bundle')}
                 disabled={isExporting}
               >
                 Export as JSON
@@ -156,7 +169,7 @@ export default function ExportCard() {
               <Button
                 variant="secondary"
                 icon={<IoFolderOutline size={14} />}
-                onClick={() => handleExport('csv_folder')}
+                onClick={() => handleSelectExport('csv_folder')}
                 disabled={isExporting}
               >
                 Export as CSV
@@ -164,6 +177,19 @@ export default function ExportCard() {
             </>
           )}
         </div>
+
+        {pendingExport && (
+          <div className="settings-import-source-row">
+            <div className="settings-import-source-path">{pendingExport.destinationPath}</div>
+            <Button
+              variant="secondary"
+              onClick={handleExport}
+              disabled={isExporting}
+            >
+              Export Data
+            </Button>
+          </div>
+        )}
 
         {isExporting && exportProgress && (
           <ProgressBar

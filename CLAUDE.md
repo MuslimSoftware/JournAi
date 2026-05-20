@@ -357,18 +357,24 @@ All of these must be updated in sync when bumping the version:
 
 ### Release Workflow
 
-The GitHub Actions release workflow (`.github/workflows/release.yml`) is triggered by pushing a `v*` tag. It builds for macOS (universal), Windows, and Ubuntu, then creates a GitHub release with the built assets.
+Desktop releases use GitHub Releases. Pushing a `v*` tag triggers `.github/workflows/release.yml`, which builds macOS universal, Windows, and Ubuntu artifacts, creates the GitHub release, and publishes the updater metadata/assets used by installed desktop apps.
+
+The desktop release workflow runs `tauri-apps/tauri-action@v0` from the repository root. That means shipped desktop artifacts are built from root `src/` and `src-tauri/`. The separate `apps/desktop/` package is used only by explicit desktop scripts such as `tauri:dev:desktop`, `tauri:build:desktop`, `dev:desktop`, and `build:desktop`; it is not the release workflow source unless `.github/workflows/release.yml` is changed to set `projectPath` or run from `apps/desktop/`.
 
 Linux ships both AppImage and Deb artifacts. In-app self-update is intended for AppImage installs when the AppImage directory is user-writable; Deb installs should download/open the latest Deb and let the system package installer handle admin permission.
 
 ### Steps to Release
 
 1. Update the version in all files listed above
-2. Commit: `[CHORE] Bump version to vX.X.X`
-3. Tag: `git tag vX.X.X`
-4. Push commit and tag: `git push origin master vX.X.X`
+2. Commit the version bump
+3. Create a `vX.X.X` tag
+4. Push the commit and tag
 
-The GitHub release name is automatically set to `vX.X.X` by the workflow. If a build fails and you need to retag on a fix commit, delete the remote tag first: `git push origin :refs/tags/vX.X.X`
+The GitHub release name is automatically set to `vX.X.X` by the workflow. If a build fails and you need to retag on a fix commit, delete the remote tag first.
+
+### App Store Release
+
+JournAi is also distributed through the Apple App Store. App Store updates are separate from GitHub Releases: build the iOS target, upload the build with Apple's Transporter app, then manage submission and rollout in App Store Connect.
 
 ## Tauri MCP Tools
 

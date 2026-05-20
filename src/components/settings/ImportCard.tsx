@@ -125,6 +125,7 @@ export default function ImportCard() {
   const activePreviewRequestId = useRef(0);
   const [step, setStep] = useState<1 | 2>(1);
   const [sourcePath, setSourcePath] = useState<string | null>(null);
+  const [sourceContent, setSourceContent] = useState<string | undefined>(undefined);
   const [isSelectingMobileFile, setIsSelectingMobileFile] = useState(false);
 
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -139,6 +140,7 @@ export default function ImportCard() {
   const resetSource = () => {
     activePreviewRequestId.current += 1;
     setSourcePath(null);
+    setSourceContent(undefined);
     setIsSelectingMobileFile(false);
     setPreview(null);
     setImportResult(null);
@@ -146,8 +148,9 @@ export default function ImportCard() {
     setStep(1);
   };
 
-  const setSource = (path: string) => {
+  const setSource = (path: string, content?: string) => {
     setSourcePath(path);
+    setSourceContent(content);
     setPreview(null);
     setImportResult(null);
     setImportRuntimeError(null);
@@ -186,9 +189,7 @@ export default function ImportCard() {
   };
 
   const handleDrop = (path: string) => {
-    const format = detectFormat(path);
     setSource(path);
-    void generatePreview(format, path);
   };
 
   const handleBrowse = async () => {
@@ -208,15 +209,21 @@ export default function ImportCard() {
         return;
       }
 
-      setSource(picked.name);
-      void generatePreview('json_bundle', picked.name, picked.content);
+      setSource(picked.name, picked.content);
       return;
     }
 
     const selected = await selectImportSource('json_bundle');
     if (!selected) return;
     setSource(selected);
-    void generatePreview('json_bundle', selected);
+  };
+
+  const handleGeneratePreview = () => {
+    if (!sourcePath) {
+      return;
+    }
+
+    void generatePreview(detectFormat(sourcePath), sourcePath, sourceContent);
   };
 
   const handleExecuteImport = async () => {
@@ -261,6 +268,18 @@ export default function ImportCard() {
 
           {sourcePath && (
             <div className="settings-import-source-path">{sourcePath}</div>
+          )}
+
+          {sourcePath && (
+            <div className="settings-import-actions">
+              <Button
+                variant="secondary"
+                onClick={handleGeneratePreview}
+                disabled={busy}
+              >
+                Generate Preview
+              </Button>
+            </div>
           )}
 
           <div className="settings-import-hint-box">
@@ -309,6 +328,10 @@ export default function ImportCard() {
 
       {step === 2 && preview && (
         <div className="settings-import-wizard" data-testid="import-step-2">
+          {sourcePath && (
+            <div className="settings-import-source-path">{sourcePath}</div>
+          )}
+
           <PreviewSummary preview={preview} />
 
           {preview.warnings.length > 0 && (

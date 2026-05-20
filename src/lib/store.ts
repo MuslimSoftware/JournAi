@@ -6,6 +6,10 @@ export const STORE_KEYS = {
   AI_SYSTEM_PROMPT: 'ai.systemPrompt',
   THEME_MODE: 'theme.mode',
   SECURITY_LOCK_TIMEOUT_SECONDS: 'security.lockTimeoutSeconds',
+  SYNC_ENABLED: 'sync.enabled',
+  SYNC_PROVIDER: 'sync.provider',
+  SYNC_DEVICE_ID: 'sync.deviceId',
+  SYNC_LAST_SYNCED_AT: 'sync.lastSyncedAt',
 } as const;
 
 class AppStore {

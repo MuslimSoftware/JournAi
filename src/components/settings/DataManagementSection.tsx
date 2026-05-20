@@ -2,6 +2,7 @@ import { useIsMobile } from '../../hooks/useMediaQuery';
 import Text from '../themed/Text';
 import ImportCard from './ImportCard';
 import ExportCard from './ExportCard';
+import SyncCard from './SyncCard';
 import '../../styles/settings.css';
 
 export default function DataManagementSection() {
@@ -9,6 +10,18 @@ export default function DataManagementSection() {
 
   return (
     <div>
+      <div className="settings-section">
+        <Text as="h3" variant="primary" className="settings-section-header">
+          Sync
+        </Text>
+        <p className="settings-section-description">
+          Sync encrypted app data with your own cloud account.
+        </p>
+        <SyncCard />
+      </div>
+
+      <div className="settings-section-divider" />
+
       <div className="settings-section">
         <Text as="h3" variant="primary" className="settings-section-header">
           Import Data

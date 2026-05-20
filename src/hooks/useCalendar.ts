@@ -23,6 +23,12 @@ export function useCalendar() {
   const [isLoadingDayData, setIsLoadingDayData] = useState(false);
   const dayDataCacheRef = useRef<Map<string, DayData>>(new Map());
   const indicatorsRangeRef = useRef<{ startDate: string; endDate: string } | null>(null);
+  const pendingIndicatorsRangeRef = useRef<{
+    startDate: string;
+    endDate: string;
+    requestId: number;
+    promise: Promise<void>;
+  } | null>(null);
   const indicatorsRequestIdRef = useRef(0);
 
   const setDayDataWithStickyNote = useCallback((data: DayData | null) => {
@@ -44,28 +50,49 @@ export function useCalendar() {
   const loadIndicatorsByRange = useCallback(async (startDate: string, endDate: string) => {
     const normalizedStart = startDate <= endDate ? startDate : endDate;
     const normalizedEnd = startDate <= endDate ? endDate : startDate;
-    const requestId = ++indicatorsRequestIdRef.current;
-    const previousRange = indicatorsRangeRef.current;
+    const pendingRange = pendingIndicatorsRangeRef.current;
 
-    indicatorsRangeRef.current = { startDate: normalizedStart, endDate: normalizedEnd };
+    if (
+      pendingRange &&
+      pendingRange.startDate === normalizedStart &&
+      pendingRange.endDate === normalizedEnd
+    ) {
+      await pendingRange.promise;
+      return;
+    }
+
+    const requestId = ++indicatorsRequestIdRef.current;
 
     setIsLoadingIndicators(true);
-    try {
-      const data = await getIndicatorsByDateRange(normalizedStart, normalizedEnd);
-      if (requestId !== indicatorsRequestIdRef.current) {
-        return;
+
+    const requestPromise = (async () => {
+      try {
+        const data = await getIndicatorsByDateRange(normalizedStart, normalizedEnd);
+        if (requestId !== indicatorsRequestIdRef.current) {
+          return;
+        }
+        indicatorsRangeRef.current = { startDate: normalizedStart, endDate: normalizedEnd };
+        setIndicators(data);
+      } catch (error) {
+        console.error('Failed to load calendar indicators:', error);
+      } finally {
+        if (pendingIndicatorsRangeRef.current?.requestId === requestId) {
+          pendingIndicatorsRangeRef.current = null;
+        }
+        if (requestId === indicatorsRequestIdRef.current) {
+          setIsLoadingIndicators(false);
+        }
       }
-      setIndicators(data);
-    } catch (error) {
-      if (requestId === indicatorsRequestIdRef.current) {
-        indicatorsRangeRef.current = previousRange;
-      }
-      console.error('Failed to load calendar indicators:', error);
-    } finally {
-      if (requestId === indicatorsRequestIdRef.current) {
-        setIsLoadingIndicators(false);
-      }
-    }
+    })();
+
+    pendingIndicatorsRangeRef.current = {
+      startDate: normalizedStart,
+      endDate: normalizedEnd,
+      requestId,
+      promise: requestPromise,
+    };
+
+    await requestPromise;
   }, []);
 
   const loadIndicators = useCallback(async () => {

@@ -5,6 +5,7 @@ import { select, execute, selectPaginated } from '../lib/db';
 import { deleteEntryEmbeddings } from './embeddings';
 import { deleteEntryInsights } from './analytics';
 import { generateContentHash } from './entryAnalysis';
+import { markRecordDeleted, markRecordDirty } from './sync/localRepository';
 
 interface EntryRow {
     id: string;
@@ -68,6 +69,7 @@ export async function createEntry(date?: string): Promise<JournalEntry> {
         'INSERT INTO entries (id, date, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)',
         [id, entryDate, content, timestamp, timestamp]
     );
+    await markRecordDirty('entries', id, timestamp);
 
     return { id, date: entryDate, content, preview: '' };
 }
@@ -120,6 +122,7 @@ export async function updateEntry(
     if (rows.length === 0) return null;
 
     const entry = rowToEntry(rows[0]);
+    await markRecordDirty('entries', id, timestamp);
 
     return entry;
 }
@@ -128,7 +131,11 @@ export async function deleteEntry(id: string): Promise<boolean> {
     await deleteEntryEmbeddings(id).catch(console.error);
     await deleteEntryInsights(id).catch(console.error);
     const result = await execute('DELETE FROM entries WHERE id = $1', [id]);
-    return result.rowsAffected > 0;
+    const deleted = result.rowsAffected > 0;
+    if (deleted) {
+        await markRecordDeleted('entries', id);
+    }
+    return deleted;
 }
 
 export async function getEntriesCount(): Promise<number> {

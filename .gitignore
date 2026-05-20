@@ -52,7 +52,8 @@ ralph/
 markdowns/
 
 # Local documentation notes
-docs/
+docs/*
+!docs/cloud-sync.md
 
 # Bun
 bun.lockb

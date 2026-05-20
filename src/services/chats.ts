@@ -82,7 +82,6 @@ export async function createChat(title: string = 'New Chat'): Promise<Chat> {
         'INSERT INTO chats (id, title, created_at, updated_at) VALUES ($1, $2, $3, $4)',
         [id, title, timestamp, timestamp]
     );
-
     return { id, title, preview: '', createdAt: timestamp, updatedAt: timestamp };
 }
 

@@ -2,6 +2,7 @@ import type { StickyNote, StickyNoteRow } from '../types/todo';
 import { getTimestamp } from '../utils/date';
 import { generateId } from '../utils/generators';
 import { select, execute } from '../lib/db';
+import { markRecordDeleted, markRecordDirty } from './sync/localRepository';
 
 function rowToStickyNote(row: StickyNoteRow): StickyNote {
   return {
@@ -43,6 +44,7 @@ export async function createStickyNote(date: string, content: string): Promise<S
     'INSERT INTO sticky_notes (id, date, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)',
     [id, date, content, timestamp, timestamp]
   );
+  await markRecordDirty('sticky_notes', id, timestamp);
 
   return { id, date, content };
 }
@@ -61,12 +63,21 @@ export async function updateStickyNote(id: string, content: string): Promise<Sti
   );
 
   const rows = await select<StickyNoteRow>('SELECT * FROM sticky_notes WHERE id = $1', [id]);
-  return rows.length > 0 ? rowToStickyNote(rows[0]) : null;
+  if (rows.length === 0) {
+    return null;
+  }
+
+  await markRecordDirty('sticky_notes', id, timestamp);
+  return rowToStickyNote(rows[0]);
 }
 
 export async function deleteStickyNote(id: string): Promise<boolean> {
   const result = await execute('DELETE FROM sticky_notes WHERE id = $1', [id]);
-  return result.rowsAffected > 0;
+  const deleted = result.rowsAffected > 0;
+  if (deleted) {
+    await markRecordDeleted('sticky_notes', id);
+  }
+  return deleted;
 }
 
 export async function getDatesWithStickyNotes(startDate: string, endDate: string): Promise<Set<string>> {

@@ -2,6 +2,7 @@ import type { Todo, TodoRow } from '../types/todo';
 import { getTimestamp } from '../utils/date';
 import { generateId } from '../utils/generators';
 import { select, execute } from '../lib/db';
+import { markRecordDeleted, markRecordDirty } from './sync/localRepository';
 
 function rowToTodo(row: TodoRow): Todo {
   return {
@@ -43,6 +44,7 @@ export async function createTodo(date: string, content: string): Promise<Todo> {
     'INSERT INTO todos (id, date, content, completed, position, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
     [id, date, content, 0, position, timestamp, timestamp]
   );
+  await markRecordDirty('todos', id, timestamp);
 
   return { id, date, content, completed: false, position };
 }
@@ -74,12 +76,21 @@ export async function updateTodo(
   );
 
   const rows = await select<TodoRow>('SELECT * FROM todos WHERE id = $1', [id]);
-  return rows.length > 0 ? rowToTodo(rows[0]) : null;
+  if (rows.length === 0) {
+    return null;
+  }
+
+  await markRecordDirty('todos', id, timestamp);
+  return rowToTodo(rows[0]);
 }
 
 export async function deleteTodo(id: string): Promise<boolean> {
   const result = await execute('DELETE FROM todos WHERE id = $1', [id]);
-  return result.rowsAffected > 0;
+  const deleted = result.rowsAffected > 0;
+  if (deleted) {
+    await markRecordDeleted('todos', id);
+  }
+  return deleted;
 }
 
 export async function getTodosCountByDate(startDate: string, endDate: string): Promise<Map<string, { total: number; completed: number }>> {
@@ -102,5 +113,6 @@ export async function reorderTodos(todoIds: string[]): Promise<void> {
       'UPDATE todos SET position = $1, updated_at = $2 WHERE id = $3',
       [i, timestamp, todoIds[i]]
     );
+    await markRecordDirty('todos', todoIds[i], timestamp);
   }
 }

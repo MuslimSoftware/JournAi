@@ -124,7 +124,8 @@ fn parse_keyset(raw: &str) -> Result<Keyset, String> {
 
 fn write_keyset_fallback_file(raw: &str) -> Result<(), String> {
     let path = keyset_fallback_path()?;
-    fs::write(&path, raw).map_err(|e| format!("Failed to write fallback keyset {}: {e}", path.display()))
+    fs::write(&path, raw)
+        .map_err(|e| format!("Failed to write fallback keyset {}: {e}", path.display()))
 }
 
 fn read_keyset_fallback_file() -> Result<Option<Keyset>, String> {
@@ -152,7 +153,8 @@ fn read_keyset() -> Result<Option<Keyset>, String> {
 }
 
 fn write_keyset(keyset: &Keyset) -> Result<(), String> {
-    let raw = serde_json::to_string(keyset).map_err(|e| format!("Failed to serialize keyset: {e}"))?;
+    let raw =
+        serde_json::to_string(keyset).map_err(|e| format!("Failed to serialize keyset: {e}"))?;
     write_keyset_fallback_file(&raw)?;
     let _ = secure_storage::set_secret(APP_LOCK_KEYSET_STORAGE_KEY, &raw);
     Ok(())
@@ -175,7 +177,10 @@ fn verify_passphrase(keyset: &Keyset, passphrase: &str) -> Result<(), String> {
         .map_err(|_| "Invalid passphrase".to_string())
 }
 
-fn build_keyset_from_passphrase(passphrase: &str, existing_dek: Option<[u8; KEY_LENGTH]>) -> Result<Keyset, String> {
+fn build_keyset_from_passphrase(
+    passphrase: &str,
+    existing_dek: Option<[u8; KEY_LENGTH]>,
+) -> Result<Keyset, String> {
     if passphrase.chars().count() < APP_LOCK_PASSPHRASE_MIN_LENGTH {
         return Err(format!(
             "Passphrase must be at least {APP_LOCK_PASSPHRASE_MIN_LENGTH} characters"
@@ -186,8 +191,8 @@ fn build_keyset_from_passphrase(passphrase: &str, existing_dek: Option<[u8; KEY_
 
     let mut salt = [0u8; SALT_LENGTH];
     OsRng.fill_bytes(&mut salt);
-    let salt_string = SaltString::encode_b64(&salt)
-        .map_err(|e| format!("Failed to encode Argon2 salt: {e}"))?;
+    let salt_string =
+        SaltString::encode_b64(&salt).map_err(|e| format!("Failed to encode Argon2 salt: {e}"))?;
 
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params.clone());
     let password_hash = argon2
@@ -205,8 +210,8 @@ fn build_keyset_from_passphrase(passphrase: &str, existing_dek: Option<[u8; KEY_
     let mut nonce = [0u8; NONCE_LENGTH];
     OsRng.fill_bytes(&mut nonce);
 
-    let cipher = Aes256Gcm::new_from_slice(&kek)
-        .map_err(|e| format!("Failed to initialize cipher: {e}"))?;
+    let cipher =
+        Aes256Gcm::new_from_slice(&kek).map_err(|e| format!("Failed to initialize cipher: {e}"))?;
     let wrapped_dek = cipher
         .encrypt(Nonce::from_slice(&nonce), dek.as_ref())
         .map_err(|e| format!("Failed to wrap DEK: {e}"))?;
@@ -241,8 +246,8 @@ fn unwrap_dek(keyset: &Keyset, passphrase: &str) -> Result<[u8; KEY_LENGTH], Str
         .map_err(|e| format!("Invalid wrapped DEK encoding: {e}"))?;
     let nonce = decode_base64::<NONCE_LENGTH>(&keyset.nonce_b64, "nonce")?;
 
-    let cipher = Aes256Gcm::new_from_slice(&kek)
-        .map_err(|e| format!("Failed to initialize cipher: {e}"))?;
+    let cipher =
+        Aes256Gcm::new_from_slice(&kek).map_err(|e| format!("Failed to initialize cipher: {e}"))?;
     let unwrapped = cipher
         .decrypt(Nonce::from_slice(&nonce), wrapped_dek.as_ref())
         .map_err(|_| "Invalid passphrase".to_string())?;
@@ -357,7 +362,10 @@ fn backup_and_reset_secure_database(app: &tauri::AppHandle) -> Result<Option<Pat
     Ok(db_backup_path)
 }
 
-fn set_runtime_configured(runtime: &State<'_, AppLockRuntimeState>, value: bool) -> Result<(), String> {
+fn set_runtime_configured(
+    runtime: &State<'_, AppLockRuntimeState>,
+    value: bool,
+) -> Result<(), String> {
     let mut guard = runtime
         .configured_cache
         .lock()
@@ -366,7 +374,10 @@ fn set_runtime_configured(runtime: &State<'_, AppLockRuntimeState>, value: bool)
     Ok(())
 }
 
-fn set_runtime_unlocked(runtime: &State<'_, AppLockRuntimeState>, value: bool) -> Result<(), String> {
+fn set_runtime_unlocked(
+    runtime: &State<'_, AppLockRuntimeState>,
+    value: bool,
+) -> Result<(), String> {
     let mut guard = runtime
         .unlocked
         .lock()
@@ -384,7 +395,9 @@ fn runtime_is_unlocked(runtime: &State<'_, AppLockRuntimeState>) -> Result<bool,
 }
 
 #[tauri::command]
-pub async fn app_lock_status(runtime: State<'_, AppLockRuntimeState>) -> Result<AppLockStatus, String> {
+pub async fn app_lock_status(
+    runtime: State<'_, AppLockRuntimeState>,
+) -> Result<AppLockStatus, String> {
     let cached = {
         let guard = runtime
             .configured_cache
@@ -396,11 +409,10 @@ pub async fn app_lock_status(runtime: State<'_, AppLockRuntimeState>) -> Result<
     let configured = match cached {
         Some(val) => val,
         None => {
-            let result = tauri::async_runtime::spawn_blocking(|| {
-                read_keyset().map(|ks| ks.is_some())
-            })
-            .await
-            .map_err(|e| format!("Task failed: {e}"))??;
+            let result =
+                tauri::async_runtime::spawn_blocking(|| read_keyset().map(|ks| ks.is_some()))
+                    .await
+                    .map_err(|e| format!("Task failed: {e}"))??;
 
             let mut guard = runtime
                 .configured_cache
@@ -439,7 +451,9 @@ pub async fn app_lock_configure(
     app: tauri::AppHandle,
 ) -> Result<(), String> {
     if read_keyset()?.is_some() {
-        return Err("App lock is already configured. Unlock with your existing passphrase.".to_string());
+        return Err(
+            "App lock is already configured. Unlock with your existing passphrase.".to_string(),
+        );
     }
 
     let existing_dek = read_open_dek()?;
@@ -465,24 +479,27 @@ pub async fn app_lock_configure(
 }
 
 #[tauri::command]
-pub fn app_lock_backup_and_reset_secure_db(app: tauri::AppHandle) -> Result<Option<String>, String> {
+pub fn app_lock_backup_and_reset_secure_db(
+    app: tauri::AppHandle,
+) -> Result<Option<String>, String> {
     let backup_path = backup_and_reset_secure_database(&app)?;
     Ok(backup_path.map(|path| path.to_string_lossy().to_string()))
 }
 
 #[tauri::command]
-pub async fn app_lock_unlock(passphrase: String, runtime: State<'_, AppLockRuntimeState>) -> Result<bool, String> {
+pub async fn app_lock_unlock(
+    passphrase: String,
+    runtime: State<'_, AppLockRuntimeState>,
+) -> Result<bool, String> {
     let Some(keyset) = read_keyset()? else {
         clear_sqlcipher_session_key();
         set_runtime_unlocked(&runtime, false)?;
         return Err("App lock is configured but key material is unavailable.".to_string());
     };
 
-    let result = tauri::async_runtime::spawn_blocking(move || {
-        unwrap_dek(&keyset, &passphrase)
-    })
-    .await
-    .map_err(|e| format!("Unlock task failed: {e}"))?;
+    let result = tauri::async_runtime::spawn_blocking(move || unwrap_dek(&keyset, &passphrase))
+        .await
+        .map_err(|e| format!("Unlock task failed: {e}"))?;
 
     match result {
         Ok(dek) => {
@@ -519,8 +536,12 @@ fn open_dek_fallback_path() -> Result<PathBuf, String> {
         .ok_or_else(|| "Unable to resolve app data directory for open DEK".to_string())?;
     base.push("journai");
 
-    fs::create_dir_all(&base)
-        .map_err(|e| format!("Failed to create open DEK directory {}: {e}", base.display()))?;
+    fs::create_dir_all(&base).map_err(|e| {
+        format!(
+            "Failed to create open DEK directory {}: {e}",
+            base.display()
+        )
+    })?;
 
     base.push("app_lock_open_dek.txt");
     Ok(base)

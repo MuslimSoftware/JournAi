@@ -25,6 +25,38 @@ vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(vi.fn()),
 }));
 
+vi.mock('../../../hooks/useSync', () => ({
+  useSync: () => ({
+    settings: {
+      enabled: false,
+      provider: null,
+      deviceId: 'test-device',
+      lastSyncedAt: null,
+    },
+    provider: null,
+    providerConnections: {},
+    connected: false,
+    hasSyncKey: false,
+    status: 'disabled',
+    message: null,
+    progress: null,
+    summary: null,
+    loading: false,
+    conflicts: [],
+    canSync: false,
+    refresh: vi.fn(),
+    chooseProvider: vi.fn(),
+    toggleEnabled: vi.fn(),
+    connectProvider: vi.fn(),
+    disconnect: vi.fn(),
+    resetSyncSecrets: vi.fn(),
+    createKey: vi.fn(),
+    unlockKey: vi.fn(),
+    runSync: vi.fn(),
+    resolveConflict: vi.fn(),
+  }),
+}));
+
 describe('DataManagementSection Import Wizard', () => {
   beforeEach(() => {
     vi.clearAllMocks();

@@ -35,7 +35,7 @@ export function useKeyPress(
     const handler = (event: KeyboardEvent) => {
       if (ignoreInputFields) {
         const target = event.target as HTMLElement;
-        const tagName = target.tagName.toLowerCase();
+        const tagName = target.tagName?.toLowerCase() ?? '';
         const isInput =
           tagName === 'input' ||
           tagName === 'textarea' ||
@@ -44,7 +44,7 @@ export function useKeyPress(
         if (isInput) return;
       }
 
-      const keyMatch = event.key === targetKey;
+      const keyMatch = event.key.toLowerCase() === targetKey.toLowerCase();
       const ctrlMatch = ctrlKey ? event.ctrlKey : !event.ctrlKey;
       const metaMatch = metaKey ? event.metaKey : !event.metaKey;
       const shiftMatch = shiftKey ? event.shiftKey : !event.shiftKey;

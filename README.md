@@ -132,8 +132,9 @@ JournAi is built with a **local-first, zero-trust architecture**. Your journal n
 
 ### 🏠 Local-First Privacy
 
-- **All data stored locally** — no cloud sync, no telemetry, no accounts
-- The only external connection is to OpenAI (for chat, embeddings, and analysis) using your own API key
+- **All data stored locally by default** — no telemetry and no JournAi-hosted accounts
+- Optional cloud sync stores encrypted app data in your own provider account
+- The only AI connection is to OpenAI (for chat, embeddings, and analysis) using your own API key
 - API keys never appear in logs or get transmitted to anyone other than OpenAI
 - You own your data — export it anytime as JSON or CSV
 
@@ -173,6 +174,28 @@ bun run tauri dev
 bun run tauri build
 ```
 
+### iPhone Development
+
+iOS Tauri commands must run on macOS with Xcode installed. On Fedora/Linux, `tauri ios ...` is not available and fails with `unrecognized subcommand 'ios'`. The connected iPhone should be unlocked, trusted, and visible to Xcode.
+
+```bash
+# First time only, if the iOS project has not been generated
+bun run tauri ios init
+
+# Run on a connected iPhone or simulator
+bun run tauri:dev:ios
+
+# Run on a specific device by name
+bun run tauri ios dev "Your iPhone Name"
+
+# Force choosing the network host used by the phone to reach Vite
+bun run tauri ios dev --force-ip-prompt
+```
+
+For physical devices, Tauri sets `TAURI_DEV_HOST`; `vite.config.ts` already uses that value so the dev server listens on the address the iPhone can reach.
+
+Desktop release builds are sourced from the repository root. The GitHub release workflow runs Tauri from the root, so shipped desktop artifacts use `src/` and `src-tauri/`. The separate `apps/desktop/` package only matters when running the explicit desktop scripts such as `tauri:dev:desktop`, `tauri:build:desktop`, `dev:desktop`, or `build:desktop`.
+
 ---
 
 ## 📂 Project Structure
@@ -192,5 +215,6 @@ src/
 src-tauri/
 ├── src/lib.rs      # Tauri commands (app lock, secure storage)
 └── src/main.rs     # App launcher
+apps/desktop/       # Separate desktop package for explicit desktop scripts only
 evals/              # AI agent evaluation framework
 ```

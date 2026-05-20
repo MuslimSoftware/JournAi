@@ -13,7 +13,7 @@ export default function ProgressBar({ current, total, label }: ProgressBarProps)
       <div className="settings-progress-container">
         <div
           className={`settings-progress-bar${indeterminate ? ' settings-progress-bar--indeterminate' : ''}`}
-          style={{ width: indeterminate ? '100%' : `${percent}%` }}
+          style={{ width: indeterminate ? '32%' : `${percent}%` }}
         />
       </div>
       <div className="settings-progress-row">

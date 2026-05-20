@@ -105,6 +105,7 @@ export async function updateMessage(
             [updates.status, id]
         );
     }
+
 }
 
 export async function deleteMessage(id: string): Promise<boolean> {

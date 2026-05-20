@@ -5,6 +5,11 @@ use std::{
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
+use std::{
+    io::{Read, Write},
+    net::{TcpListener, TcpStream},
+    time::{Duration, Instant},
+};
 #[cfg(all(desktop, not(target_os = "linux")))]
 use tauri::Emitter;
 #[cfg(any(target_os = "ios", target_os = "linux"))]
@@ -18,6 +23,8 @@ mod app_lock;
 mod secure_storage;
 
 const SECURE_DB_URL: &str = "sqlite:journai.db";
+const SYNC_OAUTH_LOOPBACK_PORT: u16 = 53683;
+const SYNC_OAUTH_CALLBACK_PATH: &str = "/sync/oauth/callback";
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,6 +35,14 @@ struct UpdateInstallationInfo {
     app_image_can_self_update: bool,
     app_image_path: Option<String>,
     app_image_update_issue: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SyncOAuthCallback {
+    state: String,
+    code: Option<String>,
+    error: Option<String>,
 }
 
 fn updater_arch() -> Option<&'static str> {
@@ -131,6 +146,161 @@ fn app_image_can_self_update(path: &Path) -> Result<(), String> {
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+#[tauri::command]
+fn app_platform() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "ios") {
+        "ios"
+    } else if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else if cfg!(target_os = "android") {
+        "android"
+    } else {
+        "unknown"
+    }
+}
+
+fn write_oauth_response(stream: &mut TcpStream, title: &str, message: &str) {
+    let body = format!(
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>{title}</title></head><body><h1>{title}</h1><p>{message}</p></body></html>"
+    );
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        body.len(),
+        body
+    );
+    let _ = stream.write_all(response.as_bytes());
+}
+
+fn read_oauth_callback(
+    stream: &mut TcpStream,
+    expected_state: &str,
+) -> Result<Option<SyncOAuthCallback>, String> {
+    let mut buffer = [0_u8; 8192];
+    let bytes_read = stream
+        .read(&mut buffer)
+        .map_err(|err| format!("Failed to read OAuth callback: {err}"))?;
+    let request = String::from_utf8_lossy(&buffer[..bytes_read]);
+    let request_line = request.lines().next().unwrap_or_default();
+    let mut parts = request_line.split_whitespace();
+    let method = parts.next().unwrap_or_default();
+    let target = parts.next().unwrap_or_default();
+
+    if method != "GET" {
+        write_oauth_response(
+            stream,
+            "OAuth callback failed",
+            "Invalid OAuth callback method.",
+        );
+        return Ok(None);
+    }
+
+    let (path, query) = target.split_once('?').unwrap_or((target, ""));
+    if path != SYNC_OAUTH_CALLBACK_PATH {
+        write_oauth_response(
+            stream,
+            "OAuth callback ignored",
+            "This OAuth callback path is not used by JournAi.",
+        );
+        return Ok(None);
+    }
+
+    let mut state = None;
+    let mut code = None;
+    let mut error = None;
+    for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
+        match key.as_ref() {
+            "state" => state = Some(value.into_owned()),
+            "code" => code = Some(value.into_owned()),
+            "error" => error = Some(value.into_owned()),
+            _ => {}
+        }
+    }
+
+    let Some(state) = state else {
+        write_oauth_response(
+            stream,
+            "OAuth callback failed",
+            "The provider did not return OAuth state.",
+        );
+        return Err("OAuth callback did not include state.".to_string());
+    };
+
+    if state != expected_state {
+        write_oauth_response(
+            stream,
+            "OAuth callback failed",
+            "OAuth state did not match the active connection request.",
+        );
+        return Err("OAuth callback state mismatch.".to_string());
+    }
+
+    if error.is_some() {
+        write_oauth_response(
+            stream,
+            "OAuth connection cancelled",
+            "You can close this window and return to JournAi.",
+        );
+    } else {
+        write_oauth_response(
+            stream,
+            "OAuth connected",
+            "You can close this window and return to JournAi.",
+        );
+    }
+
+    Ok(Some(SyncOAuthCallback { state, code, error }))
+}
+
+#[tauri::command]
+async fn sync_oauth_wait_for_loopback_callback(
+    expected_state: String,
+    timeout_seconds: Option<u64>,
+) -> Result<SyncOAuthCallback, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        wait_for_loopback_oauth_callback(expected_state, timeout_seconds)
+    })
+    .await
+    .map_err(|err| format!("OAuth callback listener failed: {err}"))?
+}
+
+fn wait_for_loopback_oauth_callback(
+    expected_state: String,
+    timeout_seconds: Option<u64>,
+) -> Result<SyncOAuthCallback, String> {
+    let listener = TcpListener::bind(("127.0.0.1", SYNC_OAUTH_LOOPBACK_PORT))
+        .map_err(|err| format!("Unable to start OAuth callback listener: {err}"))?;
+    listener
+        .set_nonblocking(true)
+        .map_err(|err| format!("Unable to configure OAuth callback listener: {err}"))?;
+
+    let timeout = Duration::from_secs(timeout_seconds.unwrap_or(300).clamp(30, 600));
+    let deadline = Instant::now() + timeout;
+
+    loop {
+        match listener.accept() {
+            Ok((mut stream, _)) => {
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .map_err(|err| format!("Unable to configure OAuth callback stream: {err}"))?;
+                if let Some(callback) = read_oauth_callback(&mut stream, &expected_state)? {
+                    return Ok(callback);
+                }
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                if Instant::now() >= deadline {
+                    return Err("Timed out waiting for OAuth callback.".to_string());
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Err(err) => return Err(format!("Failed to accept OAuth callback: {err}")),
+        }
+    }
 }
 
 #[tauri::command]
@@ -447,11 +617,42 @@ pub fn run() {
                 SELECT RAISE(ABORT, 'sticky_notes.content cannot be empty');
             END;",
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 19,
+            description: "create_sync_metadata_tables",
+            sql: "CREATE TABLE IF NOT EXISTS sync_state (
+                collection TEXT NOT NULL,
+                record_id TEXT NOT NULL,
+                dirty INTEGER NOT NULL DEFAULT 0,
+                deleted INTEGER NOT NULL DEFAULT 0,
+                local_version INTEGER NOT NULL DEFAULT 0,
+                remote_version INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL,
+                synced_at TEXT,
+                remote_updated_at TEXT,
+                payload_hash TEXT,
+                PRIMARY KEY (collection, record_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_sync_state_dirty ON sync_state(dirty, updated_at);
+
+            CREATE TABLE IF NOT EXISTS sync_conflicts (
+                id TEXT PRIMARY KEY NOT NULL,
+                collection TEXT NOT NULL,
+                record_id TEXT NOT NULL,
+                local_payload TEXT,
+                remote_payload TEXT,
+                created_at TEXT NOT NULL,
+                resolved INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_sync_conflicts_record ON sync_conflicts(collection, record_id, resolved);",
+            kind: MigrationKind::Up,
         }
     ];
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
@@ -479,7 +680,8 @@ pub fn run() {
 
             #[cfg(desktop)]
             {
-                app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.handle().plugin(tauri_plugin_process::init())?;
 
                 #[cfg(target_os = "linux")]
@@ -493,7 +695,13 @@ pub fn run() {
                 {
                     use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 
-                    let settings = MenuItem::with_id(app, "settings", "Settings...", true, Some("CmdOrCtrl+,"))?;
+                    let settings = MenuItem::with_id(
+                        app,
+                        "settings",
+                        "Settings...",
+                        true,
+                        Some("CmdOrCtrl+,"),
+                    )?;
 
                     let app_menu = Submenu::with_items(
                         app,
@@ -548,6 +756,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             greet,
+            app_platform,
+            sync_oauth_wait_for_loopback_callback,
             update_installation_info,
             app_lock::app_lock_status,
             app_lock::app_lock_configure,

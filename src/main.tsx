@@ -8,6 +8,7 @@ import { EntryNavigationProvider } from "./contexts/EntryNavigationContext";
 import { EntriesStateProvider } from "./contexts/EntriesStateContext";
 import { ProcessingProvider } from "./contexts/ProcessingContext";
 import { AppLockProvider, useAppLock } from "./contexts/AppLockContext";
+import { SyncProvider } from "./contexts/SyncContext";
 import AppLockScreen from "./components/AppLockScreen";
 import { secureStorage } from "./lib/secureStorage";
 import App from "./App";
@@ -39,19 +40,21 @@ function AppBootstrap() {
   }
 
   return (
-    <ProcessingProvider>
-      <CalendarProvider>
-        <InsightsProvider>
-          <EntryNavigationProvider>
-            <EntriesStateProvider>
-              <BrowserRouter>
-                <App />
-              </BrowserRouter>
-            </EntriesStateProvider>
-          </EntryNavigationProvider>
-        </InsightsProvider>
-      </CalendarProvider>
-    </ProcessingProvider>
+    <SyncProvider>
+      <ProcessingProvider>
+        <CalendarProvider>
+          <InsightsProvider>
+            <EntryNavigationProvider>
+              <EntriesStateProvider>
+                <BrowserRouter>
+                  <App />
+                </BrowserRouter>
+              </EntriesStateProvider>
+            </EntryNavigationProvider>
+          </InsightsProvider>
+        </CalendarProvider>
+      </ProcessingProvider>
+    </SyncProvider>
   );
 }
 
