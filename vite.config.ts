@@ -4,9 +4,22 @@ import react from "@vitejs/plugin-react";
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
+function remoteLogPlugin() {
+  return {
+    name: 'remote-log',
+    configureServer(server: { ws: { on: (event: string, handler: (data: unknown) => void) => void } }) {
+      server.ws.on('app:log', (data: unknown) => {
+        const { level = 'log', args = [] } = data as { level?: string; args?: unknown[] };
+        // eslint-disable-next-line no-console
+        console.log(`[app:${level}]`, ...(args as string[]));
+      });
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react()],
+  plugins: [react(), remoteLogPlugin()],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

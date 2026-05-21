@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createSyncKeyset,
+  generateSyncKey,
   decryptJsonPayload,
   encryptJsonPayload,
-  unlockSyncKeyset,
 } from '../crypto';
 
 describe('sync crypto', () => {
-  it('wraps and unlocks a sync key with a passphrase', async () => {
-    const { keyset, rawKeyB64 } = await createSyncKeyset('correct horse battery staple');
+  it('generates a sync key with a valid manifest', async () => {
+    const { manifest, rawKeyB64 } = await generateSyncKey();
 
-    const unlocked = await unlockSyncKeyset(keyset, 'correct horse battery staple');
-
-    expect(unlocked).toBe(rawKeyB64);
+    expect(manifest.v).toBe(1);
+    expect(manifest.keyB64).toBe(rawKeyB64);
+    expect(manifest.createdAt).toBeTruthy();
+    expect(rawKeyB64.length).toBeGreaterThan(0);
   });
 
   it('encrypts and decrypts JSON payloads', async () => {
-    const { rawKeyB64 } = await createSyncKeyset('correct horse battery staple');
+    const { rawKeyB64 } = await generateSyncKey();
     const payload = {
       id: 'entry-1',
       date: '2026-05-01',
@@ -34,9 +34,15 @@ describe('sync crypto', () => {
     expect(decrypted).toEqual(payload);
   });
 
-  it('rejects the wrong passphrase', async () => {
-    const { keyset } = await createSyncKeyset('correct horse battery staple');
+  it('rejects decryption with a different key', async () => {
+    const { rawKeyB64: key1 } = await generateSyncKey();
+    const { rawKeyB64: key2 } = await generateSyncKey();
+    const payload = { content: 'secret' };
 
-    await expect(unlockSyncKeyset(keyset, 'wrong horse battery staple')).rejects.toThrow();
+    const encrypted = await encryptJsonPayload(key1, payload);
+
+    await expect(
+      decryptJsonPayload(key2, encrypted.ivB64, encrypted.ciphertextB64)
+    ).rejects.toThrow();
   });
 });

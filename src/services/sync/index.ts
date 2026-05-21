@@ -1,21 +1,19 @@
-export { syncNow, getRemoteSyncKeyset } from './engine';
-export { getPendingConflicts, resolveConflict, initializeSyncStates, updateSyncedAt, type SyncConflictRow } from './localRepository';
+export { syncNow, downloadRemoteKey, deleteAllRemoteData } from './engine';
+export { getPendingConflicts, resolveConflict, initializeSyncStates, updateSyncedAt, resetAllSyncStates, type SyncConflictRow } from './localRepository';
 export {
   clearSyncSecrets,
-  configureSyncKey,
   deleteProviderAuth,
+  generateAndStoreKey,
   getProviderAuth,
   getRawSyncKey,
-  getStoredSyncKeyset,
   getSyncSettings,
   hasRawSyncKey,
   saveProviderAuth,
   saveProviderAccessToken,
   setSyncEnabled,
-  setSyncProvider,
-  unlockStoredSyncKey,
+  storeRawSyncKey,
 } from './settings';
-export { SYNC_PROVIDER_PROFILES, createSyncConnector, getAvailableProviderProfiles, getProviderProfile } from './connectors';
+export { createSyncConnector } from './connectors';
 export {
   connectProviderWithOAuth,
   getOAuthClientIdEnv,

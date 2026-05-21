@@ -1,4 +1,4 @@
-export type SyncProvider = 'google_drive' | 'dropbox' | 'onedrive' | 'icloud';
+export type SyncProvider = 'google_drive';
 
 export type SyncCollection =
   | 'entries'
@@ -21,13 +21,10 @@ export interface SyncSettings {
   lastSyncedAt: string | null;
 }
 
-export interface SyncProviderProfile {
-  provider: SyncProvider;
-  label: string;
-  description: string;
-  authLabel: string;
-  oauthClientIdEnv?: string;
-  configurationHint?: string;
+export interface SyncKeyManifest {
+  v: 1;
+  keyB64: string;
+  createdAt: string;
 }
 
 export interface SyncAuthState {
@@ -57,17 +54,6 @@ export interface SyncConnector {
   downloadObject: (path: string) => Promise<string | null>;
   uploadObject: (path: string, content: string) => Promise<string | null>;
   deleteObject: (path: string) => Promise<void>;
-}
-
-export interface SyncKeyset {
-  schemaVersion: 1;
-  algorithm: 'AES-256-GCM';
-  kdf: 'PBKDF2-SHA-256';
-  iterations: number;
-  saltB64: string;
-  wrappedKeyB64: string;
-  ivB64: string;
-  createdAt: string;
 }
 
 export interface EncryptedSyncPayload {

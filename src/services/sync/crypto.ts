@@ -1,9 +1,7 @@
-import type { SyncKeyset } from '../../types/sync';
+import type { SyncKeyManifest } from '../../types/sync';
 
 const SYNC_KEY_BYTES = 32;
 const IV_BYTES = 12;
-const SALT_BYTES = 16;
-const DEFAULT_KDF_ITERATIONS = 310_000;
 
 function getCrypto(): Crypto {
   if (!globalThis.crypto?.subtle) {
@@ -35,29 +33,6 @@ function randomBytes(length: number): Uint8Array {
   return bytes;
 }
 
-async function deriveWrappingKey(passphrase: string, salt: Uint8Array, iterations: number): Promise<CryptoKey> {
-  const keyMaterial = await getCrypto().subtle.importKey(
-    'raw',
-    new TextEncoder().encode(passphrase),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
-
-  return getCrypto().subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt,
-      iterations,
-      hash: 'SHA-256',
-    },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-}
-
 async function importAesKey(rawKey: Uint8Array): Promise<CryptoKey> {
   return getCrypto().subtle.importKey(
     'raw',
@@ -80,48 +55,12 @@ export function decodeKey(encodedKey: string): Uint8Array {
   return bytes;
 }
 
-export async function createSyncKeyset(passphrase: string): Promise<{ keyset: SyncKeyset; rawKeyB64: string }> {
-  if (passphrase.trim().length < 12) {
-    throw new Error('Sync passphrase must be at least 12 characters.');
-  }
-
-  const salt = randomBytes(SALT_BYTES);
-  const iv = randomBytes(IV_BYTES);
+export async function generateSyncKey(): Promise<{ manifest: SyncKeyManifest; rawKeyB64: string }> {
   const rawKey = randomBytes(SYNC_KEY_BYTES);
-  const wrappingKey = await deriveWrappingKey(passphrase, salt, DEFAULT_KDF_ITERATIONS);
-  const wrappedKey = new Uint8Array(await getCrypto().subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    wrappingKey,
-    rawKey
-  ));
-
   return {
     rawKeyB64: encodeKey(rawKey),
-    keyset: {
-      schemaVersion: 1,
-      algorithm: 'AES-256-GCM',
-      kdf: 'PBKDF2-SHA-256',
-      iterations: DEFAULT_KDF_ITERATIONS,
-      saltB64: bytesToBase64(salt),
-      wrappedKeyB64: bytesToBase64(wrappedKey),
-      ivB64: bytesToBase64(iv),
-      createdAt: new Date().toISOString(),
-    },
+    manifest: { v: 1, keyB64: encodeKey(rawKey), createdAt: new Date().toISOString() },
   };
-}
-
-export async function unlockSyncKeyset(keyset: SyncKeyset, passphrase: string): Promise<string> {
-  const salt = base64ToBytes(keyset.saltB64);
-  const iv = base64ToBytes(keyset.ivB64);
-  const wrappedKey = base64ToBytes(keyset.wrappedKeyB64);
-  const wrappingKey = await deriveWrappingKey(passphrase, salt, keyset.iterations);
-  const rawKey = new Uint8Array(await getCrypto().subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    wrappingKey,
-    wrappedKey
-  ));
-
-  return encodeKey(rawKey);
 }
 
 export async function encryptJsonPayload(rawKeyB64: string, value: unknown): Promise<{ ivB64: string; ciphertextB64: string; hash: string }> {

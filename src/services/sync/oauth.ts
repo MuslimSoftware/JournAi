@@ -6,12 +6,14 @@ import { getAppPlatform } from './platform';
 import { getProviderAuth, saveProviderAuth } from './settings';
 import type { SyncAuthState, SyncProvider } from '../../types/sync';
 
-type SyncOAuthProvider = Exclude<SyncProvider, 'icloud'>;
+type SyncOAuthProvider = 'google_drive' | 'dropbox' | 'onedrive';
 
 interface OAuthConfig {
   authUrl: string;
   tokenUrl: string;
   clientIdEnv: string;
+  clientIdMobileEnv?: string;
+  clientSecretEnv?: string;
   redirectUriEnv: string;
   scopes: string[];
   extraAuthorizeParams?: Record<string, string>;
@@ -43,6 +45,8 @@ const OAUTH_CONFIGS: Record<SyncOAuthProvider, OAuthConfig> = {
     authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
     tokenUrl: 'https://oauth2.googleapis.com/token',
     clientIdEnv: 'VITE_GOOGLE_DRIVE_CLIENT_ID',
+    clientIdMobileEnv: 'VITE_GOOGLE_DRIVE_IOS_CLIENT_ID',
+    clientSecretEnv: 'VITE_GOOGLE_DRIVE_CLIENT_SECRET',
     redirectUriEnv: 'VITE_GOOGLE_DRIVE_REDIRECT_URI',
     scopes: [
       'openid',
@@ -60,6 +64,7 @@ const OAUTH_CONFIGS: Record<SyncOAuthProvider, OAuthConfig> = {
     authUrl: 'https://www.dropbox.com/oauth2/authorize',
     tokenUrl: 'https://api.dropboxapi.com/oauth2/token',
     clientIdEnv: 'VITE_DROPBOX_CLIENT_ID',
+    clientSecretEnv: 'VITE_DROPBOX_CLIENT_SECRET',
     redirectUriEnv: 'VITE_DROPBOX_REDIRECT_URI',
     scopes: [
       'account_info.read',
@@ -75,6 +80,7 @@ const OAUTH_CONFIGS: Record<SyncOAuthProvider, OAuthConfig> = {
     authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
     tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
     clientIdEnv: 'VITE_ONEDRIVE_CLIENT_ID',
+    clientSecretEnv: 'VITE_ONEDRIVE_CLIENT_SECRET',
     redirectUriEnv: 'VITE_ONEDRIVE_REDIRECT_URI',
     scopes: [
       'offline_access',
@@ -88,7 +94,7 @@ const OAUTH_CONFIGS: Record<SyncOAuthProvider, OAuthConfig> = {
   },
 };
 
-function isOAuthProvider(provider: SyncProvider): provider is SyncOAuthProvider {
+function isOAuthProvider(provider: string): provider is SyncOAuthProvider {
   return provider === 'google_drive' || provider === 'dropbox' || provider === 'onedrive';
 }
 
@@ -154,6 +160,37 @@ function isMobileRedirectPlatform(platform: AppPlatform): boolean {
   return platform === 'ios' || platform === 'android';
 }
 
+function reverseClientIdScheme(clientId: string): string {
+  return clientId.split('.').reverse().join('.');
+}
+
+function mobileRedirectUri(provider: SyncOAuthProvider): string {
+  const { clientIdMobileEnv } = oauthConfig(provider);
+  if (clientIdMobileEnv) {
+    const mobileClientId = envValue(clientIdMobileEnv);
+    if (mobileClientId) {
+      return `${reverseClientIdScheme(mobileClientId)}:/oauth2redirect`;
+    }
+  }
+  return DEFAULT_DEEP_LINK_REDIRECT_URI;
+}
+
+function getClientIdForPlatform(provider: SyncOAuthProvider, platform: AppPlatform): string | null {
+  const config = oauthConfig(provider);
+  if (isMobileRedirectPlatform(platform) && config.clientIdMobileEnv) {
+    const mobileId = envValue(config.clientIdMobileEnv);
+    if (mobileId) return mobileId;
+  }
+  return envValue(config.clientIdEnv) || null;
+}
+
+function isMobileClientId(provider: SyncOAuthProvider, clientId: string): boolean {
+  const config = oauthConfig(provider);
+  if (!config.clientIdMobileEnv) return false;
+  const mobileId = envValue(config.clientIdMobileEnv);
+  return Boolean(mobileId) && mobileId === clientId;
+}
+
 function getRedirectUri(provider: SyncOAuthProvider, platform: AppPlatform): string {
   const config = oauthConfig(provider);
   const configured = envValue(config.redirectUriEnv);
@@ -161,7 +198,7 @@ function getRedirectUri(provider: SyncOAuthProvider, platform: AppPlatform): str
     return configured;
   }
 
-  return isMobileRedirectPlatform(platform) ? DEFAULT_DEEP_LINK_REDIRECT_URI : LOOPBACK_REDIRECT_URI;
+  return isMobileRedirectPlatform(platform) ? mobileRedirectUri(provider) : LOOPBACK_REDIRECT_URI;
 }
 
 function isLoopbackRedirectUri(redirectUri: string): boolean {
@@ -240,7 +277,9 @@ function waitForDeepLinkCallback(expectedState: string): Promise<OAuthCallbackPa
         unlisten = nextUnlisten;
         return getCurrent();
       })
-      .then(inspectUrls)
+      .then((urls) => {
+        inspectUrls(urls);
+      })
       .catch((error) => {
         finish(error instanceof Error ? error : new Error('Failed to listen for OAuth redirect.'), true);
       });
@@ -292,6 +331,14 @@ async function exchangeAuthorizationCode(
     grant_type: 'authorization_code',
   });
 
+  // iOS/Android clients have no client secret; only include it for desktop clients
+  if (!isMobileClientId(provider, clientId)) {
+    const clientSecret = getOAuthClientSecret(provider);
+    if (clientSecret) {
+      params.set('client_secret', clientSecret);
+    }
+  }
+
   if (config.includeScopeInTokenRequest) {
     params.set('scope', config.scopes.join(' '));
   }
@@ -317,7 +364,8 @@ async function refreshAccessToken(provider: SyncOAuthProvider, auth: SyncAuthSta
   }
 
   const config = oauthConfig(provider);
-  const clientId = getOAuthClientId(provider);
+  const platform = await getAppPlatform();
+  const clientId = getClientIdForPlatform(provider, platform);
   if (!clientId) {
     throw new Error(`Set ${config.clientIdEnv} to refresh ${providerLabel(provider)} sync access.`);
   }
@@ -327,6 +375,14 @@ async function refreshAccessToken(provider: SyncOAuthProvider, auth: SyncAuthSta
     refresh_token: auth.refreshToken,
     grant_type: 'refresh_token',
   });
+
+  // iOS/Android clients have no client secret; only include it for desktop clients
+  if (!isMobileClientId(provider, clientId)) {
+    const clientSecret = getOAuthClientSecret(provider);
+    if (clientSecret) {
+      params.set('client_secret', clientSecret);
+    }
+  }
 
   const response = await fetch(config.tokenUrl, {
     method: 'POST',
@@ -347,7 +403,7 @@ async function refreshAccessToken(provider: SyncOAuthProvider, auth: SyncAuthSta
     expiresAt: expiresAtFromSeconds(token.expires_in),
     tokenType: token.token_type ?? auth.tokenType,
   };
-  await saveProviderAuth(provider, refreshed);
+  await saveProviderAuth(provider as SyncProvider, refreshed);
   return refreshed;
 }
 
@@ -427,6 +483,11 @@ export function getOAuthClientIdEnv(provider: SyncProvider): string | null {
   return oauthConfig(provider).clientIdEnv;
 }
 
+function getOAuthClientSecret(provider: SyncOAuthProvider): string | null {
+  const { clientSecretEnv } = oauthConfig(provider);
+  return clientSecretEnv ? envValue(clientSecretEnv) || null : null;
+}
+
 export function isOAuthConfigured(provider: SyncProvider): boolean {
   return Boolean(getOAuthClientId(provider));
 }
@@ -436,12 +497,11 @@ export async function connectProviderWithOAuth(provider: SyncProvider): Promise<
     throw new Error('This provider does not use OAuth.');
   }
 
-  const clientId = getOAuthClientId(provider);
+  const platform = await getAppPlatform();
+  const clientId = getClientIdForPlatform(provider, platform);
   if (!clientId) {
     throw new Error(`Set ${oauthConfig(provider).clientIdEnv} before connecting ${providerLabel(provider)}.`);
   }
-
-  const platform = await getAppPlatform();
   const redirectUri = getRedirectUri(provider, platform);
   const loopback = isLoopbackRedirectUri(redirectUri);
   if (loopback) {
@@ -457,7 +517,7 @@ export async function connectProviderWithOAuth(provider: SyncProvider): Promise<
   if (loopback) {
     await new Promise((resolve) => window.setTimeout(resolve, 150));
   }
-  await openUrl(authorizationUrl, isMobileRedirectPlatform(platform) ? 'inAppBrowser' : undefined);
+  await openUrl(authorizationUrl);
 
   const callback = await callbackPromise;
   if (callback.error) {

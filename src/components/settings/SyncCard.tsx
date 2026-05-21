@@ -1,23 +1,20 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import {
   IoCloudOutline,
-  IoKeyOutline,
-  IoLogInOutline,
-  IoLogoDropbox,
   IoLogoGoogle,
   IoRefresh,
   IoTrashOutline,
+  IoLogInOutline,
   IoAlertCircleOutline,
 } from 'react-icons/io5';
 import { Button, Spinner, Text } from '../themed';
 import StatusMessage from './StatusMessage';
 import { useSync } from '../../hooks/useSync';
-import { SYNC_PROVIDER_PROFILES, isOAuthConfigured } from '../../services/sync';
-import type { SyncProgress, SyncProvider } from '../../types/sync';
+import { isOAuthConfigured } from '../../services/sync';
+import type { SyncProgress } from '../../types/sync';
 import ConflictResolutionModal from './ConflictResolutionModal';
 import '../../styles/settings.css';
-
-const VISIBLE_SYNC_PROVIDERS: SyncProvider[] = ['google_drive'];
 
 function formatSyncTime(value: string | null | undefined): string {
   if (!value) {
@@ -56,30 +53,10 @@ function syncProgressWidth(progress: SyncProgress): string {
   return `${Math.min(100, Math.max(0, percent))}%`;
 }
 
-function providerIcon(provider: SyncProvider) {
-  switch (provider) {
-    case 'google_drive':
-      return <IoLogoGoogle size={16} />;
-    case 'dropbox':
-      return <IoLogoDropbox size={16} />;
-    case 'onedrive':
-    case 'icloud':
-      return null;
-    default:
-      provider satisfies never;
-      return null;
-  }
-}
-
 export default function SyncCard() {
   const {
     settings,
-    provider,
-    providerConnections,
     connected,
-    hasSyncKey,
-    keySetupState,
-    keySetupMessage,
     status,
     message,
     progress,
@@ -88,72 +65,34 @@ export default function SyncCard() {
     canSync,
     connectProvider,
     disconnect,
-    resetSyncSecrets,
-    createKey,
-    unlockKey,
+    resetRemoteData,
     runSync,
     conflicts,
   } = useSync();
-  const [passphrase, setPassphrase] = useState('');
-  const [connectingProvider, setConnectingProvider] = useState<SyncProvider | null>(null);
-  const [savingKey, setSavingKey] = useState(false);
+
+  const [connecting, setConnecting] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
+  const resettingRef = useRef(false);
 
-  const visibleProfiles = SYNC_PROVIDER_PROFILES.filter((profile) => VISIBLE_SYNC_PROVIDERS.includes(profile.provider));
-  const activeProfile = provider ? SYNC_PROVIDER_PROFILES.find((profile) => profile.provider === provider) : null;
-  const connectedProfile = visibleProfiles.find((profile) => providerConnections[profile.provider]?.connected) ?? null;
-  const syncTargetLabel = activeProfile?.label ?? connectedProfile?.label ?? 'provider';
-  const readyToSync = connected && hasSyncKey;
-  const remoteUnlockRequired = keySetupState === 'remote_unlock_required';
-  const providerNote = readyToSync
-    ? 'Ready to upload encrypted journal entries, todos, and sticky notes.'
-    : connected
-      ? remoteUnlockRequired
-        ? 'Connected. Unlock the existing cloud passphrase before syncing or creating a new one.'
-        : 'Connected. Finish the passphrase step above before syncing.'
-      : hasSyncKey
-        ? 'Connect Google Drive or Dropbox to sync encrypted JournAi files with devices you own.'
-        : 'Then connect Google Drive or Dropbox with the same cloud account on each device.';
-  const passphraseNote = keySetupMessage
-    ?? 'Create it on the first device. On another device, connect the same cloud account below, then unlock existing data with that passphrase.';
+  const isConfigured = isOAuthConfigured('google_drive');
 
-  const handleConnectProvider = async (nextProvider: SyncProvider) => {
+  const handleConnect = async () => {
     setActionError(null);
-    setConnectingProvider(nextProvider);
+    setConnecting(true);
     try {
-      await connectProvider(nextProvider);
+      await connectProvider();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Failed to connect provider.');
+      setActionError(error instanceof Error ? error.message : JSON.stringify(error));
     } finally {
-      setConnectingProvider(null);
+      setConnecting(false);
     }
   };
 
-  const handleCreateKey = async () => {
-    setActionError(null);
-    setSavingKey(true);
-    try {
-      await createKey(passphrase);
-      setPassphrase('');
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Failed to configure sync key.');
-    } finally {
-      setSavingKey(false);
-    }
-  };
-
-  const handleUnlockKey = async () => {
-    setActionError(null);
-    setSavingKey(true);
-    try {
-      await unlockKey(passphrase);
-      setPassphrase('');
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Failed to unlock sync key.');
-    } finally {
-      setSavingKey(false);
-    }
+  const handleDisconnect = () => {
+    void disconnect();
   };
 
   const handleSyncNow = async () => {
@@ -162,6 +101,31 @@ export default function SyncCard() {
       await runSync();
     } catch {
       // useSync owns the visible sync failure state.
+    }
+  };
+
+  const handleResetRemoteData = async () => {
+    if (resettingRef.current) return;
+    resettingRef.current = true;
+    const confirmed = await confirm(
+      'This will delete all encrypted files from Google Drive and re-upload everything on the next sync.',
+      { title: 'Reset Cloud Data?', kind: 'warning' }
+    );
+    if (!confirmed) {
+      resettingRef.current = false;
+      return;
+    }
+    setResetting(true);
+    setActionError(null);
+    setResetDone(false);
+    try {
+      await resetRemoteData();
+      setResetDone(true);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Reset failed.');
+    } finally {
+      resettingRef.current = false;
+      setResetting(false);
     }
   };
 
@@ -183,63 +147,14 @@ export default function SyncCard() {
           <div className="settings-sync-heading__copy">
             <Text variant="primary" className="settings-sync-title">Cloud Sync</Text>
             <Text variant="secondary" className="settings-sync-subtitle">
-              {status === 'syncing' ? progress?.message ?? 'Syncing encrypted data...' : connected ? `${statusLabel(status)} with ${syncTargetLabel}` : 'Connect a provider to sync'}
+              {status === 'syncing'
+                ? progress?.message ?? 'Syncing encrypted data...'
+                : connected
+                  ? `${statusLabel(status)} with Google Drive`
+                  : 'Connect Google Drive to sync'}
             </Text>
           </div>
         </div>
-      </div>
-
-      <div className="settings-sync-passphrase-block">
-        <div className="settings-sync-row">
-          <div>
-            <Text variant="primary" className="settings-sync-row__title">Private Sync Passphrase</Text>
-            <Text variant="secondary" className="settings-sync-row__text">
-              {hasSyncKey
-                ? 'Configured. Use this same passphrase on every device connected to this cloud account.'
-                : 'JournAi uses this passphrase to encrypt journal entries, todos, and sticky notes before upload. Use the same exact passphrase on your phone and laptop to share the data.'}
-            </Text>
-          </div>
-          {hasSyncKey ? (
-            <Button variant="danger" size="sm" icon={<IoTrashOutline size={14} />} onClick={() => { void resetSyncSecrets(); }}>
-              Reset
-            </Button>
-          ) : null}
-        </div>
-
-        {!hasSyncKey && (
-          <div className="settings-field settings-sync-passphrase-field">
-            <label className="settings-label">Passphrase</label>
-            <input
-              type="password"
-              value={passphrase}
-              onChange={(event) => setPassphrase(event.target.value)}
-              className="settings-input settings-input--full-padding"
-              placeholder="Same passphrase on every device"
-            />
-            <Text variant="secondary" className="settings-sync-passphrase-note">
-              {passphraseNote}
-            </Text>
-            <div className="settings-footer settings-footer--compact settings-sync-passphrase-actions">
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<IoKeyOutline size={14} />}
-                onClick={handleCreateKey}
-                disabled={passphrase.trim().length < 12 || savingKey || remoteUnlockRequired}
-              >
-                {savingKey ? 'Saving...' : 'Create Passphrase'}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleUnlockKey}
-                disabled={passphrase.trim().length < 12 || savingKey || !connected}
-              >
-                Unlock Existing
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="settings-sync-provider-group">
@@ -274,56 +189,40 @@ export default function SyncCard() {
         )}
 
         <div className="settings-sync-provider-list">
-          {visibleProfiles.map((profile) => {
-            const connection = providerConnections[profile.provider];
-            const isConnected = connection?.connected ?? false;
-            const isConnecting = connectingProvider === profile.provider;
-            const isConfigured = isOAuthConfigured(profile.provider);
-            const rowStatus = isConnected ? 'Connected' : isConfigured ? 'Not connected' : 'Setup needed';
-
-            return (
-              <div
-                key={profile.provider}
-                className="settings-sync-provider-row"
-              >
-                <div className="settings-sync-provider-row__main">
-                  <span className="settings-sync-provider__icon" aria-hidden="true">
-                    {providerIcon(profile.provider)}
-                  </span>
-                  <span className="settings-sync-provider__label">{profile.label}</span>
-                </div>
-                <div className="settings-sync-provider-row__meta">
-                  <span className={`settings-sync-provider-status${isConnected ? ' settings-sync-provider-status--connected' : ''}`}>
-                    {isConnecting ? 'Connecting...' : rowStatus}
-                  </span>
-                  {isConnected ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={<IoTrashOutline size={14} />}
-                      onClick={() => { void disconnect(profile.provider); }}
-                    >
-                      Disconnect
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon={isConnecting ? <Spinner size="sm" /> : <IoLogInOutline size={14} />}
-                      onClick={() => { void handleConnectProvider(profile.provider); }}
-                      disabled={!isConfigured || connectingProvider !== null}
-                    >
-                      Connect
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          <div className="settings-sync-provider-row">
+            <div className="settings-sync-provider-row__main">
+              <span className="settings-sync-provider__icon" aria-hidden="true">
+                <IoLogoGoogle size={16} />
+              </span>
+              <span className="settings-sync-provider__label">Google Drive</span>
+            </div>
+            <div className="settings-sync-provider-row__meta">
+              <span className={`settings-sync-provider-status${connected ? ' settings-sync-provider-status--connected' : ''}`}>
+                {connecting ? 'Connecting...' : connected ? 'Connected' : isConfigured ? 'Not connected' : 'Setup needed'}
+              </span>
+              {connected ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<IoTrashOutline size={14} />}
+                  onClick={handleDisconnect}
+                >
+                  Disconnect
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={connecting ? <Spinner size="sm" /> : <IoLogInOutline size={14} />}
+                  onClick={() => { void handleConnect(); }}
+                  disabled={!isConfigured || connecting}
+                >
+                  Connect
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
-        <Text variant="secondary" className="settings-sync-provider-note">
-          {providerNote}
-        </Text>
       </div>
 
       <div className="settings-sync-panel">
@@ -332,7 +231,7 @@ export default function SyncCard() {
             variant="secondary"
             size="sm"
             icon={status === 'syncing' ? <Spinner size="sm" /> : <IoRefresh size={14} />}
-            onClick={handleSyncNow}
+            onClick={() => { void handleSyncNow(); }}
             disabled={!canSync}
           >
             {status === 'syncing' ? 'Syncing...' : 'Sync Now'}
@@ -397,7 +296,32 @@ export default function SyncCard() {
             })()}
           </StatusMessage>
         )}
+
+        {connected && (
+          <div style={{ marginTop: 'var(--settings-spacing-lg)' }}>
+            <Button
+              variant="danger"
+              size="sm"
+              icon={<IoTrashOutline size={14} />}
+              onClick={() => { void handleResetRemoteData(); }}
+              disabled={resetting}
+            >
+              Reset Cloud Data
+            </Button>
+            {resetting && (
+              <div style={{ marginTop: 'var(--settings-spacing-sm)' }}>
+                <StatusMessage variant="warning">Deleting cloud data...</StatusMessage>
+              </div>
+            )}
+            {resetDone && (
+              <div style={{ marginTop: 'var(--settings-spacing-sm)' }}>
+                <StatusMessage variant="success">Cloud data cleared. All records will be re-uploaded on the next sync.</StatusMessage>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
       <ConflictResolutionModal isOpen={isConflictModalOpen} onClose={() => setIsConflictModalOpen(false)} />
     </div>
   );

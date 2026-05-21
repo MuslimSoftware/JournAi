@@ -404,6 +404,10 @@ export async function resolveConflict(
   }
 }
 
+export async function resetAllSyncStates(): Promise<void> {
+  await execute('UPDATE sync_state SET dirty = 1, synced_at = NULL, remote_version = 0, payload_hash = NULL');
+}
+
 export async function initializeSyncStates(): Promise<void> {
   await executeBatch([
     {

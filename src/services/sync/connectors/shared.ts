@@ -1,5 +1,6 @@
 import type { RemoteSyncObject, SyncAuthState, SyncConnectorStatus, SyncProvider } from '../../../types/sync';
 import { getValidProviderAuth } from '../oauth';
+import { dlog } from '../../../lib/devLog';
 
 const FILE_PREFIX = 'journai-sync-';
 const FILE_SUFFIX = '.json';
@@ -38,7 +39,9 @@ export async function getAuthOrStatus(provider: SyncProvider): Promise<{ auth: S
   let auth: SyncAuthState | null = null;
   try {
     auth = await getValidProviderAuth(provider);
+    dlog('[sync:auth] getAuthOrStatus provider =>', provider, 'hasToken =>', Boolean(auth?.accessToken), 'expiresAt =>', auth?.expiresAt ?? 'none');
   } catch (error) {
+    dlog('[sync:auth] getAuthOrStatus error =>', String(error));
     return {
       status: {
         status: 'error',
@@ -48,6 +51,7 @@ export async function getAuthOrStatus(provider: SyncProvider): Promise<{ auth: S
   }
 
   if (!auth?.accessToken) {
+    dlog('[sync:auth] getAuthOrStatus => no access token, disconnected');
     return {
       status: {
         status: 'disconnected',

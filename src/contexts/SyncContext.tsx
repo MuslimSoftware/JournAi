@@ -1,56 +1,35 @@
 import { createContext, useContext, useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
+import { dlog, derr } from '../lib/devLog';
 import type {
   SyncConnectionStatus,
   SyncProgress,
-  SyncKeyset,
-  SyncProvider,
-  SyncProviderProfile,
   SyncSettings,
   SyncSummary,
 } from '../types/sync';
 import {
   clearSyncSecrets,
-  configureSyncKey,
   connectProviderWithOAuth,
   createSyncConnector,
   deleteProviderAuth,
-  getAvailableProviderProfiles,
+  deleteAllRemoteData,
+  downloadRemoteKey,
+  generateAndStoreKey,
   getProviderAuth,
-  getProviderProfile,
-  getRemoteSyncKeyset,
-  getStoredSyncKeyset,
   getSyncSettings,
   hasRawSyncKey,
+  resetAllSyncStates,
   setSyncEnabled,
-  setSyncProvider,
+  storeRawSyncKey,
   syncNow,
-  unlockStoredSyncKey,
   getPendingConflicts,
   resolveConflict as dbResolveConflict,
   type SyncConflictRow,
 } from '../services/sync';
 
-interface ProviderConnectionState {
-  provider: SyncProvider;
-  accountLabel: string | null;
-  connected: boolean;
-  status: SyncConnectionStatus;
-  message: string | null;
-}
-
-type SyncKeySetupState = 'needs_key' | 'ready' | 'remote_unlock_required' | 'mismatch';
-
 interface SyncContextType {
   settings: SyncSettings | null;
-  provider: SyncProvider | null;
-  providerLabel: string;
-  accountLabel: string | null;
-  availableProviders: SyncProviderProfile[];
-  providerConnections: Partial<Record<SyncProvider, ProviderConnectionState>>;
   connected: boolean;
   hasSyncKey: boolean;
-  keySetupState: SyncKeySetupState;
-  keySetupMessage: string | null;
   status: SyncConnectionStatus;
   message: string | null;
   progress: SyncProgress | null;
@@ -59,49 +38,20 @@ interface SyncContextType {
   conflicts: SyncConflictRow[];
   canSync: boolean;
   refresh: () => Promise<void>;
-  chooseProvider: (provider: SyncProvider) => Promise<void>;
-  toggleEnabled: (enabled: boolean) => Promise<void>;
-  connectProvider: (provider: SyncProvider) => Promise<void>;
-  disconnect: (provider?: SyncProvider) => Promise<void>;
+  connectProvider: () => Promise<void>;
+  disconnect: () => Promise<void>;
   resetSyncSecrets: () => Promise<void>;
-  createKey: (passphrase: string) => Promise<void>;
-  unlockKey: (passphrase: string) => Promise<void>;
+  resetRemoteData: () => Promise<void>;
   runSync: () => Promise<SyncSummary>;
   resolveConflict: (conflictId: string, resolution: 'local' | 'remote') => Promise<void>;
 }
 
 const SyncContext = createContext<SyncContextType | undefined>(undefined);
 
-function remoteUnlockRequiredMessage(label: string): string {
-  return `${label} already has encrypted sync data. Enter its existing passphrase and choose Unlock Existing before creating a new passphrase.`;
-}
-
-function keysetMismatchMessage(label: string): string {
-  return `${label} already has a different sync passphrase. Reset sync on this device or unlock the existing cloud passphrase before syncing.`;
-}
-
-function syncKeysetsMatch(local: SyncKeyset, remote: SyncKeyset): boolean {
-  return local.schemaVersion === remote.schemaVersion
-    && local.algorithm === remote.algorithm
-    && local.kdf === remote.kdf
-    && local.iterations === remote.iterations
-    && local.saltB64 === remote.saltB64
-    && local.wrappedKeyB64 === remote.wrappedKeyB64
-    && local.ivB64 === remote.ivB64
-    && local.createdAt === remote.createdAt;
-}
-
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<SyncSettings | null>(null);
-  const [provider, setProviderState] = useState<SyncProvider | null>(null);
-  const [providerLabel, setProviderLabel] = useState('');
-  const [accountLabel, setAccountLabel] = useState<string | null>(null);
-  const [availableProviders, setAvailableProviders] = useState<SyncProviderProfile[]>([]);
-  const [providerConnections, setProviderConnections] = useState<Partial<Record<SyncProvider, ProviderConnectionState>>>({});
   const [connected, setConnected] = useState(false);
   const [hasSyncKey, setHasSyncKey] = useState(false);
-  const [keySetupState, setKeySetupState] = useState<SyncKeySetupState>('needs_key');
-  const [keySetupMessage, setKeySetupMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<SyncConnectionStatus>('disabled');
   const [message, setMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState<SyncProgress | null>(null);
@@ -118,94 +68,58 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       const pending = await getPendingConflicts();
       setConflicts(pending);
     } catch (error) {
-      console.error('[SyncContext] Failed to load pending conflicts:', error);
+      derr('[SyncContext] Failed to load pending conflicts:', error);
     }
   }, []);
 
   const refresh = useCallback(async () => {
     try {
+      dlog('[sync:context] refresh start');
       const syncSettings = await getSyncSettings();
-      const activeProvider = syncSettings.provider;
       const keyAvailable = await hasRawSyncKey();
-      const profiles = await getAvailableProviderProfiles();
+      dlog('[sync:context] refresh keyAvailable =>', keyAvailable);
 
-      const connections: Partial<Record<SyncProvider, ProviderConnectionState>> = {};
-      await Promise.all(
-        profiles.map(async (profile) => {
-          try {
-            const connectorStatus = await createSyncConnector(profile.provider).getStatus();
-            const auth = await getProviderAuth(profile.provider);
-            connections[profile.provider] = {
-              provider: profile.provider,
-              accountLabel: auth?.accountLabel ?? null,
-              connected: Boolean(auth?.accessToken) && connectorStatus.status === 'connected',
-              status: connectorStatus.status,
-              message: connectorStatus.message,
-            };
-          } catch (err) {
-            connections[profile.provider] = {
-              provider: profile.provider,
-              accountLabel: null,
-              connected: false,
-              status: 'error',
-              message: err instanceof Error ? err.message : 'Connection failed.',
-            };
+      const connector = createSyncConnector();
+      let connectorStatus;
+      try {
+        connectorStatus = await connector.getStatus();
+      } catch (err) {
+        connectorStatus = { status: 'error' as const, message: err instanceof Error ? err.message : 'Connection failed.' };
+      }
+
+      const isConnected = Boolean(await getProviderAuth('google_drive').then(a => a?.accessToken)) && connectorStatus.status === 'connected';
+      dlog('[sync:context] refresh isConnected =>', isConnected, 'connectorStatus =>', JSON.stringify(connectorStatus));
+
+      if (isConnected && !keyAvailable) {
+        dlog('[sync:context] refresh connected but no key — auto-setup starting...');
+        try {
+          const remoteKeyB64 = await downloadRemoteKey();
+          if (remoteKeyB64) {
+            dlog('[sync:context] refresh found remote key — storing locally');
+            await storeRawSyncKey(remoteKeyB64);
+          } else {
+            dlog('[sync:context] refresh no remote key — generating new one');
+            await generateAndStoreKey();
           }
-        })
-      );
-
-      const activeConnection = activeProvider ? connections[activeProvider] : null;
-      const connectorStatus = activeProvider
-        ? activeConnection ?? await createSyncConnector(activeProvider).getStatus()
-        : { status: 'disconnected' as const, message: 'Choose a sync provider first.' };
-      const label = activeProvider ? getProviderProfile(activeProvider).label : '';
-      const activeConnected = activeConnection?.connected ?? false;
-      let nextKeySetupState: SyncKeySetupState = keyAvailable ? 'ready' : 'needs_key';
-      let nextKeySetupMessage: string | null = null;
-
-      if (activeProvider && activeConnected) {
-        const [localKeyset, remoteKeyset] = await Promise.all([
-          getStoredSyncKeyset(),
-          getRemoteSyncKeyset(),
-        ]);
-
-        if (remoteKeyset && !keyAvailable) {
-          nextKeySetupState = 'remote_unlock_required';
-          nextKeySetupMessage = remoteUnlockRequiredMessage(label);
-        } else if (remoteKeyset && localKeyset && !syncKeysetsMatch(localKeyset, remoteKeyset)) {
-          nextKeySetupState = 'mismatch';
-          nextKeySetupMessage = keysetMismatchMessage(label);
+        } catch (keyErr) {
+          derr('[sync:context] refresh auto-key-setup failed:', keyErr);
         }
       }
 
-      setSettings(syncSettings);
-      setProviderState(activeProvider);
-      setProviderLabel(label);
-      setAccountLabel(activeConnection?.accountLabel ?? null);
-      setAvailableProviders(profiles);
-      setProviderConnections(connections);
-      setConnected(activeConnected);
-      setHasSyncKey(keyAvailable);
-      setKeySetupState(nextKeySetupState);
-      setKeySetupMessage(nextKeySetupMessage);
+      const keyAvailableAfterSetup = await hasRawSyncKey();
 
-      // Keep status as 'syncing' if it's currently syncing in the background
+      setSettings(syncSettings);
+      setConnected(isConnected);
+      setHasSyncKey(keyAvailableAfterSetup);
+
       if (!isSyncingRef.current) {
-        if (nextKeySetupState === 'mismatch') {
-          setStatus('error');
-          setMessage(nextKeySetupMessage);
-        } else if (nextKeySetupState === 'remote_unlock_required') {
-          setStatus('needs_configuration');
-          setMessage(nextKeySetupMessage);
-        } else {
-          setStatus(connectorStatus.status);
-          setMessage(connectorStatus.message);
-        }
+        setStatus(connectorStatus.status);
+        setMessage(connectorStatus.message);
       }
 
       await refreshConflicts();
     } catch (error) {
-      console.error('[SyncContext] Failed to refresh sync settings:', error);
+      derr('[SyncContext] Failed to refresh sync settings:', error);
     } finally {
       setLoading(false);
     }
@@ -221,36 +135,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         conflicts: 0,
         lastSyncedAt: settings?.lastSyncedAt ?? null,
       };
-    }
-
-    const syncSettings = await getSyncSettings();
-    if (syncSettings.provider) {
-      const label = getProviderProfile(syncSettings.provider).label;
-      const connectorStatus = await createSyncConnector(syncSettings.provider).getStatus();
-      if (connectorStatus.status === 'connected') {
-        const [localKeyset, remoteKeyset] = await Promise.all([
-          getStoredSyncKeyset(),
-          getRemoteSyncKeyset(),
-        ]);
-
-        if (remoteKeyset && !localKeyset) {
-          const nextMessage = remoteUnlockRequiredMessage(label);
-          setKeySetupState('remote_unlock_required');
-          setKeySetupMessage(nextMessage);
-          setStatus('needs_configuration');
-          setMessage(nextMessage);
-          throw new Error(nextMessage);
-        }
-
-        if (remoteKeyset && localKeyset && !syncKeysetsMatch(localKeyset, remoteKeyset)) {
-          const nextMessage = keysetMismatchMessage(label);
-          setKeySetupState('mismatch');
-          setKeySetupMessage(nextMessage);
-          setStatus('error');
-          setMessage(nextMessage);
-          throw new Error(nextMessage);
-        }
-      }
     }
 
     isSyncingRef.current = true;
@@ -274,17 +158,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setMessage(syncSummary.message);
       setProgress(null);
 
-      // Update settings and conflicts after sync completes
       await refresh();
 
       return syncSummary;
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : 'Sync failed.';
+      derr('[sync:context] runSync error =>', errMsg);
       setStatus('error');
       setMessage(errMsg);
       setProgress(null);
 
-      // Refresh to ensure we have the latest local/remote connection status
       await refresh();
 
       throw error;
@@ -293,86 +176,47 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
   }, [settings?.lastSyncedAt, refresh]);
 
-  const chooseProvider = useCallback(async (nextProvider: SyncProvider) => {
-    await setSyncProvider(nextProvider);
-    await refresh();
-  }, [refresh]);
-
-  const toggleEnabled = useCallback(async (enabled: boolean) => {
-    await setSyncEnabled(enabled);
-    await refresh();
-  }, [refresh]);
-
-  const connectProvider = useCallback(async (nextProvider: SyncProvider) => {
-    await connectProviderWithOAuth(nextProvider);
-    await setSyncProvider(nextProvider);
+  const connectProvider = useCallback(async () => {
+    dlog('[sync:context] connectProvider start');
+    await connectProviderWithOAuth('google_drive');
+    dlog('[sync:context] connectProvider OAuth done, enabling sync...');
     await setSyncEnabled(true);
+    setConnected(true);
+    dlog('[sync:context] connectProvider calling refresh...');
     await refresh();
+    dlog('[sync:context] connectProvider refresh done');
   }, [refresh]);
 
-  const disconnect = useCallback(async (nextProvider?: SyncProvider) => {
-    const providerToDisconnect = nextProvider ?? provider;
-    if (providerToDisconnect) {
-      await deleteProviderAuth(providerToDisconnect);
-      if (providerToDisconnect === provider) {
-        await setSyncEnabled(false);
-      }
-    }
+  const disconnect = useCallback(async () => {
+    await deleteProviderAuth('google_drive');
+    await setSyncEnabled(false);
     await refresh();
-  }, [refresh, provider]);
+  }, [refresh]);
 
   const resetSyncSecrets = useCallback(async () => {
-    await clearSyncSecrets(provider);
-    await refresh();
-  }, [refresh, provider]);
-
-  const createKey = useCallback(async (passphrase: string) => {
-    const syncSettings = await getSyncSettings();
-    if (syncSettings.provider) {
-      const label = getProviderProfile(syncSettings.provider).label;
-      const connectorStatus = await createSyncConnector(syncSettings.provider).getStatus();
-      if (connectorStatus.status === 'connected') {
-        const remoteKeyset = await getRemoteSyncKeyset();
-        if (remoteKeyset) {
-          const nextMessage = remoteUnlockRequiredMessage(label);
-          setKeySetupState('remote_unlock_required');
-          setKeySetupMessage(nextMessage);
-          setStatus('needs_configuration');
-          setMessage(nextMessage);
-          throw new Error(nextMessage);
-        }
-      }
-    }
-
-    await configureSyncKey(passphrase);
+    await clearSyncSecrets('google_drive');
     await refresh();
   }, [refresh]);
 
-  const unlockKey = useCallback(async (passphrase: string) => {
-    const [localKeyset, remoteKeyset] = await Promise.all([
-      getStoredSyncKeyset(),
-      getRemoteSyncKeyset(),
-    ]);
-    const keysetToUnlock = remoteKeyset ?? localKeyset;
-    if (!keysetToUnlock) {
-      throw new Error('No sync keyset was found for this provider.');
-    }
-    await unlockStoredSyncKey(passphrase, keysetToUnlock);
+  const resetRemoteData = useCallback(async () => {
+    dlog('[sync:context] resetRemoteData start');
+    await deleteAllRemoteData();
+    await resetAllSyncStates();
+    await clearSyncSecrets();
     await refresh();
+    dlog('[sync:context] resetRemoteData done');
   }, [refresh]);
 
   const resolveConflict = useCallback(async (conflictId: string, resolution: 'local' | 'remote') => {
     await dbResolveConflict(conflictId, resolution);
     await refreshConflicts();
-    // After resolving, immediately trigger a background sync to propagate changes
-    void runSync().catch((err) => console.error('[SyncContext] Auto-sync post conflict resolution failed:', err));
+    void runSync().catch((err) => derr('[SyncContext] Auto-sync post conflict resolution failed:', err));
   }, [refreshConflicts, runSync]);
 
   const canSync = useMemo(() => {
-    return Boolean(provider && connected && hasSyncKey && keySetupState === 'ready' && !isSyncingRef.current);
-  }, [connected, hasSyncKey, keySetupState, provider]);
+    return Boolean(connected && hasSyncKey && !isSyncingRef.current);
+  }, [connected, hasSyncKey]);
 
-  // Handle Initial Load
   useEffect(() => {
     if (startupSyncExecutedRef.current) {
       return;
@@ -383,23 +227,22 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     void refresh().then(() => {
       if (!isSubscribed) return;
-      // Auto sync on mount if settings permit
       const autoSyncStartup = async () => {
         const syncSettings = await getSyncSettings();
         if (!isSubscribed) return;
         const keyAvailable = await hasRawSyncKey();
         if (!isSubscribed) return;
-        if (syncSettings.provider && syncSettings.enabled && keyAvailable) {
+        if (syncSettings.enabled && keyAvailable) {
           try {
-            const connector = createSyncConnector(syncSettings.provider);
+            const connector = createSyncConnector();
             const connStatus = await connector.getStatus();
             if (!isSubscribed) return;
             if (connStatus.status === 'connected') {
-              console.log('[SyncContext] Auto-sync on startup started...');
+              dlog('[SyncContext] Auto-sync on startup started...');
               await runSync();
             }
           } catch (err) {
-            console.error('[SyncContext] Startup auto-sync failed:', err);
+            derr('[SyncContext] Startup auto-sync failed:', err);
           }
         }
       };
@@ -411,13 +254,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh, runSync]);
 
-  // Effect: Listen to local database changes for debounced sync
   useEffect(() => {
     const handleDirtyRecord = async () => {
       const syncSettings = await getSyncSettings();
       const keyAvailable = await hasRawSyncKey();
-      if (!syncSettings.provider || !syncSettings.enabled || !keyAvailable) {
-        return; // Auto-sync not configured/enabled
+      if (!syncSettings.enabled || !keyAvailable) {
+        return;
       }
 
       if (debounceTimerRef.current !== null) {
@@ -426,11 +268,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
       debounceTimerRef.current = window.setTimeout(() => {
         debounceTimerRef.current = null;
-        console.log('[SyncContext] Auto-sync triggered by local database changes...');
+        dlog('[SyncContext] Auto-sync triggered by local database changes...');
         void runSync().catch((err) => {
-          console.error('[SyncContext] Auto-sync failed:', err);
+          derr('[SyncContext] Auto-sync failed:', err);
         });
-      }, 15000); // 15s debounce
+      }, 15000);
     };
 
     const handleConflictsChanged = () => {
@@ -449,18 +291,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     };
   }, [runSync, refreshConflicts]);
 
-  // Effect: Periodic Background Sync every 10 minutes
   useEffect(() => {
     const interval = window.setInterval(async () => {
       const syncSettings = await getSyncSettings();
       const keyAvailable = await hasRawSyncKey();
-      if (syncSettings.provider && syncSettings.enabled && keyAvailable) {
-        console.log('[SyncContext] Periodic background auto-sync triggered...');
+      if (syncSettings.enabled && keyAvailable) {
+        dlog('[SyncContext] Periodic background auto-sync triggered...');
         void runSync().catch((err) => {
-          console.error('[SyncContext] Periodic auto-sync failed:', err);
+          derr('[SyncContext] Periodic auto-sync failed:', err);
         });
       }
-    }, 600000); // 10 minutes
+    }, 600000);
 
     return () => {
       window.clearInterval(interval);
@@ -470,15 +311,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       settings,
-      provider,
-      providerLabel,
-      accountLabel,
-      availableProviders,
-      providerConnections,
       connected,
       hasSyncKey,
-      keySetupState,
-      keySetupMessage,
       status,
       message,
       progress,
@@ -487,27 +321,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       conflicts,
       canSync,
       refresh,
-      chooseProvider,
-      toggleEnabled,
       connectProvider,
       disconnect,
       resetSyncSecrets,
-      createKey,
-      unlockKey,
+      resetRemoteData,
       runSync,
       resolveConflict,
     }),
     [
       settings,
-      provider,
-      providerLabel,
-      accountLabel,
-      availableProviders,
-      providerConnections,
       connected,
       hasSyncKey,
-      keySetupState,
-      keySetupMessage,
       status,
       message,
       progress,
@@ -516,13 +340,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       conflicts,
       canSync,
       refresh,
-      chooseProvider,
-      toggleEnabled,
       connectProvider,
       disconnect,
       resetSyncSecrets,
-      createKey,
-      unlockKey,
+      resetRemoteData,
       runSync,
       resolveConflict,
     ]

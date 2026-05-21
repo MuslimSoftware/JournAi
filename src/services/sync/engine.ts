@@ -1,6 +1,7 @@
-import type { SyncCollection, SyncEnvelope, SyncKeyset, SyncProgress, SyncSummary } from '../../types/sync';
+import type { SyncCollection, SyncEnvelope, SyncKeyManifest, SyncProgress, SyncSummary } from '../../types/sync';
 import { decryptJsonPayload, encryptJsonPayload, hashJsonPayload } from './crypto';
 import { createSyncConnector } from './connectors';
+import { dlog, dwarn, derr } from '../../lib/devLog';
 import {
   applyRemoteRecord,
   getDirtyRecords,
@@ -13,12 +14,11 @@ import {
 } from './localRepository';
 import {
   getRawSyncKey,
-  getStoredSyncKeyset,
   getSyncSettings,
   setLastSyncedAt,
 } from './settings';
 
-const SYNC_KEYSET_PATH = 'manifest/sync-key.json';
+const SYNC_KEY_PATH = 'manifest/sync-key.json';
 const RECORD_PREFIX = 'records';
 
 function collectionLabel(collection: string): string {
@@ -51,7 +51,7 @@ function parseRecordPath(path: string): { collection: SyncCollection; recordId: 
     return null;
   }
   const collection = parts[1] as SyncCollection;
-  const recordId = parts[2].slice(0, -5); // remove .json
+  const recordId = parts[2].slice(0, -5);
   if (!['entries', 'todos', 'sticky_notes'].includes(collection)) {
     return null;
   }
@@ -70,53 +70,104 @@ function parseEnvelope(raw: string): SyncEnvelope | null {
   }
 }
 
-function syncKeysetsMatch(local: SyncKeyset, remote: SyncKeyset): boolean {
-  return local.schemaVersion === remote.schemaVersion
-    && local.algorithm === remote.algorithm
-    && local.kdf === remote.kdf
-    && local.iterations === remote.iterations
-    && local.saltB64 === remote.saltB64
-    && local.wrappedKeyB64 === remote.wrappedKeyB64
-    && local.ivB64 === remote.ivB64
-    && local.createdAt === remote.createdAt;
+async function ensureRemoteKey(connector: ReturnType<typeof createSyncConnector>, rawKeyB64: string): Promise<void> {
+  const remote = await connector.downloadObject(SYNC_KEY_PATH);
+  if (remote) {
+    try {
+      const existing = JSON.parse(remote) as SyncKeyManifest;
+      if (existing.v === 1 && existing.keyB64 === rawKeyB64) {
+        dlog('[sync:engine] ensureRemoteKey => valid key manifest already in Drive');
+        return;
+      }
+      dlog('[sync:engine] ensureRemoteKey => existing manifest is stale or mismatched, overwriting');
+    } catch {
+      dlog('[sync:engine] ensureRemoteKey => existing manifest is invalid JSON, overwriting');
+    }
+  }
+
+  const manifest: SyncKeyManifest = { v: 1, keyB64: rawKeyB64, createdAt: new Date().toISOString() };
+  await connector.uploadObject(SYNC_KEY_PATH, JSON.stringify(manifest, null, 2));
+  dlog('[sync:engine] ensureRemoteKey => uploaded new key manifest');
 }
 
-async function ensureRemoteKeyset(connector: ReturnType<typeof createSyncConnector>, localKeyset: SyncKeyset): Promise<void> {
-  const remote = await connector.downloadObject(SYNC_KEYSET_PATH);
-  if (remote) {
-    let remoteKeyset: SyncKeyset;
-    try {
-      remoteKeyset = JSON.parse(remote) as SyncKeyset;
-    } catch {
-      throw new Error('Cloud sync key metadata is invalid. Reset sync or reconnect the provider before syncing.');
-    }
+export async function downloadRemoteKey(): Promise<string | null> {
+  const connector = createSyncConnector();
+  const status = await connector.getStatus();
+  dlog('[sync:engine] downloadRemoteKey connector status =>', JSON.stringify(status));
+  if (status.status !== 'connected') {
+    dlog('[sync:engine] downloadRemoteKey => not connected, returning null');
+    return null;
+  }
 
-    if (!syncKeysetsMatch(localKeyset, remoteKeyset)) {
-      throw new Error('Cloud sync already uses a different encryption key. Reset sync on this device or unlock the existing cloud passphrase before syncing.');
-    }
+  dlog('[sync:engine] downloadRemoteKey downloading from path =>', SYNC_KEY_PATH);
+  const raw = await connector.downloadObject(SYNC_KEY_PATH);
+  dlog('[sync:engine] downloadRemoteKey raw =>', raw ? `${raw.substring(0, 80)}...` : 'null');
+  if (!raw) {
+    return null;
+  }
 
+  try {
+    const manifest = JSON.parse(raw) as SyncKeyManifest;
+    dlog('[sync:engine] downloadRemoteKey parsed manifest version =>', manifest.v);
+    return manifest.keyB64 ?? null;
+  } catch (e) {
+    derr('[sync:engine] downloadRemoteKey parse error =>', String(e));
+    return null;
+  }
+}
+
+export async function deleteAllRemoteData(): Promise<void> {
+  dlog('[sync:engine] deleteAllRemoteData start');
+  const connector = createSyncConnector();
+  const status = await connector.getStatus();
+  if (status.status !== 'connected') {
+    dwarn('[sync:engine] deleteAllRemoteData => not connected, skipping');
     return;
   }
 
-  await connector.uploadObject(SYNC_KEYSET_PATH, JSON.stringify(localKeyset, null, 2));
+  const remoteObjects = await connector.listRemoteObjects();
+  dlog('[sync:engine] deleteAllRemoteData found objects =>', remoteObjects.length);
+
+  for (const object of remoteObjects) {
+    try {
+      await connector.deleteObject(object.path);
+      dlog('[sync:engine] deleteAllRemoteData deleted =>', object.path);
+    } catch (e) {
+      dwarn('[sync:engine] deleteAllRemoteData failed to delete =>', object.path, String(e));
+    }
+  }
+
+  // Explicitly delete the key manifest in case it wasn't returned by the listing
+  try {
+    await connector.deleteObject(SYNC_KEY_PATH);
+    dlog('[sync:engine] deleteAllRemoteData explicitly deleted key manifest');
+  } catch (e) {
+    dlog('[sync:engine] deleteAllRemoteData key manifest explicit delete =>', String(e));
+  }
+
+  dlog('[sync:engine] deleteAllRemoteData complete');
 }
 
 async function applyEnvelope(envelope: SyncEnvelope, rawKeyB64: string, remoteModifiedAt?: string | null): Promise<'applied' | 'skipped' | 'conflict'> {
   const state = await getSyncState(envelope.collection, envelope.recordId);
   if (state && state.remote_version >= envelope.version && state.dirty !== 1) {
-    // Realign synced_at timestamp in the database to the remote's modifiedTime
-    // so we don't have to download it again during the next handshake
     await updateSyncedAt(envelope.collection, envelope.recordId, remoteModifiedAt ?? undefined);
     return 'skipped';
   }
 
-  const remotePayload = envelope.payload
-    ? await decryptJsonPayload<Record<string, unknown>>(
-      rawKeyB64,
-      envelope.payload.ivB64,
-      envelope.payload.ciphertextB64
-    )
-    : null;
+  let remotePayload: Record<string, unknown> | null = null;
+  if (envelope.payload) {
+    try {
+      remotePayload = await decryptJsonPayload<Record<string, unknown>>(
+        rawKeyB64,
+        envelope.payload.ivB64,
+        envelope.payload.ciphertextB64
+      );
+    } catch (e) {
+      derr('[sync:engine] applyEnvelope decrypt failed for', envelope.collection, envelope.recordId, String(e));
+      throw e;
+    }
+  }
 
   if (state?.dirty === 1) {
     const localPayload = await getLocalPayload(envelope.collection, envelope.recordId);
@@ -140,35 +191,11 @@ async function applyEnvelope(envelope: SyncEnvelope, rawKeyB64: string, remoteMo
   return state?.dirty === 1 ? 'conflict' : 'applied';
 }
 
-export async function getRemoteSyncKeyset(): Promise<SyncKeyset | null> {
-  const settings = await getSyncSettings();
-  if (!settings.provider) {
-    return null;
-  }
-
-  const connector = createSyncConnector(settings.provider);
-  const status = await connector.getStatus();
-  if (status.status !== 'connected') {
-    return null;
-  }
-
-  const raw = await connector.downloadObject(SYNC_KEYSET_PATH);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(raw) as SyncKeyset;
-  } catch {
-    return null;
-  }
-}
-
 let isSyncRunning = false;
 
 export async function syncNow(onProgress?: (progress: SyncProgress) => void): Promise<SyncSummary> {
   if (isSyncRunning) {
-    console.warn('[SyncEngine] Sync is already running globally. Aborting this request.');
+    dwarn('[SyncEngine] Sync is already running globally. Aborting this request.');
     const settings = await getSyncSettings();
     return {
       status: 'syncing',
@@ -188,7 +215,7 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
 
   isSyncRunning = true;
   try {
-    console.log('[SyncEngine] Starting synchronization process...');
+    dlog('[SyncEngine] Starting synchronization process...');
     const settings = await getSyncSettings();
     const emptySummary = {
       pushed: 0,
@@ -203,17 +230,8 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
       pushedNotes: 0,
     };
 
-    if (!settings.provider) {
-      console.log('[SyncEngine] Sync aborted: no provider configured.');
-      return {
-        ...emptySummary,
-        status: 'disconnected',
-        message: 'Choose a sync provider first.',
-      };
-    }
-
-    console.log(`[SyncEngine] Selected provider: ${settings.provider}. Checking connection status...`);
-    const connector = createSyncConnector(settings.provider);
+    console.log('[SyncEngine] Checking Google Drive connection status...');
+    const connector = createSyncConnector();
     const status = await connector.getStatus();
     if (status.status !== 'connected') {
       console.warn(`[SyncEngine] Sync aborted: provider is not connected. Status: ${status.status}, Message: ${status.message}`);
@@ -224,15 +242,14 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
       };
     }
 
-    console.log('[SyncEngine] Provider connected. Loading encryption keys...');
+    dlog('[SyncEngine] Provider connected. Loading encryption key...');
     const rawKeyB64 = await getRawSyncKey();
-    const localKeyset = await getStoredSyncKeyset();
-    if (!rawKeyB64 || !localKeyset) {
-      console.warn('[SyncEngine] Sync aborted: encryption key not configured or locked.');
+    if (!rawKeyB64) {
+      dwarn('[SyncEngine] Sync aborted: encryption key not configured.');
       return {
         ...emptySummary,
         status: 'needs_configuration',
-        message: 'Create or unlock the sync encryption key before syncing.',
+        message: 'Sync encryption key is not set up.',
       };
     }
 
@@ -243,10 +260,10 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
       total: 0,
     });
 
-    console.log('[SyncEngine] Ensuring remote sync keyset exists in the cloud...');
-    await ensureRemoteKeyset(connector, localKeyset);
+    dlog('[SyncEngine] Ensuring remote key manifest exists in the cloud...');
+    await ensureRemoteKey(connector, rawKeyB64);
 
-    console.log('[SyncEngine] Initializing sync state: marking any untracked local records as dirty...');
+    dlog('[SyncEngine] Initializing sync state: marking any untracked local records as dirty...');
     await initializeSyncStates();
 
     let pulled = 0;
@@ -259,7 +276,7 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
     let pushedTodos = 0;
     let pushedNotes = 0;
 
-    console.log('[SyncEngine] Pull Phase: Fetching remote objects list from cloud...');
+    dlog('[SyncEngine] Pull Phase: Fetching remote objects list from cloud...');
     const remoteObjects = await connector.listRemoteObjects();
     const recordObjects = remoteObjects.filter((object) => isRecordPath(object.path));
     console.log(`[SyncEngine] Pull Phase: Found ${remoteObjects.length} total files, of which ${recordObjects.length} are records.`);
@@ -278,7 +295,6 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
         const object = collObjects[index];
         console.log(`[SyncEngine] Checking cloud record ${index + 1}/${collObjects.length} for ${coll}: ${object.path}`);
 
-        // Performance Optimization: Check local sync state to skip downloading unchanged objects
         const parsed = parseRecordPath(object.path);
         if (parsed) {
           const state = await getSyncState(parsed.collection, parsed.recordId);
@@ -286,7 +302,6 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
           if (state && state.synced_at && state.dirty !== 1 && object.modifiedAt) {
             const remoteTime = new Date(object.modifiedAt).getTime();
             const localSyncedTime = new Date(state.synced_at).getTime();
-            // Skip if the cloud record has not been modified since the last sync (with 2s clock drift buffer)
             if (remoteTime - 2000 <= localSyncedTime) {
               console.log(`[SyncEngine] Skipped remote download (unchanged since last sync): ${object.path}`);
               continue;
@@ -313,7 +328,6 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
           continue;
         }
 
-
         console.log(`[SyncEngine] Applying remote record: collection=${envelope.collection}, recordId=${envelope.recordId}, version=${envelope.version}...`);
         const result = await applyEnvelope(envelope, rawKeyB64, object.modifiedAt);
         console.log(`[SyncEngine] Application result for ${envelope.recordId}: ${result}`);
@@ -334,7 +348,7 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
       }
     }
 
-    console.log('[SyncEngine] Push Phase: Querying all local dirty records to upload...');
+    dlog('[SyncEngine] Push Phase: Querying all local dirty records to upload...');
     const dirtyRecords = await getDirtyRecords();
     console.log(`[SyncEngine] Push Phase: Found ${dirtyRecords.length} dirty record(s) to upload.`);
     const syncedAt = new Date().toISOString();
