@@ -61,6 +61,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   const debounceTimerRef = useRef<number | null>(null);
   const isSyncingRef = useRef(false);
+  const isResettingRef = useRef(false);
   const startupSyncExecutedRef = useRef(false);
 
   const refreshConflicts = useCallback(async () => {
@@ -199,12 +200,21 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const resetRemoteData = useCallback(async () => {
+    if (isResettingRef.current) {
+      dlog('[sync:context] resetRemoteData already in progress, skipping');
+      return;
+    }
+    isResettingRef.current = true;
     dlog('[sync:context] resetRemoteData start');
-    await deleteAllRemoteData();
-    await resetAllSyncStates();
-    await clearSyncSecrets();
-    await refresh();
-    dlog('[sync:context] resetRemoteData done');
+    try {
+      await deleteAllRemoteData();
+      await resetAllSyncStates();
+      await clearSyncSecrets();
+      await refresh();
+      dlog('[sync:context] resetRemoteData done');
+    } finally {
+      isResettingRef.current = false;
+    }
   }, [refresh]);
 
   const resolveConflict = useCallback(async (conflictId: string, resolution: 'local' | 'remote') => {
