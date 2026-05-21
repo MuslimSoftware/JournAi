@@ -143,6 +143,7 @@ export async function markRecordDirty(collection: SyncCollection, recordId: stri
         updated_at = excluded.updated_at`,
     [collection, recordId, updatedAt]
   );
+  await clearSyncConflictsForRecord(collection, recordId);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('sync:dirty-record', { detail: { collection, recordId } }));
   }
@@ -160,6 +161,30 @@ export async function markRecordDeleted(collection: SyncCollection, recordId: st
         updated_at = excluded.updated_at`,
     [collection, recordId, updatedAt]
   );
+  await clearSyncConflictsForRecord(collection, recordId);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sync:dirty-record', { detail: { collection, recordId } }));
+  }
+}
+
+export async function markRecordPendingUpload(
+  collection: SyncCollection,
+  recordId: string,
+  updatedAt: string
+): Promise<void> {
+  assertSyncCollection(collection);
+  const result = await execute(
+    `UPDATE sync_state SET
+        dirty = 1,
+        local_version = local_version + 1,
+        updated_at = $3
+      WHERE collection = $1 AND record_id = $2`,
+    [collection, recordId, updatedAt]
+  );
+  if (result.rowsAffected === 0) {
+    return;
+  }
+  await clearSyncConflictsForRecord(collection, recordId);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('sync:dirty-record', { detail: { collection, recordId } }));
   }
@@ -184,13 +209,6 @@ export async function getDirtyRecords(): Promise<LocalSyncRecord[]> {
     `SELECT s.collection, s.record_id, s.dirty, s.deleted, s.local_version, s.remote_version, s.updated_at, s.synced_at, s.remote_updated_at, s.payload_hash
      FROM sync_state s
      WHERE s.dirty = 1
-       AND NOT EXISTS (
-         SELECT 1
-         FROM sync_conflicts c
-         WHERE c.collection = s.collection
-           AND c.record_id = s.record_id
-           AND c.resolved = 0
-       )
      ORDER BY s.updated_at ASC`
   );
   const records: LocalSyncRecord[] = [];
@@ -236,6 +254,7 @@ export async function markRecordSynced(
         payload_hash = $5`,
     [collection, recordId, version, syncedAt, payloadHash, deleted ? 1 : 0]
   );
+  await clearSyncConflictsForRecord(collection, recordId);
 }
 
 export async function applyRemoteRecord(
@@ -272,6 +291,7 @@ export async function applyRemoteRecord(
   });
 
   await executeBatch(statements);
+  await clearSyncConflictsForRecord(collection, recordId);
 }
 
 export async function updateSyncedAt(
@@ -283,6 +303,22 @@ export async function updateSyncedAt(
     `UPDATE sync_state SET synced_at = $1 WHERE collection = $2 AND record_id = $3`,
     [syncedAt, collection, recordId]
   );
+}
+
+export async function clearSyncConflictsForRecord(
+  collection: SyncCollection,
+  recordId: string
+): Promise<void> {
+  assertSyncCollection(collection);
+  const result = await execute(
+    `UPDATE sync_conflicts
+     SET resolved = 1
+     WHERE collection = $1 AND record_id = $2 AND resolved = 0`,
+    [collection, recordId]
+  );
+  if (result.rowsAffected > 0 && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sync:conflicts-changed'));
+  }
 }
 
 export async function saveSyncConflict(

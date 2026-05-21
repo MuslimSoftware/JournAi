@@ -49,8 +49,21 @@ vi.mock('../../../lib/db', () => ({
 
 import { syncNow } from '../engine';
 
+interface TestSyncState {
+  collection: 'entries' | 'sticky_notes';
+  record_id: string;
+  dirty: number;
+  deleted: number;
+  local_version: number;
+  remote_version: number;
+  updated_at: string;
+  synced_at: string | null;
+  remote_updated_at: string | null;
+  payload_hash: string | null;
+}
+
 describe('sync engine integrity', () => {
-  const localState = {
+  const localState: TestSyncState = {
     collection: 'entries',
     record_id: 'entry-1',
     dirty: 1,
@@ -62,6 +75,7 @@ describe('sync engine integrity', () => {
     remote_updated_at: null,
     payload_hash: null,
   };
+  let currentSyncState: TestSyncState;
 
   const remoteEnvelope = {
     schemaVersion: 1,
@@ -82,8 +96,7 @@ describe('sync engine integrity', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-
-    const pendingConflicts: Array<{ collection: string; recordId: string }> = [];
+    currentSyncState = { ...localState };
 
     mocks.connector.getStatus.mockResolvedValue({ status: 'connected', message: null });
     mocks.connector.listRemoteObjects.mockResolvedValue([
@@ -116,10 +129,16 @@ describe('sync engine integrity', () => {
       updated_at: '2026-05-19T11:00:00.000Z',
       last_content_update: null,
     });
+    mocks.encryptJsonPayload.mockResolvedValue({
+      ivB64: 'local-iv',
+      ciphertextB64: 'local-ciphertext',
+      hash: 'local-hash',
+    });
+    mocks.hashJsonPayload.mockResolvedValue('deleted-hash');
 
     mocks.select.mockImplementation((query: string, values?: unknown[]) => {
       if (query.includes('FROM sync_state WHERE collection = $1 AND record_id = $2')) {
-        return Promise.resolve([{ ...localState }]);
+        return Promise.resolve([{ ...currentSyncState }]);
       }
 
       if (query.includes('FROM entries WHERE id = $1')) {
@@ -136,41 +155,181 @@ describe('sync engine integrity', () => {
       }
 
       if (query.includes('FROM sync_state s')) {
-        const hasPendingConflict = pendingConflicts.some(
-          (conflict) => conflict.collection === 'entries' && conflict.recordId === 'entry-1'
-        );
-        return Promise.resolve(query.includes('NOT EXISTS') && hasPendingConflict ? [] : [{ ...localState }]);
+        return Promise.resolve(currentSyncState.dirty === 1 ? [{ ...currentSyncState }] : []);
       }
 
       return Promise.resolve([]);
     });
 
     mocks.execute.mockImplementation((query: string, values?: unknown[]) => {
-      if (query.includes('INSERT INTO sync_conflicts')) {
-        pendingConflicts.push({
-          collection: values?.[1] as string,
-          recordId: values?.[2] as string,
-        });
+      if (query.includes('UPDATE sync_state SET') && query.includes('dirty = 1')) {
+        currentSyncState = {
+          ...currentSyncState,
+          dirty: 1,
+          local_version: currentSyncState.local_version + 1,
+          updated_at: values?.[2] as string,
+        };
       }
 
       return Promise.resolve({ rowsAffected: 1 });
     });
 
-    mocks.executeBatch.mockResolvedValue(undefined);
+    mocks.executeBatch.mockImplementation((statements: Array<{ query: string; values?: unknown[] }>) => {
+      const stateStatement = statements.find((statement) => statement.query.includes('INSERT INTO sync_state'));
+      if (stateStatement?.values && stateStatement.values.length >= 6) {
+        const version = stateStatement.values[3] as number;
+        currentSyncState = {
+          ...currentSyncState,
+          dirty: 0,
+          deleted: stateStatement.values[2] as number,
+          local_version: Math.max(currentSyncState.local_version, version),
+          remote_version: Math.max(currentSyncState.remote_version, version),
+          updated_at: stateStatement.values[4] as string,
+          payload_hash: stateStatement.values[5] as string,
+        };
+      }
+      return Promise.resolve();
+    });
     mocks.setLastSyncedAt.mockResolvedValue(undefined);
     mocks.storeRawSyncKey.mockResolvedValue(undefined);
   });
 
-  it('does not push a dirty record after saving an unresolved conflict for it', async () => {
+  it('keeps a newer dirty local record and pushes it over the stale cloud copy', async () => {
     const summary = await syncNow();
 
-    expect(summary.conflicts).toBe(1);
-    expect(summary.pushed).toBe(0);
-    expect(mocks.execute).toHaveBeenCalledWith(
+    expect(summary.conflicts).toBe(0);
+    expect(summary.pushed).toBe(1);
+    expect(mocks.execute).not.toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO sync_conflicts'),
-      expect.arrayContaining(['entries', 'entry-1'])
+      expect.anything()
     );
-    expect(mocks.connector.uploadObject).not.toHaveBeenCalled();
+    expect(mocks.encryptJsonPayload).toHaveBeenCalledWith(
+      'raw-key',
+      expect.objectContaining({ id: 'entry-1', content: 'Local edit' })
+    );
+    expect(mocks.connector.uploadObject).toHaveBeenCalledWith(
+      'records/entries/entry-1.json',
+      expect.stringContaining('"payloadHash": "local-hash"')
+    );
+  });
+
+  it('applies a newer cloud record automatically instead of saving a manual conflict', async () => {
+    mocks.connector.downloadObject.mockImplementation((path: string) => {
+      if (path === 'manifest/sync-key.json') {
+        return Promise.resolve(JSON.stringify({
+          v: 1,
+          keyB64: 'raw-key',
+          createdAt: '2026-05-19T08:00:00.000Z',
+        }));
+      }
+
+      if (path === 'records/entries/entry-1.json') {
+        return Promise.resolve(JSON.stringify({
+          ...remoteEnvelope,
+          updatedAt: '2026-05-19T13:00:00.000Z',
+          version: 4,
+        }));
+      }
+
+      return Promise.resolve(null);
+    });
+    mocks.decryptJsonPayload.mockResolvedValue({
+      id: 'entry-1',
+      date: '2026-05-19',
+      content: 'Remote newer edit',
+      created_at: '2026-05-19T09:00:00.000Z',
+      updated_at: '2026-05-19T13:00:00.000Z',
+      last_content_update: null,
+    });
+
+    const summary = await syncNow();
+
+    expect(summary.conflicts).toBe(0);
+    expect(summary.pushed).toBe(0);
+    expect(mocks.execute).not.toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO sync_conflicts'),
+      expect.anything()
+    );
+    expect(mocks.executeBatch).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          query: expect.stringContaining('INSERT INTO entries'),
+          values: expect.arrayContaining(['Remote newer edit']),
+        }),
+      ])
+    );
+  });
+
+  it('pushes a newer local sticky-note deletion over a stale cloud note', async () => {
+    currentSyncState = {
+      collection: 'sticky_notes',
+      record_id: 'note-1',
+      dirty: 1,
+      deleted: 1,
+      local_version: 5,
+      remote_version: 4,
+      updated_at: '2026-05-19T12:00:00.000Z',
+      synced_at: null,
+      remote_updated_at: null,
+      payload_hash: null,
+    };
+    mocks.connector.listRemoteObjects.mockResolvedValue([
+      {
+        path: 'records/sticky_notes/note-1.json',
+        modifiedAt: '2026-05-19T11:05:00.000Z',
+      },
+    ]);
+    mocks.connector.downloadObject.mockImplementation((path: string) => {
+      if (path === 'manifest/sync-key.json') {
+        return Promise.resolve(JSON.stringify({
+          v: 1,
+          keyB64: 'raw-key',
+          createdAt: '2026-05-19T08:00:00.000Z',
+        }));
+      }
+
+      if (path === 'records/sticky_notes/note-1.json') {
+        return Promise.resolve(JSON.stringify({
+          schemaVersion: 1,
+          appId: 'journai',
+          collection: 'sticky_notes',
+          recordId: 'note-1',
+          version: 4,
+          deleted: false,
+          updatedAt: '2026-05-19T11:00:00.000Z',
+          deviceId: 'other-device',
+          payloadHash: 'remote-note-hash',
+          payload: {
+            algorithm: 'AES-256-GCM',
+            ivB64: 'iv',
+            ciphertextB64: 'ciphertext',
+          },
+        }));
+      }
+
+      return Promise.resolve(null);
+    });
+    mocks.decryptJsonPayload.mockResolvedValue({
+      id: 'note-1',
+      date: '2026-05-18',
+      content: 'Old note date',
+      created_at: '2026-05-18T09:00:00.000Z',
+      updated_at: '2026-05-19T11:00:00.000Z',
+    });
+
+    const summary = await syncNow();
+
+    expect(summary.conflicts).toBe(0);
+    expect(summary.pushed).toBe(1);
+    expect(summary.pushedNotes).toBe(1);
+    expect(mocks.connector.uploadObject).toHaveBeenCalledWith(
+      'records/sticky_notes/note-1.json',
+      expect.stringContaining('"deleted": true')
+    );
+    expect(mocks.connector.uploadObject).toHaveBeenCalledWith(
+      'records/sticky_notes/note-1.json',
+      expect.stringContaining('"payload": null')
+    );
   });
 
   it('adopts the Drive key before syncing when encrypted records already exist', async () => {
@@ -192,9 +351,14 @@ describe('sync engine integrity', () => {
 
     const summary = await syncNow();
 
-    expect(summary.conflicts).toBe(1);
+    expect(summary.conflicts).toBe(0);
+    expect(summary.pushed).toBe(1);
     expect(mocks.storeRawSyncKey).toHaveBeenCalledWith('remote-key');
     expect(mocks.decryptJsonPayload).toHaveBeenCalledWith('remote-key', 'iv', 'ciphertext');
+    expect(mocks.encryptJsonPayload).toHaveBeenCalledWith(
+      'remote-key',
+      expect.objectContaining({ id: 'entry-1', content: 'Local edit' })
+    );
     expect(mocks.connector.uploadObject).not.toHaveBeenCalledWith(
       'manifest/sync-key.json',
       expect.any(String)
@@ -233,7 +397,8 @@ describe('sync engine integrity', () => {
 
     const summary = await syncNow();
 
-    expect(summary.conflicts).toBe(1);
+    expect(summary.conflicts).toBe(0);
+    expect(summary.pushed).toBe(1);
     expect(mocks.decryptJsonPayload).toHaveBeenCalledWith('stale-remote-key', 'iv', 'ciphertext');
     expect(mocks.decryptJsonPayload).toHaveBeenCalledWith('raw-key', 'iv', 'ciphertext');
     expect(mocks.storeRawSyncKey).not.toHaveBeenCalled();

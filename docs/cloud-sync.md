@@ -11,11 +11,11 @@ This document describes the current JournAi cloud sync implementation. Sync is l
 
 ## Main Files
 
-- `src/components/settings/SyncCard.tsx`: Settings UI for provider connection, passphrase setup, manual sync, and conflict entry point.
-- `src/contexts/SyncContext.tsx`: Global sync state, startup sync, debounced local-change sync, periodic sync, keyset setup state, and conflict resolution actions.
+- `src/components/settings/SyncCard.tsx`: Settings UI for provider connection, passphrase setup, manual sync, and the legacy conflict entry point.
+- `src/contexts/SyncContext.tsx`: Global sync state, startup sync, debounced local-change sync, periodic sync, keyset setup state, and legacy conflict resolution actions.
 - `src/services/sync/oauth.ts`: OAuth PKCE flow, token refresh, account labels, loopback and deep-link callback handling.
 - `src/services/sync/engine.ts`: Pull-then-push sync engine.
-- `src/services/sync/localRepository.ts`: Local sync metadata, dirty/deleted markers, remote apply, and conflict persistence.
+- `src/services/sync/localRepository.ts`: Local sync metadata, dirty/deleted markers, remote apply, and legacy conflict cleanup.
 - `src/services/sync/crypto.ts`: Passphrase wrapping and AES-GCM payload encryption.
 - `src/services/sync/connectors/googleDrive.ts`: Google Drive `appDataFolder` object operations.
 - `src-tauri/src/lib.rs`: Desktop OAuth loopback listener and sync metadata database migration.
@@ -134,27 +134,27 @@ Local writes call `markRecordDirty()` or `markRecordDeleted()` from the entries,
 5. Initialize missing local sync state rows as dirty.
 6. List remote objects.
 7. Pull remote records.
-8. Query dirty local records that do not have unresolved conflicts.
+8. Query dirty local records.
 9. Push dirty local records.
 10. Save the app-level last synced timestamp.
 
-The engine pulls before pushing so it can detect remote edits before overwriting them.
+The engine pulls before pushing so it can compare local and remote edit timestamps before overwriting either side.
 
 ## Pull Behavior
 
 For each remote record envelope:
 
-1. Skip if local state already knows an equal or newer remote version and the record is not dirty.
+1. Skip if the local state already has the same payload hash and deletion state.
 2. Decrypt the remote payload.
-3. If the local record is dirty, save a conflict.
-4. If there is no local dirty state, apply the remote upsert or remote tombstone.
-5. Update `sync_state` to reflect the remote version and provider modified timestamp.
+3. If the local record is newer, keep it dirty or mark it dirty again so the push phase overwrites the stale cloud object.
+4. If the remote record is newer, apply the remote upsert or remote tombstone.
+5. Update `sync_state` to reflect the accepted version and provider modified timestamp.
 
 Remote apply resets derived entry fields such as processing status and content hash so downstream analysis can re-run.
 
 ## Push Behavior
 
-Dirty local records are selected from `sync_state` with a guard that excludes records with unresolved conflicts.
+Dirty local records are selected from `sync_state`, including records that had unresolved conflicts from older app versions. A successful local upload marks any stale conflict rows for that record as resolved.
 
 Each upload writes an encrypted envelope to:
 
@@ -166,13 +166,13 @@ After upload, `markRecordSynced()` clears `dirty` only if `local_version` still 
 
 ## Conflict Handling
 
-A conflict is created when a remote record arrives while the same local record is dirty.
+Normal sync uses a last-edit-wins policy. When local and remote both changed the same record, the newer `updated_at` value wins automatically. If the local side wins, the record remains dirty and is uploaded in the same sync cycle when possible. If the remote side wins, the remote payload or tombstone is applied locally.
 
-Conflict rules:
+The `sync_conflicts` table is retained for older unresolved conflicts and any future manual recovery path:
 
-- An unresolved conflict blocks pushing that same record.
+- New local edits or successful uploads mark stale unresolved conflict rows for that same record as resolved.
 - Duplicate unresolved conflict rows for the same collection and record are not created.
-- The Settings UI shows unresolved conflicts and opens `ConflictResolutionModal`.
+- If unresolved rows still exist, the Settings UI can show them in `ConflictResolutionModal`.
 - Choosing the cloud version applies the remote payload or remote deletion locally.
 - Choosing the local version keeps the local row dirty and bumps `local_version` so it uploads on the next sync.
 - After resolving a conflict, the context triggers a background sync to propagate the selected version.

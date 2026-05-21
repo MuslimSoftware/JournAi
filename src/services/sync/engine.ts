@@ -5,10 +5,9 @@ import { dlog, dwarn, derr } from '../../lib/devLog';
 import {
   applyRemoteRecord,
   getDirtyRecords,
-  getLocalPayload,
   getSyncState,
+  markRecordPendingUpload,
   markRecordSynced,
-  saveSyncConflict,
   initializeSyncStates,
   updateSyncedAt,
 } from './localRepository';
@@ -98,6 +97,25 @@ function parseKeyManifest(raw: string): SyncKeyManifest | null {
 
 function decryptFailureMessage(collection: SyncCollection, recordId: string): string {
   return `Could not decrypt cloud ${collectionLabel(collection)} (${recordId}). The sync key on this device does not match the encrypted Google Drive data. Sync the device that last uploaded this data, then try again.`;
+}
+
+function compareTimestamps(left: string | null | undefined, right: string | null | undefined): number {
+  if (!left && !right) {
+    return 0;
+  }
+  if (!left) {
+    return -1;
+  }
+  if (!right) {
+    return 1;
+  }
+
+  const leftTime = Date.parse(left);
+  const rightTime = Date.parse(right);
+  if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) {
+    return leftTime - rightTime;
+  }
+  return left.localeCompare(right);
 }
 
 async function uploadRemoteKey(connector: ReturnType<typeof createSyncConnector>, rawKeyB64: string): Promise<void> {
@@ -194,9 +212,16 @@ export async function deleteAllRemoteData(): Promise<void> {
   dlog('[sync:engine] deleteAllRemoteData complete');
 }
 
-async function applyEnvelope(envelope: SyncEnvelope, rawKeyB64: string, remoteModifiedAt?: string | null): Promise<'applied' | 'skipped' | 'conflict'> {
+async function applyEnvelope(envelope: SyncEnvelope, rawKeyB64: string, remoteModifiedAt?: string | null): Promise<'applied' | 'skipped'> {
   const state = await getSyncState(envelope.collection, envelope.recordId);
-  if (state && state.remote_version >= envelope.version && state.dirty !== 1) {
+  const localVsRemote = state ? compareTimestamps(state.updated_at, envelope.updatedAt) : 0;
+
+  if (
+    state &&
+    state.dirty !== 1 &&
+    state.payload_hash === envelope.payloadHash &&
+    state.deleted === (envelope.deleted ? 1 : 0)
+  ) {
     await updateSyncedAt(envelope.collection, envelope.recordId, remoteModifiedAt ?? undefined);
     return 'skipped';
   }
@@ -215,12 +240,13 @@ async function applyEnvelope(envelope: SyncEnvelope, rawKeyB64: string, remoteMo
     }
   }
 
-  if (state?.dirty === 1) {
-    const localPayload = await getLocalPayload(envelope.collection, envelope.recordId);
-    await saveSyncConflict(envelope.collection, envelope.recordId, localPayload, remotePayload);
-    if (state.updated_at > envelope.updatedAt) {
-      return 'conflict';
-    }
+  if (state?.dirty === 1 && localVsRemote >= 0) {
+    return 'skipped';
+  }
+
+  if (state && state.dirty !== 1 && localVsRemote > 0) {
+    await markRecordPendingUpload(envelope.collection, envelope.recordId, state.updated_at);
+    return 'skipped';
   }
 
   await applyRemoteRecord(
@@ -234,7 +260,7 @@ async function applyEnvelope(envelope: SyncEnvelope, rawKeyB64: string, remoteMo
     remoteModifiedAt ?? undefined
   );
 
-  return state?.dirty === 1 ? 'conflict' : 'applied';
+  return 'applied';
 }
 
 let isSyncRunning = false;
@@ -378,7 +404,7 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
         }
 
         console.log(`[SyncEngine] Applying remote record: collection=${envelope.collection}, recordId=${envelope.recordId}, version=${envelope.version}...`);
-        let result: 'applied' | 'skipped' | 'conflict';
+        let result: 'applied' | 'skipped';
         try {
           result = await applyEnvelope(envelope, activeRawKeyB64, object.modifiedAt);
         } catch (error) {
@@ -394,7 +420,7 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
           result = await applyEnvelope(envelope, activeRawKeyB64, object.modifiedAt);
         }
         console.log(`[SyncEngine] Application result for ${envelope.recordId}: ${result}`);
-        if (result === 'applied' || result === 'skipped' || result === 'conflict') {
+        if (result === 'applied' || result === 'skipped') {
           if (envelope.collection === 'entries') {
             pulledEntries += 1;
           } else if (envelope.collection === 'todos') {
@@ -403,10 +429,6 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
             pulledNotes += 1;
           }
           pulled += 1;
-
-          if (result === 'conflict') {
-            conflicts += 1;
-          }
         }
       }
     }

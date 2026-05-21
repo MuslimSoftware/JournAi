@@ -10,14 +10,14 @@ vi.mock('../../../lib/db', () => ({
   executeBatch: (...args: unknown[]) => mockExecuteBatch(...args),
 }));
 
-import { getDirtyRecords, markRecordSynced, saveSyncConflict } from '../localRepository';
+import { getDirtyRecords, markRecordDirty, markRecordSynced, saveSyncConflict } from '../localRepository';
 
 describe('sync local repository integrity', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('does not select dirty records that have unresolved conflicts', async () => {
+  it('selects dirty records even when stale unresolved conflicts exist', async () => {
     mockSelect.mockImplementation((query: string) => {
       if (query.includes('FROM sync_state s')) {
         return Promise.resolve([
@@ -67,9 +67,8 @@ describe('sync local repository integrity', () => {
     const records = await getDirtyRecords();
     const dirtyQuery = mockSelect.mock.calls[0][0] as string;
 
-    expect(dirtyQuery).toContain('NOT EXISTS');
-    expect(dirtyQuery).toContain('FROM sync_conflicts c');
-    expect(dirtyQuery).toContain('c.resolved = 0');
+    expect(dirtyQuery).not.toContain('NOT EXISTS');
+    expect(dirtyQuery).not.toContain('FROM sync_conflicts c');
     expect(records).toEqual([
       {
         collection: 'entries',
@@ -125,6 +124,25 @@ describe('sync local repository integrity', () => {
       'payload-hash',
       0,
     ]);
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE sync_conflicts'),
+      ['entries', 'entry-1']
+    );
+  });
+
+  it('marks stale conflict rows resolved when a record is edited locally', async () => {
+    mockExecute.mockResolvedValue({ rowsAffected: 1 });
+
+    await markRecordDirty('sticky_notes', 'note-1', '2026-05-19T12:00:00.000Z');
+
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO sync_state'),
+      ['sticky_notes', 'note-1', '2026-05-19T12:00:00.000Z']
+    );
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE sync_conflicts'),
+      ['sticky_notes', 'note-1']
+    );
   });
 
   it('does not create duplicate unresolved conflicts for the same record', async () => {
