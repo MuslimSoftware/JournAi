@@ -28,6 +28,10 @@
         {
           "scheme": ["journai"],
           "appLink": false
+        },
+        {
+          "scheme": ["com.googleusercontent.apps.159585421383-j16tt0jgr9t7tehdncsf89hba7vhl6d0"],
+          "appLink": false
         }
       ],
       "desktop": {

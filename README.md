@@ -194,6 +194,38 @@ bun run tauri ios dev --force-ip-prompt
 
 For physical devices, Tauri sets `TAURI_DEV_HOST`; `vite.config.ts` already uses that value so the dev server listens on the address the iPhone can reach.
 
+#### Troubleshooting
+
+**Blank white screen after granting local network permission**
+
+iOS asks for local network access on first launch. If you grant it but the app stays blank, force-close the app and reopen it — iOS requires a fresh launch to apply the permission.
+
+**`Port 1420 is already in use` / `beforeDevCommand` fails**
+
+A previous Vite dev server is still holding the ports. Kill it before retrying:
+
+```bash
+kill $(lsof -ti:1420,1421) 2>/dev/null
+bun run tauri ios dev
+```
+
+**`Connection refused` in the "Build Rust Code" Xcode script phase**
+
+This happens when the tauri CLI's WebSocket server never started (usually because `beforeDevCommand` failed due to the port conflict above). Fix the port conflict first, then if the error persists, clear Xcode's cached build scripts:
+
+```bash
+rm -rf ~/Library/Developer/Xcode/DerivedData/journai-*
+bun run tauri ios dev
+```
+
+**`Entitlements file was modified during the build`**
+
+Add `CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES` to the iOS target's build settings in `src-tauri/gen/apple/journai.xcodeproj/project.pbxproj`. This is already set in the committed project file.
+
+**`@tauri-apps/plugin-deep-link` not found**
+
+Run `bun install` — the package may not have been installed despite being listed in `package.json`.
+
 Desktop release builds are sourced from the repository root. The GitHub release workflow runs Tauri from the root, so shipped desktop artifacts use `src/` and `src-tauri/`. The separate `apps/desktop/` package only matters when running the explicit desktop scripts such as `tauri:dev:desktop`, `tauri:build:desktop`, `dev:desktop`, or `build:desktop`.
 
 ---
