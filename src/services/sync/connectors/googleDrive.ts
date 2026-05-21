@@ -35,12 +35,17 @@ function isStatus(value: HeadersInit | SyncConnectorStatus): value is SyncConnec
 
 const pathIdCache = new Map<string, string>();
 
-async function findFileByPath(path: string, headers: HeadersInit): Promise<GoogleFile | null> {
-  const cachedId = pathIdCache.get(path);
-  if (cachedId) {
-    return { id: cachedId, name: remotePathToFileName(path) };
+function isNewerFile(candidate: GoogleFile, current: GoogleFile): boolean {
+  if (!candidate.modifiedTime) {
+    return false;
   }
+  if (!current.modifiedTime) {
+    return true;
+  }
+  return new Date(candidate.modifiedTime).getTime() > new Date(current.modifiedTime).getTime();
+}
 
+async function findFilesByPath(path: string, headers: HeadersInit): Promise<GoogleFile[]> {
   const fileName = remotePathToFileName(path).replace(/'/g, "\\'");
   const params = new URLSearchParams({
     spaces: 'appDataFolder',
@@ -53,7 +58,20 @@ async function findFileByPath(path: string, headers: HeadersInit): Promise<Googl
     'Google Drive file lookup'
   );
   const body = await response.json() as GoogleListResponse;
-  const file = body.files?.[0] ?? null;
+  return [...(body.files ?? [])].sort((left, right) => {
+    const leftTime = left.modifiedTime ? new Date(left.modifiedTime).getTime() : 0;
+    const rightTime = right.modifiedTime ? new Date(right.modifiedTime).getTime() : 0;
+    return rightTime - leftTime;
+  });
+}
+
+async function findFileByPath(path: string, headers: HeadersInit): Promise<GoogleFile | null> {
+  const cachedId = pathIdCache.get(path);
+  if (cachedId) {
+    return { id: cachedId, name: remotePathToFileName(path) };
+  }
+
+  const file = (await findFilesByPath(path, headers))[0] ?? null;
   if (file) {
     pathIdCache.set(path, file.id);
   }
@@ -78,7 +96,7 @@ export function createGoogleDriveConnector(): SyncConnector {
       }
 
       pathIdCache.clear(); // Clear cache at start of list to ensure freshness
-      const objects: RemoteSyncObject[] = [];
+      const uniqueFiles = new Map<string, GoogleFile>();
       let pageToken: string | null = null;
 
       do {
@@ -104,29 +122,24 @@ export function createGoogleDriveConnector(): SyncConnector {
             continue;
           }
 
-          pathIdCache.set(path, file.id); // Populate cache with pre-fetched ID
-
-          objects.push(buildRemoteObject(
-            path,
-            file.modifiedTime ?? null,
-            file.size ? Number(file.size) : undefined,
-            file.md5Checksum
-          ));
+          const existing = uniqueFiles.get(path);
+          if (!existing || isNewerFile(file, existing)) {
+            uniqueFiles.set(path, file);
+          }
         }
 
         pageToken = body.nextPageToken ?? null;
       } while (pageToken);
 
-      // Keep only the newest version of each file in case Google Drive returned duplicate files with the same name
-      const uniqueObjects = new Map<string, RemoteSyncObject>();
-      for (const obj of objects) {
-        const existing = uniqueObjects.get(obj.path);
-        if (!existing || (obj.modifiedAt && existing.modifiedAt && new Date(obj.modifiedAt) > new Date(existing.modifiedAt))) {
-          uniqueObjects.set(obj.path, obj);
-        }
-      }
-
-      return Array.from(uniqueObjects.values());
+      return Array.from(uniqueFiles, ([path, file]) => {
+        pathIdCache.set(path, file.id);
+        return buildRemoteObject(
+          path,
+          file.modifiedTime ?? null,
+          file.size ? Number(file.size) : undefined,
+          file.md5Checksum
+        );
+      });
     },
     async downloadObject(path: string): Promise<string | null> {
       const headers = await getAuthHeaders();
@@ -202,18 +215,20 @@ export function createGoogleDriveConnector(): SyncConnector {
         throw new Error(headers.message ?? 'Google Drive is disconnected.');
       }
 
-      const file = await findFileByPath(path, headers);
-      if (!file) {
+      const files = await findFilesByPath(path, headers);
+      if (files.length === 0) {
         return;
       }
 
-      await requireOk(
-        await fetch(`${DRIVE_FILES_URL}/${encodeURIComponent(file.id)}`, {
+      for (const file of files) {
+        const response = await fetch(`${DRIVE_FILES_URL}/${encodeURIComponent(file.id)}`, {
           method: 'DELETE',
           headers,
-        }),
-        'Google Drive delete'
-      );
+        });
+        if (response.status !== 404) {
+          await requireOk(response, 'Google Drive delete');
+        }
+      }
       pathIdCache.delete(path);
     },
   };

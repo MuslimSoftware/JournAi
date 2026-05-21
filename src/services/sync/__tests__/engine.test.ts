@@ -1,16 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  localKeyset: {
-    schemaVersion: 1 as const,
-    algorithm: 'AES-256-GCM' as const,
-    kdf: 'PBKDF2-SHA-256' as const,
-    iterations: 100000,
-    saltB64: 'salt',
-    wrappedKeyB64: 'wrapped',
-    ivB64: 'iv',
-    createdAt: '2026-05-19T08:00:00.000Z',
-  },
   connector: {
     provider: 'google_drive' as const,
     getStatus: vi.fn(),
@@ -26,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   encryptJsonPayload: vi.fn(),
   hashJsonPayload: vi.fn(),
   setLastSyncedAt: vi.fn(),
+  storeRawSyncKey: vi.fn(),
 }));
 
 vi.mock('../connectors', () => ({
@@ -40,8 +31,8 @@ vi.mock('../settings', () => ({
     lastSyncedAt: null,
   }),
   getRawSyncKey: () => Promise.resolve('raw-key'),
-  getStoredSyncKeyset: () => Promise.resolve(mocks.localKeyset),
   setLastSyncedAt: (...args: unknown[]) => mocks.setLastSyncedAt(...args),
+  storeRawSyncKey: (...args: unknown[]) => mocks.storeRawSyncKey(...args),
 }));
 
 vi.mock('../crypto', () => ({
@@ -103,7 +94,11 @@ describe('sync engine integrity', () => {
     ]);
     mocks.connector.downloadObject.mockImplementation((path: string) => {
       if (path === 'manifest/sync-key.json') {
-        return Promise.resolve(JSON.stringify(mocks.localKeyset));
+        return Promise.resolve(JSON.stringify({
+          v: 1,
+          keyB64: 'raw-key',
+          createdAt: '2026-05-19T08:00:00.000Z',
+        }));
       }
 
       if (path === 'records/entries/entry-1.json') {
@@ -163,6 +158,7 @@ describe('sync engine integrity', () => {
 
     mocks.executeBatch.mockResolvedValue(undefined);
     mocks.setLastSyncedAt.mockResolvedValue(undefined);
+    mocks.storeRawSyncKey.mockResolvedValue(undefined);
   });
 
   it('does not push a dirty record after saving an unresolved conflict for it', async () => {
@@ -177,25 +173,73 @@ describe('sync engine integrity', () => {
     expect(mocks.connector.uploadObject).not.toHaveBeenCalled();
   });
 
-  it('aborts before syncing records when the remote keyset differs', async () => {
+  it('adopts the Drive key before syncing when encrypted records already exist', async () => {
     mocks.connector.downloadObject.mockImplementation((path: string) => {
       if (path === 'manifest/sync-key.json') {
         return Promise.resolve(JSON.stringify({
-          ...mocks.localKeyset,
-          wrappedKeyB64: 'different-wrapped-key',
+          v: 1,
+          keyB64: 'remote-key',
+          createdAt: '2026-05-19T08:00:00.000Z',
         }));
+      }
+
+      if (path === 'records/entries/entry-1.json') {
+        return Promise.resolve(JSON.stringify(remoteEnvelope));
       }
 
       return Promise.resolve(null);
     });
 
-    await expect(syncNow()).rejects.toThrow('Cloud sync already uses a different encryption key.');
+    const summary = await syncNow();
 
-    expect(mocks.connector.listRemoteObjects).not.toHaveBeenCalled();
-    expect(mocks.executeBatch).not.toHaveBeenCalled();
-    expect(mocks.execute).not.toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO sync_conflicts'),
-      expect.anything()
+    expect(summary.conflicts).toBe(1);
+    expect(mocks.storeRawSyncKey).toHaveBeenCalledWith('remote-key');
+    expect(mocks.decryptJsonPayload).toHaveBeenCalledWith('remote-key', 'iv', 'ciphertext');
+    expect(mocks.connector.uploadObject).not.toHaveBeenCalledWith(
+      'manifest/sync-key.json',
+      expect.any(String)
+    );
+  });
+
+  it('falls back to the local key and repairs a stale Drive manifest', async () => {
+    mocks.connector.downloadObject.mockImplementation((path: string) => {
+      if (path === 'manifest/sync-key.json') {
+        return Promise.resolve(JSON.stringify({
+          v: 1,
+          keyB64: 'stale-remote-key',
+          createdAt: '2026-05-19T08:00:00.000Z',
+        }));
+      }
+
+      if (path === 'records/entries/entry-1.json') {
+        return Promise.resolve(JSON.stringify(remoteEnvelope));
+      }
+
+      return Promise.resolve(null);
+    });
+    mocks.decryptJsonPayload.mockImplementation((key: string) => {
+      if (key === 'stale-remote-key') {
+        return Promise.reject(new Error('decrypt failed'));
+      }
+      return Promise.resolve({
+        id: 'entry-1',
+        date: '2026-05-19',
+        content: 'Remote edit',
+        created_at: '2026-05-19T09:00:00.000Z',
+        updated_at: '2026-05-19T11:00:00.000Z',
+        last_content_update: null,
+      });
+    });
+
+    const summary = await syncNow();
+
+    expect(summary.conflicts).toBe(1);
+    expect(mocks.decryptJsonPayload).toHaveBeenCalledWith('stale-remote-key', 'iv', 'ciphertext');
+    expect(mocks.decryptJsonPayload).toHaveBeenCalledWith('raw-key', 'iv', 'ciphertext');
+    expect(mocks.storeRawSyncKey).not.toHaveBeenCalled();
+    expect(mocks.connector.uploadObject).toHaveBeenCalledWith(
+      'manifest/sync-key.json',
+      expect.stringContaining('"keyB64": "raw-key"')
     );
   });
 });

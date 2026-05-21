@@ -16,10 +16,24 @@ import {
   getRawSyncKey,
   getSyncSettings,
   setLastSyncedAt,
+  storeRawSyncKey,
 } from './settings';
 
 const SYNC_KEY_PATH = 'manifest/sync-key.json';
 const RECORD_PREFIX = 'records';
+
+class SyncDecryptError extends Error {
+  constructor(collection: SyncCollection, recordId: string) {
+    super(decryptFailureMessage(collection, recordId));
+    this.name = 'SyncDecryptError';
+  }
+}
+
+interface SyncKeyResolution {
+  activeRawKeyB64: string;
+  fallbackRawKeyB64: string | null;
+  shouldStoreActiveKey: boolean;
+}
 
 function collectionLabel(collection: string): string {
   switch (collection) {
@@ -70,24 +84,52 @@ function parseEnvelope(raw: string): SyncEnvelope | null {
   }
 }
 
-async function ensureRemoteKey(connector: ReturnType<typeof createSyncConnector>, rawKeyB64: string): Promise<void> {
+function parseKeyManifest(raw: string): SyncKeyManifest | null {
+  try {
+    const manifest = JSON.parse(raw) as SyncKeyManifest;
+    if (manifest.v !== 1 || typeof manifest.keyB64 !== 'string' || manifest.keyB64.length === 0) {
+      return null;
+    }
+    return manifest;
+  } catch {
+    return null;
+  }
+}
+
+function decryptFailureMessage(collection: SyncCollection, recordId: string): string {
+  return `Could not decrypt cloud ${collectionLabel(collection)} (${recordId}). The sync key on this device does not match the encrypted Google Drive data. Sync the device that last uploaded this data, then try again.`;
+}
+
+async function uploadRemoteKey(connector: ReturnType<typeof createSyncConnector>, rawKeyB64: string): Promise<void> {
+  const manifest: SyncKeyManifest = { v: 1, keyB64: rawKeyB64, createdAt: new Date().toISOString() };
+  await connector.uploadObject(SYNC_KEY_PATH, JSON.stringify(manifest, null, 2));
+}
+
+async function ensureRemoteKey(connector: ReturnType<typeof createSyncConnector>, rawKeyB64: string): Promise<SyncKeyResolution> {
   const remote = await connector.downloadObject(SYNC_KEY_PATH);
   if (remote) {
-    try {
-      const existing = JSON.parse(remote) as SyncKeyManifest;
-      if (existing.v === 1 && existing.keyB64 === rawKeyB64) {
+    const existing = parseKeyManifest(remote);
+    if (existing) {
+      if (existing.keyB64 === rawKeyB64) {
         dlog('[sync:engine] ensureRemoteKey => valid key manifest already in Drive');
-        return;
+        return { activeRawKeyB64: rawKeyB64, fallbackRawKeyB64: null, shouldStoreActiveKey: false };
       }
-      dlog('[sync:engine] ensureRemoteKey => existing manifest is stale or mismatched, overwriting');
-    } catch {
+
+      const hasRemoteRecords = (await connector.listRemoteObjects()).some((object) => isRecordPath(object.path));
+      if (hasRemoteRecords) {
+        dlog('[sync:engine] ensureRemoteKey => remote key differs and records exist, using Drive key first');
+        return { activeRawKeyB64: existing.keyB64, fallbackRawKeyB64: rawKeyB64, shouldStoreActiveKey: true };
+      }
+
+      dlog('[sync:engine] ensureRemoteKey => existing manifest is stale or mismatched with no records, overwriting');
+    } else {
       dlog('[sync:engine] ensureRemoteKey => existing manifest is invalid JSON, overwriting');
     }
   }
 
-  const manifest: SyncKeyManifest = { v: 1, keyB64: rawKeyB64, createdAt: new Date().toISOString() };
-  await connector.uploadObject(SYNC_KEY_PATH, JSON.stringify(manifest, null, 2));
+  await uploadRemoteKey(connector, rawKeyB64);
   dlog('[sync:engine] ensureRemoteKey => uploaded new key manifest');
+  return { activeRawKeyB64: rawKeyB64, fallbackRawKeyB64: null, shouldStoreActiveKey: false };
 }
 
 export async function downloadRemoteKey(): Promise<string | null> {
@@ -107,7 +149,11 @@ export async function downloadRemoteKey(): Promise<string | null> {
   }
 
   try {
-    const manifest = JSON.parse(raw) as SyncKeyManifest;
+    const manifest = parseKeyManifest(raw);
+    if (!manifest) {
+      dlog('[sync:engine] downloadRemoteKey parsed manifest => invalid');
+      return null;
+    }
     dlog('[sync:engine] downloadRemoteKey parsed manifest version =>', manifest.v);
     return manifest.keyB64 ?? null;
   } catch (e) {
@@ -165,7 +211,7 @@ async function applyEnvelope(envelope: SyncEnvelope, rawKeyB64: string, remoteMo
       );
     } catch (e) {
       derr('[sync:engine] applyEnvelope decrypt failed for', envelope.collection, envelope.recordId, String(e));
-      throw e;
+      throw new SyncDecryptError(envelope.collection, envelope.recordId);
     }
   }
 
@@ -261,7 +307,10 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
     });
 
     dlog('[SyncEngine] Ensuring remote key manifest exists in the cloud...');
-    await ensureRemoteKey(connector, rawKeyB64);
+    const keyResolution = await ensureRemoteKey(connector, rawKeyB64);
+    let activeRawKeyB64 = keyResolution.activeRawKeyB64;
+    let fallbackRawKeyB64 = keyResolution.fallbackRawKeyB64;
+    let shouldStoreActiveKey = keyResolution.shouldStoreActiveKey;
 
     dlog('[SyncEngine] Initializing sync state: marking any untracked local records as dirty...');
     await initializeSyncStates();
@@ -329,7 +378,21 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
         }
 
         console.log(`[SyncEngine] Applying remote record: collection=${envelope.collection}, recordId=${envelope.recordId}, version=${envelope.version}...`);
-        const result = await applyEnvelope(envelope, rawKeyB64, object.modifiedAt);
+        let result: 'applied' | 'skipped' | 'conflict';
+        try {
+          result = await applyEnvelope(envelope, activeRawKeyB64, object.modifiedAt);
+        } catch (error) {
+          if (!(error instanceof SyncDecryptError) || !fallbackRawKeyB64) {
+            throw error;
+          }
+
+          dwarn('[sync:engine] active Drive key failed to decrypt record, retrying with local key and repairing manifest');
+          activeRawKeyB64 = fallbackRawKeyB64;
+          fallbackRawKeyB64 = null;
+          shouldStoreActiveKey = false;
+          await uploadRemoteKey(connector, activeRawKeyB64);
+          result = await applyEnvelope(envelope, activeRawKeyB64, object.modifiedAt);
+        }
         console.log(`[SyncEngine] Application result for ${envelope.recordId}: ${result}`);
         if (result === 'applied' || result === 'skipped' || result === 'conflict') {
           if (envelope.collection === 'entries') {
@@ -346,6 +409,12 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
           }
         }
       }
+    }
+
+    if (shouldStoreActiveKey) {
+      dlog('[sync:engine] storing adopted Drive key locally');
+      await storeRawSyncKey(activeRawKeyB64);
+      shouldStoreActiveKey = false;
     }
 
     dlog('[SyncEngine] Push Phase: Querying all local dirty records to upload...');
@@ -372,7 +441,7 @@ export async function syncNow(onProgress?: (progress: SyncProgress) => void): Pr
         });
 
         const encrypted = record.payload
-          ? await encryptJsonPayload(rawKeyB64, record.payload)
+          ? await encryptJsonPayload(activeRawKeyB64, record.payload)
           : null;
         const payloadHash = encrypted?.hash ?? await hashJsonPayload({ deleted: true, recordId: record.recordId });
         const envelope: SyncEnvelope = {
